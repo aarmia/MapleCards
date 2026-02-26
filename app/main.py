@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 import sys
 import os
 
@@ -9,6 +9,8 @@ try:
     from scraper import NexonAPIHandler
 except ImportError:
     from app.scraper import NexonAPIHandler
+
+from app.image_gen import CardGenerator
 
 app = FastAPI()
 nexon_api = NexonAPIHandler()
@@ -53,3 +55,19 @@ async def get_card_data(nickname: str):
         "image": basic_info.get("character_image"),
         "combat_power": combat_power
     }
+
+
+card_gen = CardGenerator()
+
+
+@app.get("/generate-card/{nickname}")
+async def generate_card(nickname: str):
+    # 1. 데이터 가져오기 (기존 로직 재사용)
+    # 실제로는 위에서 만든 get_card_data 내부 로직을 함수화하여 호출하는 것이 좋습니다.
+    data = await get_card_data(nickname)
+
+    # 2. 이미지 생성
+    card_img_stream = await card_gen.create_card(data)
+
+    # 3. 이미지 반환
+    return Response(content=card_img_stream.getvalue(), media_type="image/png")
