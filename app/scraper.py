@@ -40,3 +40,19 @@ class NexonAPIHandler:
             except Exception as e:
                 print(f"Network Error: {e}")
                 return {"error": "네트워크 연결 실패"}
+
+    async def get_character_basic(self, ocid: str):
+        """ocid로 캐릭터 기본 정보(이름, 월드, 직업, 레벨, 이미지)를 가져옵니다."""
+        url = f"{self.base_url}/character/basic"
+        params = {"ocid": ocid}
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=self.headers, params=params)
+            return response.json() if response.status_code == 200 else None
+
+    async def get_character_stat(self, ocid: str):
+        """ocid로 캐릭터의 상세 스탯(전투력 등)을 가져옵니다."""
+        url = f"{self.base_url}/character/stat"
+        params = {"ocid": ocid}
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=self.headers, params=params)
+            return response.json() if response.status_code == 200 else None

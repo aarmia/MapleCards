@@ -25,3 +25,31 @@ async def read_ocid(nickname: str):
         raise HTTPException(status_code=400, detail=result.get("error"))
 
     return {"nickname": nickname, "ocid": result}
+
+@app.get("/character-card/{nickname}")
+async def get_card_data(nickname: str):
+    # 1. ocid 가져오기
+    ocid = await nexon_api.get_ocid(nickname)
+    if not ocid or isinstance(ocid, dict):
+        raise HTTPException(status_code=404, detail="캐릭터 식별자를 찾을 수 없습니다.")
+
+    # 2. 기본 정보와 스탯 가져오기
+    basic_info = await nexon_api.get_character_basic(ocid)
+    stat_info = await nexon_api.get_character_stat(ocid)
+
+    if not basic_info or not stat_info:
+        raise HTTPException(status_code=400, detail="데이터를 불러오는 데 실패했습니다.")
+
+    # 3. 필요한 데이터만 쏙쏙 뽑기 (가공)
+    # 전투력은 final_stat 리스트 안에 있으므로 찾아야 합니다.
+    stats = stat_info.get("final_stat", [])
+    combat_power = next((s['stat_value'] for s in stats if s['stat_name'] == '전투력'), "0")
+
+    return {
+        "name": basic_info.get("character_name"),
+        "world": basic_info.get("world_name"),
+        "class": basic_info.get("character_class"),
+        "level": basic_info.get("character_level"),
+        "image": basic_info.get("character_image"),
+        "combat_power": combat_power
+    }
