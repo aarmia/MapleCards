@@ -1,30 +1,42 @@
 import httpx
-from bs4 import BeautifulSoup
+import os
+from dotenv import load_dotenv
+
+# 현재 파일 위치 기준으로 .env 로드 시도
+load_dotenv()
 
 
-class MapleScouterScraper:
+class NexonAPIHandler:
     def __init__(self):
-        self.base_url = "https://maplescouter.com/ko/character"
+        self.api_key = os.getenv("NEXON_API_KEY")
+        # 디버깅을 위해 서버 시작 시 키 로드 여부 출력 (앞 5자리만)
+        if self.api_key:
+            print(f"✅ API Key Loaded: {self.api_key[:5]}***")
+        else:
+            print("❌ API Key Missing! Check your .env file.")
+
+        self.base_url = "https://open.api.nexon.com/maplestory/v1"
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "x-nxopen-api-key": self.api_key if self.api_key else ""
         }
 
-    async def get_character_data(self, nickname: str):
-        url = f"{self.base_url}/{nickname}"
+    async def get_ocid(self, character_name: str):
+        if not self.api_key:
+            return {"error": "서버의 API Key 설정이 되어있지 않습니다."}
+
+        url = f"{self.base_url}/id"
+        params = {"character_name": character_name}
 
         async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=self.headers)
+            try:
+                response = await client.get(url, headers=self.headers, params=params)
 
-            if response.status_code != 200:
-                return {"error": "캐릭터를 찾을 수 없거나 사이트 응답이 없습니다."}
+                # 500 에러 방지를 위한 예외 처리
+                if response.status_code != 200:
+                    return {"error": f"Nexon API Error ({response.status_code})", "detail": response.text}
 
-            soup = BeautifulSoup(response.text, "html.parser")
+                return response.json().get("ocid")
 
-            # 여기서부터는 실제 사이트의 HTML 구조(class, id)를 분석하여 코드를 작성해야 합니다.
-            # 예시: data = soup.find("div", class_="stat-value").text
-
-            # 임시 데이터 반환 (구조 확인용)
-            return {
-                "nickname": nickname,
-                "status": "분석 준비 완료"
-            }
+            except Exception as e:
+                print(f"Network Error: {e}")
+                return {"error": "네트워크 연결 실패"}
