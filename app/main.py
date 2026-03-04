@@ -59,42 +59,53 @@ async def generate_card(nickname: str):
 
 @app.get("/check-items/{character_name}")
 async def check_items(character_name: str):
-    # 1. ocid 가져오기
     ocid = await nexon_api.get_ocid(character_name)
-    if not ocid:
-        return {"error": "캐릭터를 찾을 수 없습니다."}
-
-    # 2. [추가] 캐릭터 기본 정보 가져오기 (직업 확인용)
     basic_info = await nexon_api.get_character_basic(ocid)
-    if not basic_info:
-        return {"error": "캐릭터 기본 정보를 가져오지 못했습니다."}
-
-    char_class = basic_info.get("character_class")
-
-    # 3. 장비 데이터 가져오기
     item_data = await nexon_api.get_character_item(ocid)
 
-    if item_data and "item_equipment" in item_data:
-        items = item_data["item_equipment"]
+    if not item_data or "item_equipment" not in item_data:
+        return {"error": "장비 데이터를 가져오지 못했습니다."}
 
-        if len(items) > 0:
-            first_item = items[0]
-            add_opt = first_item.get('item_add_option', {})
+    char_class = basic_info.get("character_class")
+    items = item_data.get("item_equipment", [])
 
-            # 4. 이제 basic_info에서 가져온 직업명을 넘겨줍니다.
-            item_score = nexon_api.calculate_item_score(add_opt, char_class)
+    report = []
 
-            print(f"\n=== {character_name} 님의 장비 점검 ===")
-            print(f"직업: {char_class}")
-            print(f"첫 번째 장비 명칭: {first_item.get('item_name')}")
-            print(f">>> 판정된 추옵급: {item_score}급")
-            print("====================================\n")
+    for item in items:
+        part = item.get("item_equipment_part")
+        name = item.get("item_name")
+        add_opt_raw = item.get("item_add_option", {})
 
-            return {
-                "character": character_name,
-                "class": char_class,
-                "item_name": first_item.get('item_name'),
-                "score": item_score
-            }
+        # === [핵심 수정] 값이 0이 아닌 항목만 골라내어 새로운 딕셔너리 생성 ===
+        # 수치가 숫자 0이거나 문자열 '0'이 아닌 것만 필터링합니다.
+        filtered_add_opt = {
+            k: v for k, v in add_opt_raw.items()
+            if v != 0 and v != '0'
+        }
 
-    return {"error": "데이터를 가져오지 못했습니다."}
+        # 추옵급 점수 계산 (원본 데이터 사용)
+        score = nexon_api.calculate_item_score(add_opt_raw, char_class)
+
+        report.append({
+            "part": part,
+            "name": name,
+            "score": score,
+            "add_option": filtered_add_opt  # 필터링된 데이터 저장
+        })
+
+    # 터미널 출력
+    print(f"\n=== {character_name} 님의 장비 상세 현황 (총 {len(report)}개) ===")
+    for r in report:
+        if r['add_option']:  # 필터링 후 데이터가 남아있는 경우만 출력
+            print(f"[{r['part']}] {r['name']} : {r['score']}급")
+            print(f"   ㄴ 상세추옵: {r['add_option']}")
+        else:
+            print(f"[{r['part']}] {r['name']} : 추가옵션 없음")
+
+    print("==========================================\n")
+
+    return {
+        "character": character_name,
+        "class": char_class,
+        "report": report
+    }
