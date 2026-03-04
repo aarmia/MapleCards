@@ -97,7 +97,6 @@ class CardGenerator:
         draw.text((class_x, 355), class_text, fill=self.text_color, font=class_font)
 
         # 5-3. 월드 + 레벨 (한 줄 배치 및 수치 강조)
-        # 텍스트 예: "스카니아  Lv. 285" (285만 빨간색)
         world_label = f"{data['world']}     "
         level_value = f"Lv.{data['level']}"
 
