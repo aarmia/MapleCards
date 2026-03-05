@@ -131,7 +131,7 @@ class NexonAPIHandler:
         part = item_data.get("item_equipment_part", "")
 
         # 무보엠 판정 (슬롯 명칭 및 부위 명칭 기준)
-        exclude_keywords = ["무기", "보조무기", "엠블렘"]
+        exclude_keywords = ["무기", "보조무기", "엠블렘", "장갑", "모자"]
 
         is_excluded = any(k in slot for k in exclude_keywords) or any(k in part for k in exclude_keywords)
 
@@ -201,3 +201,29 @@ class NexonAPIHandler:
                     total_converted_pct += int(val_match.group(1)) * 0.09
 
         return round(total_converted_pct, 2)
+
+    def get_best_preset(self, item_data: dict, class_name: str, char_level: int) -> int:
+        """
+        1, 2, 3번 프리셋 중 주스탯 % 합산이 가장 높은 프리셋 번호를 반환합니다.
+        """
+        preset_scores = {1: 0.0, 2: 0.0, 3: 0.0}
+
+        for i in range(1, 4):
+            preset_items = item_data.get(f"item_equipment_preset_{i}", [])
+            if not preset_items:
+                continue
+
+            total_score = 0.0
+            for item in preset_items:
+                # calculate_potential_score를 호출하여 점수 합산
+                # (무보엠, 모자, 장갑은 -1을 반환하므로 합산에서 자연스럽게 제외됨)
+                score = self.calculate_potential_score(item, "potential", class_name, char_level)
+                add_score = self.calculate_potential_score(item, "additional_potential", class_name, char_level)
+
+                if score > 0: total_score += score
+                if add_score > 0: total_score += add_score
+
+            preset_scores[i] = total_score
+
+        # 가장 점수가 높은 프리셋 번호 반환 (모두 0이면 현재 착용 중인 1번 기본)
+        return max(preset_scores, key=preset_scores.get)
