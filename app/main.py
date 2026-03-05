@@ -59,12 +59,7 @@ async def generate_card(nickname: str):
 
 @app.get("/check-items/{character_name}")
 async def check_items(character_name: str):
-    # 1. 캐릭터 식별 정보 가져오기
     ocid = await nexon_api.get_ocid(character_name)
-    if not ocid:
-        return {"error": "캐릭터를 찾을 수 없습니다."}
-
-    # 2. 기본 정보(직업, 레벨) 및 장비 데이터 가져오기
     basic_info = await nexon_api.get_character_basic(ocid)
     item_data = await nexon_api.get_character_item(ocid)
 
@@ -75,66 +70,58 @@ async def check_items(character_name: str):
     char_level = int(basic_info.get("character_level", 0))
     items = item_data.get("item_equipment", [])
 
-    print(f"\n" + "=" * 50)
+    print(f"\n" + "=" * 55)
     print(f" {character_name} 님의 장비 정밀 분석 (LV.{char_level} {char_class})")
-    print("=" * 50)
+    print("=" * 55)
 
     report_data = []
 
-    # 로직 효율화를 위해 [계산]과 [출력]을 하나의 루프에서 진행합니다.
     for item in items:
         part = item.get("item_equipment_part")
         name = item.get("item_name")
-        slot = item.get("item_equipment_slot")
+        # --- [추가] 스타포스 수치 가져오기 ---
+        star = item.get("starforce")
+        star_display = f"★ {star} " if star and int(star) > 0 else ""  # 0성이면 표시 안 함
 
-        # --- [A] 추가 옵션 가공 및 점수 계산 ---
+        # 1. 추가 옵션 계산
         add_opt_raw = item.get("item_add_option", {})
         filtered_add_opt = {k: v for k, v in add_opt_raw.items() if v != 0 and v != '0'}
         add_score = nexon_api.calculate_item_score(add_opt_raw, char_class)
 
-        # --- [B] 잠재능력 환산 점수 계산 ---
+        # 2. 잠재능력 환산 점수 계산
         pot_score = nexon_api.calculate_potential_score(item, "potential", char_class, char_level)
         add_pot_score = nexon_api.calculate_potential_score(item, "additional_potential", char_class, char_level)
 
-        # --- [C] 터미널 즉시 출력 ---
-        print(f"[{part}] {name}")
+        # --- [출력] 이름 옆에 별 수치 추가 ---
+        print(f"[{part}] {star_display}{name}")
 
-        # 1. 추옵 출력
+        # 추가옵션 출력
         if filtered_add_opt:
             print(f"   ㄴ 추가옵션: {add_score}급 ({filtered_add_opt})")
         else:
             print(f"   ㄴ 추가옵션: 없음")
 
-        # 2. 잠재능력 출력 (무보엠/데벤/제논은 p_score가 -1로 옴)
+        # 잠재/에디 출력
         for p_label, p_score, p_type in [
             ("잠재", pot_score, "potential"),
             ("에디", add_pot_score, "additional_potential")
         ]:
             grade = item.get(f"{p_type}_option_grade")
             if grade:
-                if p_score == -1:  # 환산 제외 대상 (무보엠 등)
-                    # 현재 순회 중인 item 객체에서 바로 옵션을 추출합니다.
+                if p_score == -1:  # 무보엠/특수직업 제외
                     opts = [item.get(f"{p_type}_option_{i}") for i in range(1, 4)]
                     clean_opts = [o for o in opts if o]
                     print(f"   ㄴ {p_label}({grade}): {clean_opts}")
                 else:
                     print(f"   ㄴ {p_label}({grade}): 주스탯 환산 {p_score}%")
 
-        # DEBUG 메시지 (정상 작동 확인 후 삭제 가능)
-        # print(f"   DEBUG - 슬롯: {slot}")
-        print("-" * 40)
+        print("-" * 45)
 
-        # API 응답용 데이터 저장
         report_data.append({
             "part": part,
             "name": name,
-            "add_score": add_score,
-            "pot_score": pot_score,
-            "add_pot_score": add_pot_score
+            "starforce": star,
+            "add_score": add_score
         })
 
-    return {
-        "character": character_name,
-        "class": char_class,
-        "report": report_data
-    }
+    return {"report": report_data}
