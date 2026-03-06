@@ -1,5 +1,6 @@
 import httpx
 import os
+import re
 from dotenv import load_dotenv
 
 # 현재 파일 위치 기준으로 .env 로드 시도
@@ -123,3 +124,106 @@ class NexonAPIHandler:
         # [케이스 4] 일반 직업 (STR, DEX, LUK)
         stat_val = int(add_option.get(main_stat, 0))
         return stat_val + (all_stat_pct * 10) + (attack_pwr * 4)
+
+    def calculate_potential_score(self, item_data: dict, potential_type: str, class_name: str,
+                                  char_level: int) -> float:
+        slot = item_data.get("item_equipment_slot", "")
+        part = item_data.get("item_equipment_part", "")
+
+        # 무보엠 판정 (슬롯 명칭 및 부위 명칭 기준)
+        exclude_keywords = ["무기", "보조무기", "엠블렘", "장갑", "모자"]
+
+        is_excluded = any(k in slot for k in exclude_keywords) or any(k in part for k in exclude_keywords)
+
+        if is_excluded:
+            return -1
+
+        if class_name in ["데몬어벤져", "제논"]:
+            return -1
+
+        # 주스탯 결정 (예: LUK)
+        main_stat = self.get_main_stat(class_name).upper()
+
+        options = [
+            item_data.get(f"{potential_type}_option_1"),
+            item_data.get(f"{potential_type}_option_2"),
+            item_data.get(f"{potential_type}_option_3")
+        ]
+
+        total_converted_pct = 0.0
+
+        for opt in options:
+            if not opt: continue
+
+            # 1. 크리티컬 데미지
+            if "크리티컬 데미지" in opt:
+                val_match = re.search(r'\+(\d+)%', opt)
+                if val_match:
+                    val = int(val_match.group(1))
+                    weight = 3.5 if class_name in ["보우마스터", "신궁", "패스파인더", "윈드브레이커", "와일드헌터", "메르세데스", "카인"] else 4.0
+                    total_converted_pct += val * weight
+
+            # 2. 올스탯%
+            elif "올스탯" in opt and "%" in opt:
+                val_match = re.search(r'\+(\d+)%', opt)
+                if val_match:
+                    val = int(val_match.group(1))
+                    weight = 1.2 if class_name in ["섀도어", "카데나", "듀얼블레이드"] else 1.1
+                    total_converted_pct += val * weight
+
+            # 3. 캐릭터 레벨당 주스탯 (예: 캐릭터 기준 9레벨 당 LUK +2)
+            elif "레벨" in opt and main_stat in opt:
+                # 숫자만 추출 (예: +2 에서 2 추출)
+                val_match = re.search(r'\+(\d+)', opt)
+                if val_match:
+                    val = int(val_match.group(1))
+                    # 요청하신 대로 수치 1당 3.5% 적용
+                    total_converted_pct += val * 3.5
+
+            # 4. 주스탯% (LUK : +12% 등)
+            elif main_stat in opt and "%" in opt:
+                val_match = re.search(r'\+(\d+)%', opt)
+                if val_match:
+                    total_converted_pct += int(val_match.group(1))
+
+            # 5. 공격력/마력 (정수치)
+            elif ("공격력" in opt or "마력" in opt) and "%" not in opt:
+                atk_key = "마력" if main_stat == "INT" else "공격력"
+                if atk_key in opt:
+                    val_match = re.search(r'\+(\d+)', opt)
+                    if val_match:
+                        total_converted_pct += int(val_match.group(1)) * 0.3
+
+            # 6. 주스탯 정수치 (LUK : +10 등)
+            elif main_stat in opt and "%" not in opt:
+                val_match = re.search(r'\+(\d+)', opt)
+                if val_match:
+                    total_converted_pct += int(val_match.group(1)) * 0.09
+
+        return round(total_converted_pct, 2)
+
+    def get_best_preset(self, item_data: dict, class_name: str, char_level: int) -> int:
+        """
+        1, 2, 3번 프리셋 중 주스탯 % 합산이 가장 높은 프리셋 번호를 반환합니다.
+        """
+        preset_scores = {1: 0.0, 2: 0.0, 3: 0.0}
+
+        for i in range(1, 4):
+            preset_items = item_data.get(f"item_equipment_preset_{i}", [])
+            if not preset_items:
+                continue
+
+            total_score = 0.0
+            for item in preset_items:
+                # calculate_potential_score를 호출하여 점수 합산
+                # (무보엠, 모자, 장갑은 -1을 반환하므로 합산에서 자연스럽게 제외됨)
+                score = self.calculate_potential_score(item, "potential", class_name, char_level)
+                add_score = self.calculate_potential_score(item, "additional_potential", class_name, char_level)
+
+                if score > 0: total_score += score
+                if add_score > 0: total_score += add_score
+
+            preset_scores[i] = total_score
+
+        # 가장 점수가 높은 프리셋 번호 반환 (모두 0이면 현재 착용 중인 1번 기본)
+        return max(preset_scores, key=preset_scores.get)
