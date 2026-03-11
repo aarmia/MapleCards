@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MECULATOR - 장비 정밀 진단서</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .medical-grid { background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 20px 20px; }
+        /* 폰트 최적화 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 medical-grid min-h-screen font-sans text-slate-900">
+
+<div x-data="{
+    nickname: '',
+    report: null,
+    loading: false,
+    async fetchReport() {
+        if(!this.nickname) return;
+        this.loading = true;
+        try {
+            const res = await fetch(`/check-items/${this.nickname}`);
+            this.report = await res.json();
+        } catch(e) { alert('진단 실패: 서버 연결을 확인하세요.'); }
+        this.loading = false;
+    },
+    async saveAsImage() {
+        const target = document.getElementById('report-area');
+        if (!target) return;
+
+        // 캡처 시 배경색 유지 및 고화질 설정
+        const canvas = await html2canvas(target, {
+            useCORS: true,
+            backgroundColor: '#f8fafc',
+            scale: 2 // 해상도 2배
+        });
+
+        const link = document.createElement('a');
+        link.download = `MECULATOR_${this.nickname}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
+}" class="max-w-3xl mx-auto py-10 px-4">
+
+    <div class="bg-white p-4 rounded-2xl shadow-sm mb-8 flex gap-2 border border-slate-200">
+        <input x-model="nickname" @keyup.enter="fetchReport()" type="text" placeholder="캐릭터 닉네임 입력"
+               class="flex-1 border-none bg-slate-50 rounded-xl px-5 py-3 focus:ring-2 focus:ring-blue-400 outline-none transition-all font-medium">
+        <button @click="fetchReport()" class="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center shadow-lg shadow-blue-100">
+            <span x-show="!loading">검진 시작</span>
+            <span x-show="loading" class="animate-spin mr-2 inline-block">⏳</span>
+        </button>
+    </div>
+
+    <div x-cloak x-show="loading" class="text-center py-20">
+        <div class="inline-block animate-bounce mb-4 text-4xl">🩺</div>
+        <p class="text-blue-500 font-black text-xl italic">ANALYZING EQUIPMENT...</p>
+    </div>
+
+    <div x-cloak x-show="report && !report.error" id="report-area" class="p-2">
+
+        <div class="flex justify-end mb-4 no-print">
+            <button @click="saveAsImage()" class="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-lg hover:bg-blue-100 transition-all">
+                💾 진단서 이미지 저장
+            </button>
+        </div>
+
+        <div class="bg-white border-t-[12px] border-blue-600 rounded-2xl shadow-xl p-6 mb-6 relative overflow-hidden border border-slate-200">
+            <div class="absolute top-[-10px] right-[-10px] opacity-[0.04] font-black text-7xl tracking-tighter select-none">MECULATOR</div>
+            <div class="relative z-10">
+                <h1 class="text-2xl font-black text-slate-800 mb-4 tracking-tight">EQUIPMENT DIAGNOSIS</h1>
+                <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm border-t border-slate-100 pt-4">
+                    <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
+                        <span class="text-slate-400 font-bold uppercase text-[10px]">Patient Name</span>
+                        <span class="font-bold text-slate-700" x-text="report.character"></span>
+                    </div>
+                    <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
+                        <span class="text-slate-400 font-bold uppercase text-[10px]">Department</span>
+                        <span class="font-bold text-slate-700" x-text="report.class"></span>
+                    </div>
+                    <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
+                        <span class="text-slate-400 font-bold uppercase text-[10px]">Diagnosis Date</span>
+                        <span class="font-bold text-slate-700">2026.03.11</span>
+                    </div>
+                    <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
+                        <span class="text-slate-400 font-bold uppercase text-[10px]">Patient Level</span>
+                        <span class="font-bold text-slate-700" x-text="'Lv. ' + report.level"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <template x-for="(item, index) in report.results" :key="index">
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col md:flex-row gap-6 shadow-sm hover:shadow-md transition-all">
+                    <div class="flex flex-col items-center justify-center min-w-[70px]">
+                        <span class="text-[9px] font-black text-blue-500 mb-2 tracking-widest" x-text="'PRIORITY 0' + (index+1)"></span>
+                        <div class="relative bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                            <img :src="item.icon" class="w-12 h-12">
+                            <span class="absolute -top-2 -right-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white shadow-sm" x-text="item.star + '★'"></span>
+                        </div>
+                    </div>
+
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <h3 class="font-black text-slate-800 tracking-tight" x-text="item.name"></h3>
+                            <span class="text-[9px] px-2 py-0.5 rounded-md font-black bg-blue-600 text-white uppercase tracking-tighter"
+                                  x-text="item.guide.match(/\[(.*?)\]/)[1]"></span>
+                        </div>
+                        <p class="text-[13px] text-slate-500 leading-snug mb-4 font-medium" x-text="item.guide.replace(/\[.*?\]/, '').trim()"></p>
+
+                        <div class="grid grid-cols-4 gap-3">
+                            <template x-for="(val, key) in item.detail">
+                                <div class="bg-slate-50 rounded-xl p-2 text-center border border-slate-100">
+                                    <p class="text-[8px] font-bold uppercase text-slate-400 mb-0.5" x-text="key == 'pot_additional' ? 'Eddy' : key == 'pot' ? 'Pot' : key == 'add' ? 'Add' : 'Star'"></p>
+                                    <p class="text-xs font-black text-slate-700" x-text="val"></p>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="md:w-28 border-l border-slate-100 pl-4 flex flex-col justify-center items-center bg-slate-50/50 rounded-r-2xl">
+                        <span class="text-[9px] font-bold text-slate-400 tracking-widest mb-1">TOTAL SCORE</span>
+                        <span class="text-3xl font-black text-slate-800 tracking-tighter" x-text="item.total_score"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <p class="mt-8 text-center text-[10px] text-slate-400 font-medium">
+            본 진단서는 MECULATOR AI 엔진에 의해 생성되었습니다. <br>
+            © 2026 MECULATOR MEDICAL CENTER. ALL RIGHTS RESERVED.
+        </p>
+    </div>
+</div>
+
+</body>
+</html>

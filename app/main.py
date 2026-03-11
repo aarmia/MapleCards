@@ -1,4 +1,7 @@
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, Request
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 import sys
 import os
 import math
@@ -16,7 +19,12 @@ from app.image_gen import CardGenerator
 app = FastAPI()
 nexon_api = NexonAPIHandler()
 card_gen = CardGenerator()
+templates = Jinja2Templates(directory="app/templates")
 
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/get-ocid/{nickname}")
 async def read_ocid(nickname: str):
