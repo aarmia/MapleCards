@@ -10,9 +10,8 @@
     <style>
         [x-cloak] { display: none !important; }
         .medical-grid { background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 20px 20px; }
-        /* 폰트 최적화 */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; }
     </style>
 </head>
 <body class="bg-slate-50 medical-grid min-h-screen font-sans text-slate-900">
@@ -33,37 +32,38 @@
     async saveAsImage() {
         const target = document.getElementById('report-area');
         if (!target) return;
-
-        // 캡처 시 배경색 유지 및 고화질 설정
-        const canvas = await html2canvas(target, {
-            useCORS: true,
-            backgroundColor: '#f8fafc',
-            scale: 2 // 해상도 2배
-        });
-
+        const canvas = await html2canvas(target, { useCORS: true, backgroundColor: '#f8fafc', scale: 2 });
         const link = document.createElement('a');
         link.download = `MECULATOR_${this.nickname}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
+    },
+    getBorderColor(score) {
+        if (score >= 350) return 'border-[3px] border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)] bg-green-50/30';
+        if (score >= 300) return 'border-[3px] border-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.3)] bg-yellow-50/30';
+        if (score >= 250) return 'border-[3px] border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.3)] bg-purple-50/30';
+        return 'border border-slate-200 bg-slate-50';
+    },
+    // 가이드 문구에 따른 배경색 추천 로직
+    getGuideStyle(guideText) {
+        if (guideText.includes('종결') || guideText.includes('완벽')) return 'bg-indigo-50 text-indigo-700 border-indigo-100';
+        if (guideText.includes('교체') || guideText.includes('시급')) return 'bg-red-50 text-red-700 border-red-100';
+        if (guideText.includes('강화') || guideText.includes('권장')) return 'bg-blue-50 text-blue-700 border-blue-100';
+        if (guideText.includes('효율') || guideText.includes('조정')) return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+        return 'bg-slate-50 text-slate-600 border-slate-100';
     }
 }" class="max-w-3xl mx-auto py-10 px-4">
 
     <div class="bg-white p-4 rounded-2xl shadow-sm mb-8 flex gap-2 border border-slate-200">
         <input x-model="nickname" @keyup.enter="fetchReport()" type="text" placeholder="캐릭터 닉네임 입력"
                class="flex-1 border-none bg-slate-50 rounded-xl px-5 py-3 focus:ring-2 focus:ring-blue-400 outline-none transition-all font-medium">
-        <button @click="fetchReport()" class="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center shadow-lg shadow-blue-100">
+        <button @click="fetchReport()" class="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">
             <span x-show="!loading">검진 시작</span>
             <span x-show="loading" class="animate-spin mr-2 inline-block">⏳</span>
         </button>
     </div>
 
-    <div x-cloak x-show="loading" class="text-center py-20">
-        <div class="inline-block animate-bounce mb-4 text-4xl">🩺</div>
-        <p class="text-blue-500 font-black text-xl italic">ANALYZING EQUIPMENT...</p>
-    </div>
-
     <div x-cloak x-show="report && !report.error" id="report-area" class="p-2">
-
         <div class="flex justify-end mb-4 no-print">
             <button @click="saveAsImage()" class="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-lg hover:bg-blue-100 transition-all">
                 💾 진단서 이미지 저장
@@ -73,7 +73,7 @@
         <div class="bg-white border-t-[12px] border-blue-600 rounded-2xl shadow-xl p-6 mb-6 relative overflow-hidden border border-slate-200">
             <div class="absolute top-[-10px] right-[-10px] opacity-[0.04] font-black text-7xl tracking-tighter select-none">MECULATOR</div>
             <div class="relative z-10">
-                <h1 class="text-2xl font-black text-slate-800 mb-4 tracking-tight">EQUIPMENT DIAGNOSIS</h1>
+                <h1 class="text-2xl font-black text-slate-800 mb-4 tracking-tight uppercase">Equipment Diagnosis</h1>
                 <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm border-t border-slate-100 pt-4">
                     <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
                         <span class="text-slate-400 font-bold uppercase text-[10px]">Patient Name</span>
@@ -98,11 +98,14 @@
         <div class="space-y-4">
             <template x-for="(item, index) in report.results" :key="index">
                 <div class="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col md:flex-row gap-6 shadow-sm hover:shadow-md transition-all">
+
                     <div class="flex flex-col items-center justify-center min-w-[70px]">
                         <span class="text-[9px] font-black text-blue-500 mb-2 tracking-widest" x-text="'PRIORITY 0' + (index+1)"></span>
-                        <div class="relative bg-slate-50 p-2 rounded-2xl border border-slate-100">
-                            <img :src="item.icon" class="w-12 h-12">
-                            <span class="absolute -top-2 -right-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white shadow-sm" x-text="item.star + '★'"></span>
+                        <div class="relative p-2 rounded-2xl transition-all" :class="getBorderColor(item.total_score)">
+                            <img :src="item.icon" class="w-12 h-12 object-contain drop-shadow-sm">
+                            <span class="absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white shadow-sm"
+                                  :class="item.star >= 23 ? 'bg-yellow-400 text-black' : 'bg-slate-900 text-white'"
+                                  x-text="item.star + '★'"></span>
                         </div>
                     </div>
 
@@ -112,28 +115,32 @@
                             <span class="text-[9px] px-2 py-0.5 rounded-md font-black bg-blue-600 text-white uppercase tracking-tighter"
                                   x-text="item.guide.match(/\[(.*?)\]/)[1]"></span>
                         </div>
-                        <p class="text-[13px] text-slate-500 leading-snug mb-4 font-medium" x-text="item.guide.replace(/\[.*?\]/, '').trim()"></p>
+
+                        <div class="rounded-xl p-3 border mb-4" :class="getGuideStyle(item.guide)">
+                            <p class="text-[13px] leading-snug font-bold" x-text="item.guide.replace(/\[.*?\]/, '').trim()"></p>
+                        </div>
 
                         <div class="grid grid-cols-4 gap-3">
                             <template x-for="(val, key) in item.detail">
                                 <div class="bg-slate-50 rounded-xl p-2 text-center border border-slate-100">
-                                    <p class="text-[8px] font-bold uppercase text-slate-400 mb-0.5" x-text="key == 'pot_additional' ? 'Eddy' : key == 'pot' ? 'Pot' : key == 'add' ? 'Add' : 'Star'"></p>
+                                    <p class="text-[9px] font-bold text-slate-400 mb-0.5"
+                                       x-text="key == 'pot_additional' ? '에디셔널' : key == 'pot' ? '잠재능력' : key == 'add' ? '추가옵션' : '별'"></p>
                                     <p class="text-xs font-black text-slate-700" x-text="val"></p>
                                 </div>
                             </template>
                         </div>
                     </div>
 
-                    <div class="md:w-28 border-l border-slate-100 pl-4 flex flex-col justify-center items-center bg-slate-50/50 rounded-r-2xl">
-                        <span class="text-[9px] font-bold text-slate-400 tracking-widest mb-1">TOTAL SCORE</span>
-                        <span class="text-3xl font-black text-slate-800 tracking-tighter" x-text="item.total_score"></span>
+                    <div class="w-full md:w-32 border-t md:border-t-0 md:border-l border-slate-100 flex flex-col justify-center items-center bg-slate-50/50 rounded-b-2xl md:rounded-r-2xl md:rounded-bl-none py-3 md:py-0">
+                        <span class="text-[9px] font-bold text-slate-400 tracking-widest mb-1 text-center uppercase">Total Score</span>
+                        <span class="text-3xl font-black text-slate-800 tracking-tighter text-center" x-text="item.total_score"></span>
                     </div>
                 </div>
             </template>
         </div>
 
-        <p class="mt-8 text-center text-[10px] text-slate-400 font-medium">
-            본 진단서는 MECULATOR AI 엔진에 의해 생성되었습니다. <br>
+        <p class="mt-8 text-center text-[10px] text-slate-400 font-medium italic">
+            This report was generated by MECULATOR AI Engine.<br>
             © 2026 MECULATOR MEDICAL CENTER. ALL RIGHTS RESERVED.
         </p>
     </div>
