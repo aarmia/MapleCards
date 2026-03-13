@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MECULATOR - 장비 정밀 진단서</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .medical-grid { background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 20px 20px; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; letter-spacing: -0.025em; }
+
+        /* 초월 등급 애니메이션 */
+        @keyframes rainbow-flow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .bg-ultimate {
+            background: linear-gradient(270deg, #34d399, #3b82f6, #a855f7, #ec4899);
+            background-size: 400% 400%;
+            animation: rainbow-flow 3s ease infinite;
+        }
+
+        /* 레이아웃 전환 애니메이션 */
+        .transition-layout { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+    </style>
+</head>
+<body class="bg-slate-50 medical-grid min-h-screen font-sans text-slate-900 pb-20">
+
+<div x-data="{
+    nickname: '',
+    report: null,
+    loading: false,
+    // [추가] 초기화 함수: 로고 클릭 시 호출
+    reset() {
+        this.report = null;
+        this.nickname = '';
+    },
+    async fetchReport() {
+        if(!this.nickname) return;
+        this.loading = true;
+        try {
+            const res = await fetch(`/check-items/${this.nickname}`);
+            this.report = await res.json();
+        } catch(e) { alert('진단 실패: 서버 연결을 확인하세요.'); }
+        this.loading = false;
+    },
+    async saveAsImage() {
+        const target = document.getElementById('report-area');
+        if (!target) return;
+        const canvas = await html2canvas(target, { useCORS: true, backgroundColor: '#f8fafc', scale: 2 });
+        const link = document.createElement('a');
+        link.download = `MECULATOR_${this.nickname}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    },
+    getStatColor(val, key) {
+        const s = parseFloat(val);
+        if (key === 'pot') {
+            if (s > 118) return 'bg-ultimate';
+            if (s >= 100) return 'bg-emerald-500';
+            if (s >= 92) return 'bg-yellow-400';
+            if (s >= 66) return 'bg-purple-500';
+            if (s >= 50) return 'bg-sky-400';
+            return 'bg-red-500';
+        } else if (key === 'pot_additional') {
+            if (s > 48) return 'bg-ultimate';
+            if (s >= 32) return 'bg-emerald-500';
+            if (s >= 25) return 'bg-yellow-400';
+            if (s >= 19) return 'bg-purple-500';
+            if (s >= 9) return 'bg-sky-400';
+            return 'bg-red-500';
+        } else if (key === 'star') {
+            if (s >= 100) return 'bg-emerald-500';
+            if (s >= 90) return 'bg-yellow-400';
+            if (s >= 75) return 'bg-purple-500';
+            if (s >= 50) return 'bg-sky-400';
+            return 'bg-red-500';
+        } else {
+            if (s > 108) return 'bg-ultimate';
+            if (s >= 105) return 'bg-emerald-500';
+            if (s >= 90) return 'bg-yellow-400';
+            if (s >= 75) return 'bg-purple-500';
+            if (s >= 50) return 'bg-sky-400';
+            return 'bg-red-500';
+        }
+    },
+    getStatWidth(val, key) {
+        const s = parseFloat(val);
+        let max = 110.0;
+        if (key === 'pot') max = 128.7;
+        if (key === 'pot_additional') max = 55.0;
+        return Math.min((s / max) * 100, 100);
+    },
+    getBorderColor(score) {
+        if (score >= 365) return 'border-[3px] border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.4)] bg-indigo-50/30';
+        if (score >= 350) return 'border-[3px] border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.2)] bg-green-50/30';
+        if (score >= 300) return 'border-[3px] border-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.2)] bg-yellow-50/30';
+        if (score >= 250) return 'border-[3px] border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.2)] bg-purple-50/30';
+        return 'border border-slate-200 bg-slate-50';
+    },
+    getGuideStyle(guideText) {
+        if (guideText.includes('종결') || guideText.includes('완벽')) return 'bg-indigo-50 text-indigo-700 border-indigo-100';
+        if (guideText.includes('교체') || guideText.includes('시급')) return 'bg-red-50 text-red-700 border-red-100';
+        if (guideText.includes('강화') || guideText.includes('권장')) return 'bg-blue-50 text-blue-700 border-blue-100';
+        return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+    }
+}" class="max-w-3xl mx-auto py-12 px-4 transition-all duration-500" :class="report ? 'max-w-4xl' : 'max-w-3xl'">
+
+    <div class="transition-layout flex flex-col items-center"
+         :class="report ? 'md:flex-row md:justify-between md:items-end mb-8 gap-4' : 'mb-12'">
+
+        <div @click="reset()"
+             class="cursor-pointer transition-layout group relative"
+             :class="report ? 'w-48 md:w-56 self-start' : 'w-72 md:w-96 mb-3'">
+            <img src="/static/images/logo.png" alt="MECULATOR Logo" class="w-full h-auto drop-shadow-sm group-hover:opacity-80">
+
+            <div x-show="!report" class="flex items-center gap-3 mt-3 justify-center">
+                <div class="h-[1px] w-8 bg-slate-300"></div>
+                <p class="text-slate-400 text-[10px] font-black tracking-[0.3em] uppercase">
+                    Precision Diagnosis System
+                </p>
+                <div class="h-[1px] w-8 bg-slate-300"></div>
+            </div>
+        </div>
+
+        <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex gap-2 transition-layout"
+             :class="report ? 'w-full md:w-[36rem] shadow-none border-b-2 rounded-none bg-transparent border-slate-300' : 'w-full'">
+            <input x-model="nickname" @keyup.enter="fetchReport()" type="text" placeholder="캐릭터 닉네임 입력"
+                class="flex-1 border-none bg-slate-100/50 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-400 outline-none transition-all font-medium"
+                :class="report ? 'text-base bg-white' : 'text-lg'">
+            <button @click="fetchReport()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 whitespace-nowrap">
+                <span x-show="!loading" x-text="report ? '재검진' : '검진 시작'"></span>
+                <span x-show="loading" class="animate-spin inline-block">⏳</span>
+            </button>
+        </div>
+    </div>
+
+    <div x-cloak x-show="report && !report.error" id="report-area" class="p-2 animate-fade-in">
+        <div class="flex justify-end mb-4" data-html2canvas-ignore="true">
+            <button @click="saveAsImage()" class="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-lg hover:bg-blue-100 transition-all">
+                💾 진단서 이미지 저장
+            </button>
+        </div>
+
+        <div class="bg-white border-t-[12px] border-blue-600 rounded-2xl shadow-xl p-6 mb-6 relative overflow-hidden border border-slate-200">
+            <div class="absolute top-[-10px] right-[-10px] opacity-[0.04] font-black text-7xl tracking-tighter select-none uppercase">Meculator</div>
+            <div class="relative z-10">
+                <h1 class="text-2xl font-black text-slate-800 mb-4 tracking-tight uppercase flex items-center gap-2">
+                    <span class="text-blue-600">✚</span> Equipment Diagnosis
+                </h1>
+                <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm border-t border-slate-100 pt-4">
+                    <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
+                        <span class="text-slate-400 font-bold uppercase text-[10px]">Patient Name</span>
+                        <span class="font-bold text-slate-700" x-text="report.character"></span>
+                    </div>
+                    <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
+                        <span class="text-slate-400 font-bold uppercase text-[10px]">Department</span>
+                        <span class="font-bold text-slate-700" x-text="report.class"></span>
+                    </div>
+                    <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
+                        <span class="text-slate-400 font-bold uppercase text-[10px]">Diagnosis Date</span>
+                        <span class="font-bold text-slate-700">2026.03.11</span>
+                    </div>
+                    <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
+                        <span class="text-slate-400 font-bold uppercase text-[10px]">Patient Level</span>
+                        <span class="font-bold text-slate-700" x-text="'Lv. ' + report.level"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <template x-for="(item, index) in report.results" :key="index">
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col md:flex-row gap-6 shadow-sm">
+                    <div class="flex flex-col items-center justify-center min-w-[80px]">
+                        <span class="text-[9px] font-black text-blue-500 mb-2 tracking-widest uppercase" x-text="'Priority ' + (index+1)"></span>
+                        <div class="relative p-2 rounded-2xl" :class="getBorderColor(item.total_score)">
+                            <img :src="item.icon" class="w-12 h-12 object-contain drop-shadow-sm">
+                            <span class="absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white shadow-sm"
+                                  :class="item.star >= 23 ? 'bg-yellow-400 text-black' : 'bg-slate-900 text-white'"
+                                  x-text="item.star + '★'"></span>
+                        </div>
+                    </div>
+
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <h3 class="font-black text-slate-800 tracking-tight text-lg" x-text="item.name"></h3>
+                            <span class="text-[9px] px-2 py-1 rounded font-black bg-blue-600 text-white uppercase tracking-tighter"
+                                  x-text="item.guide.match(/\[(.*?)\]/)[1]"></span>
+                        </div>
+                        <div class="rounded-xl p-3 border mb-4 shadow-sm" :class="getGuideStyle(item.guide)">
+                            <p class="text-[13px] leading-snug font-bold" x-text="item.guide.replace(/\[.*?\]/, '').trim()"></p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-3">
+                            <template x-for="(val, key) in item.detail">
+                                <div class="relative">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="text-[9px] font-bold text-slate-400 uppercase" x-text="key == 'pot_additional' ? '에디셔널' : key == 'pot' ? '잠재능력' : key == 'add' ? '추가옵션' : '별'"></span>
+                                        <span class="text-[11px] font-black text-slate-700" x-text="val"></span>
+                                    </div>
+                                    <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden border border-slate-50">
+                                        <div class="h-full transition-all duration-500 rounded-full"
+                                             :class="getStatColor(val, key)"
+                                             :style="`width: ${getStatWidth(val, key)}%`">
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="w-full md:w-28 border-t md:border-t-0 md:border-l border-slate-100 flex flex-col justify-center items-center bg-slate-50/50 rounded-b-2xl md:rounded-r-2xl md:rounded-bl-none py-4">
+                        <span class="text-[9px] font-bold text-slate-400 tracking-widest mb-1 text-center uppercase">Total Score</span>
+                        <span class="text-3xl font-black text-slate-800 tracking-tighter text-center" x-text="item.total_score"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <p class="mt-12 text-center text-[10px] text-slate-400 font-medium italic">
+            This report was generated by MECULATOR AI Engine.<br>
+            © 2026 MECULATOR MEDICAL CENTER. ALL RIGHTS RESERVED.
+        </p>
+    </div>
+</div>
+
+</body>
+</html>
