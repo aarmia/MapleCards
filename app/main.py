@@ -7,7 +7,8 @@ import os
 import math
 
 # 현재 파일의 부모 폴더(app)를 경로에 추가하여 scraper를 찾을 수 있게 함
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(BASE_DIR)
 
 try:
     from scraper import NexonAPIHandler
@@ -19,8 +20,16 @@ from app.image_gen import CardGenerator
 app = FastAPI()
 nexon_api = NexonAPIHandler()
 card_gen = CardGenerator()
-templates = Jinja2Templates(directory="app/templates")
 
+# [수정] 템플릿 및 정적 파일 경로를 BASE_DIR(app 폴더) 기준으로 설정
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+static_dir = os.path.join(BASE_DIR, "static")
+
+# 정적 파일 마운트 (경로 존재 여부 확인 포함)
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+else:
+    print(f"⚠️ Warning: Static directory not found at {static_dir}")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -111,13 +120,12 @@ async def check_items(character_name: str):
             mult *= (0.9 if diff_percent > 0 else 1.1)
         return round(score, 2)
 
-        # --- [헬퍼 함수 2: 세분화된 가이드 생성 (하이엔드 조건 강화 및 동적 별 표기)] ---
-
+    # --- [헬퍼 함수 2: 세분화된 가이드 생성] ---
     def get_dynamic_guide(scores, star_val, part_name, total_score):
         labels = ["추가옵션", "윗잠재", "에디셔널", "스타포스"]
-        max_bench = [135, 99, 55, 110]  # 졸업급 기준
+        max_bench = [135, 99, 55, 110]
 
-        eval_indices = [1, 2]  # 잠재, 에디는 기본
+        eval_indices = [1, 2]
         if not any(k in part_name for k in ["반지", "어깨장식", "기계 심장"]):
             eval_indices.append(0)
         if not any(k in part_name for k in ["보조무기", "엠블렘"]):
@@ -131,54 +139,38 @@ async def check_items(character_name: str):
         worst_idx = eval_indices[valid_ratios.index(min_ratio)]
         worst_label = labels[worst_idx]
 
-        # 1. 하이엔드 (350+)
         if total_score >= 350:
-            # [특수 조건] 22성 이상 + 추옵 99 초과 + 잠재 99 초과
             if star_val >= 22 and scores[0] > 99 and scores[1] > 99:
-                # 하이엔드급이므로 에디셔널 커트라인을 40점(약 2줄)으로 상향
                 if scores[2] <= 38:
                     return "♻️ [에디/교체 권장] 추옵과 윗잠 베이스는 완벽하지만, 밸런스에 비해 에디셔널이 아쉽습니다. 에디 강화 혹은 교체를 고려하세요."
                 else:
                     return f"🌌 [종결] 완벽한 장비입니다. {star_val + 1}성 도전 외엔 투자가 무의미합니다."
-
-                # 특수 조건에 맞지 않는 일반 하이엔드 판별
             if min_ratio > 0.95:
                 return f"🌌 [종결] 완벽한 장비입니다. {star_val + 1}성 도전 외엔 투자가 무의미합니다."
             return f"🔍 [미세조정] 종결급이나 '{worst_label}'이(가) 평균보다 낮습니다."
-
-            # 2 & 3. 하이급 (325 ~ 350) & 엘리트급 (300 ~ 325)
         elif total_score >= 300:
-            # [특수 조건] 22성 이상 + 추옵 93 초과 + 잠재 95 초과
             if star_val >= 22 and scores[0] > 93 and scores[1] > 95:
                 if scores[2] <= 25:
                     return "♻️ [에디/교체 권장] 22성에 윗잠/추옵 베이스까지 훌륭하나 에디셔널이 아쉽습니다. 에디 강화나 완성된 매물로 교체를 고려하세요."
                 else:
                     return f"⚔️ [한계 돌파/상위 매물 교체] 완벽합니다! 여기서 더 스펙업을 원하신다면 {star_val + 1}성을 도전하거나, 상위 매물로 교체를 추천합니다."
-                # [기존 하이급 로직] 325 ~ 350 구간
             if total_score >= 325:
                 if min_ratio < avg_ratio:
                     return f"♻️ [교체 권장] 하이급이나 '{worst_label}'이(가) 전체 체급을 깎습니다. 매물 교체를 고려하세요."
                 return f"🛠️ [정밀 강화] 밸런스가 좋습니다. 가장 낮은 '{worst_label}'을 보완하여 하이엔드를 노리세요."
-
-                # [기존 엘리트급 로직] 300 ~ 325 구간
             else:
                 if star_val < 22 and 3 in eval_indices:
                     return "⚔️ [스타포스 권장] 잠재/추옵은 훌륭합니다. 22성 강화가 가장 시급합니다."
                 return f"🛠️ [강화 권장] 체급이 높은 엘리트 장비입니다. 부족한 '{worst_label}'을 보완하세요."
-
-            # 4. 미드 (250 ~ 300)
         elif total_score >= 250:
             if ratios[2] >= avg_ratio or ratios[3] >= avg_ratio:
                 return f"📈 [효율 강화] 에디/별 베이스가 좋아 살려 쓸 가치가 있습니다. '{worst_label}'을 보완하세요."
             return f"♻️ [교체 권장] 특출난 장점이 없습니다. 직접 강화보다 완제품 구매가 경제적입니다."
-
-            # 5. 엔트리 (250 미만)
         else:
             if star_val >= 22:
                 return f"🛠️ [강화/ 교체 권장] {star_val}성 수치가 아깝습니다! 나머지 옵션을 돌려 가성비 있게 쓰거나, 교체를 추천합니다."
             return "🚨 [교체 시급] 현재 세팅에서 가장 취약한 부위입니다. 상위 아이템으로 교체를 추천합니다."
 
-    # 3. 장비 순회 분석
     for item in items:
         part = item.get("item_equipment_part")
         name = item.get("item_name")
@@ -186,20 +178,17 @@ async def check_items(character_name: str):
         star = int(item.get("starforce", 0))
         item_req_level = int(item.get("item_base_option", {}).get("base_equipment_level", 0))
 
-        # [계산 1] 스타포스: 100점 기준 / 분모 600
         adv_star_score = 0.0
         if item_req_level > 0:
             level_weight = 1.0 + (item_req_level - 200) / 600.0
             base22 = 100.0 * ((min(star, 22) / 22.0) ** 2) * level_weight
             adv_star_score = base22 if star <= 22 else base22 + (3.0 * math.log(star - 21))
 
-        # [계산 2] 잠재/에디
         pot_val = nexon_api.calculate_potential_score(item, "potential", char_class, char_level)
         pot_score = (pot_val * 3.3) if pot_val > 0 else 0
         eddy_val = nexon_api.calculate_potential_score(item, "additional_potential", char_class, char_level)
         eddy_score = (eddy_val * 2.5) if eddy_val > 0 else 0
 
-        # [계산 3] 추가옵션 (수정 포인트: nexon_api. 제거)
         actual_add_급수 = nexon_api.calculate_item_score(item.get("item_add_option", {}), char_class)
         add_score = get_advanced_add_score(actual_add_급수, item_req_level, part)
 
@@ -226,7 +215,6 @@ async def check_items(character_name: str):
                 }
             })
 
-    # 하위 5개 결과 반환
     bottom_5 = sorted(evaluate_list, key=lambda x: x["total_score"])[:5]
 
     return {
