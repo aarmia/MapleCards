@@ -25,8 +25,13 @@
             animation: rainbow-flow 3s ease infinite;
         }
 
-        /* 레이아웃 전환 애니메이션 */
+        /* 레이아웃 및 페이드 효과 */
         .transition-layout { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body class="bg-slate-50 medical-grid min-h-screen font-sans text-slate-900 pb-20">
@@ -35,14 +40,16 @@
     nickname: '',
     report: null,
     loading: false,
-    // [추가] 초기화 함수: 로고 클릭 시 호출
+    viewAll: false, // 전체 보기 모드 상태 변수
     reset() {
         this.report = null;
         this.nickname = '';
+        this.viewAll = false;
     },
     async fetchReport() {
         if(!this.nickname) return;
         this.loading = true;
+        this.viewAll = false; // 검색 시 5개 보기 모드로 초기화
         try {
             const res = await fetch(`/check-items/${this.nickname}`);
             this.report = await res.json();
@@ -141,8 +148,15 @@
     </div>
 
     <div x-cloak x-show="report && !report.error" id="report-area" class="p-2 animate-fade-in">
-        <div class="flex justify-end mb-4" data-html2canvas-ignore="true">
-            <button @click="saveAsImage()" class="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-lg hover:bg-blue-100 transition-all">
+
+        <div class="flex justify-end gap-2 mb-4" data-html2canvas-ignore="true">
+            <button @click="viewAll = !viewAll"
+                    class="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg transition-all shadow-sm border"
+                    :class="viewAll ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'">
+                <span x-text="viewAll ? '⚠️ 취약 아이템 5종만 보기' : '📊 모든 아이템 점수 보기'"></span>
+            </button>
+
+            <button @click="saveAsImage()" class="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-lg hover:bg-blue-100 transition-all border border-blue-100">
                 💾 진단서 이미지 저장
             </button>
         </div>
@@ -152,6 +166,7 @@
             <div class="relative z-10">
                 <h1 class="text-2xl font-black text-slate-800 mb-4 tracking-tight uppercase flex items-center gap-2">
                     <span class="text-blue-600">✚</span> Equipment Diagnosis
+                    <span x-show="viewAll" class="text-[10px] bg-slate-800 text-white px-2 py-1 rounded ml-2 tracking-widest font-black">FULL SCAN</span>
                 </h1>
                 <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm border-t border-slate-100 pt-4">
                     <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
@@ -175,10 +190,14 @@
         </div>
 
         <div class="space-y-4">
-            <template x-for="(item, index) in report.results" :key="index">
-                <div class="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col md:flex-row gap-6 shadow-sm">
+            <template x-for="(item, index) in (viewAll ? report.results : report.results.slice(0, 5))" :key="index">
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col md:flex-row gap-6 shadow-sm animate-fade-in"
+                     :class="!viewAll ? 'border-l-4 border-l-red-400' : ''">
+
                     <div class="flex flex-col items-center justify-center min-w-[80px]">
-                        <span class="text-[9px] font-black text-blue-500 mb-2 tracking-widest uppercase" x-text="'Priority ' + (index+1)"></span>
+                        <span class="text-[9px] font-black mb-2 tracking-widest uppercase"
+                              :class="viewAll ? 'text-slate-400' : 'text-red-500'"
+                              x-text="viewAll ? 'Rank ' + (index+1) : 'Priority ' + (index+1)"></span>
                         <div class="relative p-2 rounded-2xl" :class="getBorderColor(item.total_score)">
                             <img :src="item.icon" class="w-12 h-12 object-contain drop-shadow-sm">
                             <span class="absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white shadow-sm"

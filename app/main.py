@@ -155,6 +155,8 @@ async def check_items(character_name: str):
                 else:
                     return f"⚔️ [한계 돌파/상위 매물 교체] 완벽합니다! 여기서 더 스펙업을 원하신다면 {star_val + 1}성을 도전하거나, 상위 매물로 교체를 추천합니다."
             if total_score >= 325:
+                if star_val < 22 and 3 in eval_indices:
+                    return f"⚔️ [스타포스 권장] {star_val + 1}성 강화가 가장 시급합니다."
                 if min_ratio < avg_ratio:
                     return f"♻️ [교체 권장] 하이급이나 '{worst_label}'이(가) 전체 체급을 깎습니다. 매물 교체를 고려하세요."
                 return f"🛠️ [정밀 강화] 밸런스가 좋습니다. 가장 낮은 '{worst_label}'을 보완하여 하이엔드를 노리세요."
@@ -215,12 +217,12 @@ async def check_items(character_name: str):
                 }
             })
 
-    bottom_5 = sorted(evaluate_list, key=lambda x: x["total_score"])[:5]
+    all_sorted_results = sorted(evaluate_list, key=lambda x: x["total_score"])
 
     return {
         "character": character_name,
         "class": char_class,
         "level": char_level,
         "best_preset": best_preset_idx,
-        "results": bottom_5
+        "results": all_sorted_results
     }

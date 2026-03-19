@@ -130,9 +130,8 @@ class NexonAPIHandler:
         slot = item_data.get("item_equipment_slot", "")
         part = item_data.get("item_equipment_part", "")
 
-        # 무보엠 판정 (슬롯 명칭 및 부위 명칭 기준)
-        exclude_keywords = ["무기", "보조무기", "엠블렘", "장갑", "모자"]
-
+        # [수정] 무보엠만 제외 (장갑, 모자는 이제 계산에 포함됨)
+        exclude_keywords = ["무기", "보조무기", "엠블렘"]
         is_excluded = any(k in slot for k in exclude_keywords) or any(k in part for k in exclude_keywords)
 
         if is_excluded:
@@ -155,15 +154,24 @@ class NexonAPIHandler:
         for opt in options:
             if not opt: continue
 
-            # 1. 크리티컬 데미지
+            # 1. 크리티컬 데미지 (장갑 특수 옵션)
+            # 1%당 주스탯 4%로 환산 (임시 수치)
             if "크리티컬 데미지" in opt:
                 val_match = re.search(r'\+(\d+)%', opt)
                 if val_match:
                     val = int(val_match.group(1))
-                    weight = 3.5 if class_name in ["보우마스터", "신궁", "패스파인더", "윈드브레이커", "와일드헌터", "메르세데스", "카인"] else 4.0
-                    total_converted_pct += val * weight
+                    total_converted_pct += val * 1.75
 
-            # 2. 올스탯%
+            # 2. 재사용 대기시간 감소 (모자 특수 옵션)
+            # 1초당 주스탯 10%로 환산 (임시 수치)
+            elif "스킬 재사용 대기시간" in opt:
+                # "(N초, 10레벨당 -1초...)" 형태에서 숫자 추출
+                val_match = re.search(r'(\d+)초', opt)
+                if val_match:
+                    val = int(val_match.group(1))
+                    total_converted_pct += val * 7.25
+
+            # 3. 올스탯%
             elif "올스탯" in opt and "%" in opt:
                 val_match = re.search(r'\+(\d+)%', opt)
                 if val_match:
@@ -171,22 +179,20 @@ class NexonAPIHandler:
                     weight = 1.2 if class_name in ["섀도어", "카데나", "듀얼블레이드"] else 1.1
                     total_converted_pct += val * weight
 
-            # 3. 캐릭터 레벨당 주스탯 (예: 캐릭터 기준 9레벨 당 LUK +2)
+            # 4. 캐릭터 레벨당 주스탯
             elif "레벨" in opt and main_stat in opt:
-                # 숫자만 추출 (예: +2 에서 2 추출)
                 val_match = re.search(r'\+(\d+)', opt)
                 if val_match:
                     val = int(val_match.group(1))
-                    # 요청하신 대로 수치 1당 3.5% 적용
                     total_converted_pct += val * 3.5
 
-            # 4. 주스탯% (LUK : +12% 등)
+            # 5. 주스탯% (LUK : +12% 등)
             elif main_stat in opt and "%" in opt:
                 val_match = re.search(r'\+(\d+)%', opt)
                 if val_match:
                     total_converted_pct += int(val_match.group(1))
 
-            # 5. 공격력/마력 (정수치)
+            # 6. 공격력/마력 (정수치)
             elif ("공격력" in opt or "마력" in opt) and "%" not in opt:
                 atk_key = "마력" if main_stat == "INT" else "공격력"
                 if atk_key in opt:
@@ -194,7 +200,7 @@ class NexonAPIHandler:
                     if val_match:
                         total_converted_pct += int(val_match.group(1)) * 0.3
 
-            # 6. 주스탯 정수치 (LUK : +10 등)
+            # 7. 주스탯 정수치 (LUK : +10 등)
             elif main_stat in opt and "%" not in opt:
                 val_match = re.search(r'\+(\d+)', opt)
                 if val_match:
