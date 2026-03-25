@@ -34,6 +34,7 @@ if os.path.exists(static_dir):
 else:
     print(f"⚠️ Warning: Static directory not found at {static_dir}")
 
+
 # [추가] 파비콘 404 에러 방지 핸들러
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
@@ -42,11 +43,11 @@ async def favicon():
         return FileResponse(favicon_path)
     return Response(status_code=204)
 
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-# ... (중간 get_ocid, character_card, generate_card 함수는 기존과 동일하여 생략 가능하나 구조 유지를 위해 포함) ...
 
 @app.get("/check-items/{character_name}")
 async def check_items(character_name: str):
@@ -72,13 +73,12 @@ async def check_items(character_name: str):
 
         evaluate_list = []
 
-        # --- [수정: 추옵 점수 산출 로직 보완] ---
+        # --- [헬퍼 함수 1: 추옵 점수 산출 로직] ---
         def get_advanced_add_score(actual_급수, level, part_name):
             no_add_slots = ["반지", "어깨장식", "기계 심장", "훈장", "뱃지", "포켓 아이템", "엠블렘", "보조무기", "무기"]
             if any(k in part_name for k in no_add_slots):
                 return 100.0
 
-            # 저레벨 구간(130, 135) 타겟 추가
             target_map = {250: 186, 200: 162, 160: 144, 150: 132, 140: 126, 135: 123, 130: 120}
             target = target_map.get(level)
 
@@ -96,7 +96,6 @@ async def check_items(character_name: str):
                 mult = 0.5
                 decay = 0.9
             else:
-                # [수정] 감점 가중치 완화 (마이너스 점수 방지)
                 mult = 1.2
                 decay = 1.05
 
@@ -107,14 +106,14 @@ async def check_items(character_name: str):
                     mult *= decay
                 else:
                     score -= (chunk * mult)
-                    # [추가] 감점 캡 설정
                     mult = min(mult * decay, 3.0)
                 rem -= chunk
 
             return round(max(0, score), 2)
 
-        # --- [헬퍼 함수 2: 세분화된 가이드 생성] ---
-        def get_dynamic_guide(scores, star_val, part_name, total_score, item_name):
+        # --- [헬퍼 함수 2: 세분화된 가이드 생성 (개선 버전)] ---
+        def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_req_level):
+            # 특수 아이템 처리
             target_hearts = ["리튬 하트", "페어리 하트", "플라즈마 하트"]
             black_heart = ["블랙 하트"]
             if any(heart in item_name for heart in target_hearts):
@@ -122,8 +121,15 @@ async def check_items(character_name: str):
             if any(heart in item_name for heart in black_heart):
                 return "🚨 블랙 하트는 점수 환산을 지원하지 않습니다."
 
+            # 스타포스 한계치 계산
+            max_star_possible = 30
+            if item_req_level < 128:
+                max_star_possible = 15
+            elif item_req_level < 138:
+                max_star_possible = 20
+
             labels = ["추가옵션", "윗잠재", "에디셔널", "스타포스"]
-            max_bench = [135, 99, 40, 110]
+            max_bench = [135, 118.8, 50, 110]
 
             eval_indices = [1, 2]
             if not any(k in part_name for k in ["반지", "어깨장식", "기계 심장"]):
@@ -133,26 +139,47 @@ async def check_items(character_name: str):
 
             ratios = [scores[i] / max_bench[i] for i in range(4)]
             valid_ratios = [ratios[i] for i in eval_indices]
-            avg_ratio = sum(valid_ratios) / len(valid_ratios)
-
             min_ratio = min(valid_ratios)
             worst_idx = eval_indices[valid_ratios.index(min_ratio)]
             worst_label = labels[worst_idx]
 
+            # [점수대별 가이드 로직]
             if total_score >= 350:
-                if star_val >= 22 and scores[0] > 99 and scores[1] > 99:
-                    if scores[2] <= 38:
-                        return "♻️ [에디/교체 권장] 추옵과 윗잠 베이스는 완벽하지만, 에디셔널이 아쉽습니다."
+                if star_val >= 22 or star_val >= max_star_possible:
+                    if scores[2] <= 43:
+                        return "♻️ [에디/교체 권장] 추옵과 윗잠 베이스는 완벽합니다. 에디셔널을 강화하거나 상위 매물로 교체하세요"
                     return f"🌌 [종결] 완벽한 장비입니다. {star_val + 1}성 도전 외엔 투자가 무의미합니다."
                 return f"🔍 [미세조정] 종결급이나 '{worst_label}'이(가) 평균보다 낮습니다."
+
             elif total_score >= 300:
-                if star_val < 22 and 3 in eval_indices:
-                    return "⚔️ [스타포스 권장] 잠재/추옵은 훌륭합니다. 22성 강화가 가장 시급합니다."
-                return f"🛠️ [강화 권장] 체급이 높은 엘리트 장비입니다. 부족한 '{worst_label}'을 보완하세요."
+                # 330점 이상 준종결 관리
+                if total_score >= 330:
+                    return f"💎 [준종결] 종결급 체급입니다. 마지막 퍼즐인 '{worst_label}' 수치 보완을 추천합니다."
+
+                if 3 in eval_indices:
+                    # 강화 한계 도달 확인
+                    if star_val >= max_star_possible:
+                        return f"✅ [강화 한계] 최대치까지 강화되었습니다. 이제 부족한 '{worst_label}'에 집중하세요."
+
+                    # 단계별 스타포스 성장 제안
+                    if star_val <= 18:
+                        target_star = 21 if max_star_possible >= 21 else max_star_possible
+                        return f"⚔️ [1단계 강화] 베이스가 훌륭합니다. 우선 안전하게 '{target_star}성 안착'을 목표로 강화를 추천합니다."
+
+                    if star_val < 22:
+                        # 밸런스 붕괴 확인
+                        if min_ratio < 0.25:
+                            return f"🚨 [밸런스 보완] 스타포스보다 급한 것은 '{worst_label}'입니다. 밸런스를 먼저 맞춰주세요."
+                        return "📈 [상위 강화] 22성 도전의 가치가 있는 베이스입니다. 22성 강화를 고려하세요."
+
+                return f"🛠️ [강화 권장] 엘리트 장비입니다. 전체적인 밸런스를 위해 '{worst_label}'을 보완하세요."
+
             elif total_score >= 250:
-                return f"📈 [효율 강화] 베이스가 좋아 보완의 가치가 있습니다. '{worst_label}'을 보완하세요."
+                if star_val < 17 and 3 in eval_indices:
+                    return "📦 [가성비 강화] 최소 18성 달성 후 잠재능력을 손보는 것이 효율적입니다."
+                return f"📈 [효율 투자 / 교체] '{worst_label}'부터 차근차근 올리거나, 상위 아이템으로 교체를 추천합니다."
             else:
-                return "🚨 [교체 시급] 현재 세팅에서 가장 취약한 부위입니다. 상위 아이템으로 교체를 추천합니다."
+                return "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다."
 
         for item in items:
             part = item.get("item_equipment_part")
@@ -180,9 +207,11 @@ async def check_items(character_name: str):
             special_rings = ["리스트레인트", "컨티뉴어스", "웨폰퍼프"]
             exclude_parts = ["훈장", "뱃지", "포켓 아이템", "칭호"]
 
-            if pot_val != -1 and not any(k in part for k in exclude_parts) and not any(k in name for k in special_rings):
+            if pot_val != -1 and not any(k in part for k in exclude_parts) and not any(
+                    k in name for k in special_rings):
+                # [수정] item_req_level을 인자로 추가 전달
                 guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part,
-                                               total_item_score, name)
+                                               total_item_score, name, item_req_level)
                 evaluate_list.append({
                     "part": part, "name": name, "icon": icon, "star": star,
                     "total_score": round(total_item_score, 2),
