@@ -147,7 +147,7 @@ async def check_items(character_name: str):
             if total_score >= 350:
                 if star_val >= 22 or star_val >= max_star_possible:
                     if scores[2] <= 43:
-                        return "♻️ [에디/교체 권장] 추옵과 윗잠 베이스는 완벽합니다. 에디셔널을 강화하거나 상위 매물로 교체하세요"
+                        return "♻️ [에디/교체 권장] 추옵과 윗잠 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요"
                     return f"🌌 [종결] 완벽한 장비입니다. {star_val + 1}성 도전 외엔 투자가 무의미합니다."
                 return f"🔍 [미세조정] 종결급이나 '{worst_label}'이(가) 평균보다 낮습니다."
 
@@ -209,9 +209,9 @@ async def check_items(character_name: str):
 
             if pot_val != -1 and not any(k in part for k in exclude_parts) and not any(
                     k in name for k in special_rings):
-                # [수정] item_req_level을 인자로 추가 전달
                 guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part,
                                                total_item_score, name, item_req_level)
+
                 evaluate_list.append({
                     "part": part, "name": name, "icon": icon, "star": star,
                     "total_score": round(total_item_score, 2),
@@ -219,6 +219,25 @@ async def check_items(character_name: str):
                     "detail": {
                         "add": round(add_score, 1), "star": round(adv_star_score, 1),
                         "pot": round(pot_score, 1), "pot_additional": round(eddy_score, 1)
+                    },
+                    "raw_options": {
+                        "base": item.get("item_base_option"),
+                        "add": item.get("item_add_option"),
+                        "etc": item.get("item_etc_option"),
+                        "starforce": item.get("item_starforce_option"),
+                        "potential_grade": item.get("potential_option_grade"),
+                        "potential_options": [
+                            item.get("potential_option_1"),
+                            item.get("potential_option_2"),
+                            item.get("potential_option_3")
+                        ],
+                        "additional_grade": item.get("additional_potential_option_grade"),
+                        "additional_options": [
+                            item.get("additional_potential_option_1"),
+                            item.get("additional_potential_option_2"),
+                            item.get("additional_potential_option_3")
+                        ],
+                        "exceptional": item.get("item_exceptional_option")
                     }
                 })
 
