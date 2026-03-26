@@ -27,19 +27,14 @@
             animation: rainbow-flow 3s ease infinite;
         }
 
-        /* 레이아웃 및 페이드 효과 */
         .transition-layout { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-
-        /* 잠재능력 등급 색상 */
-        .grade-legendary { color: #50e3c2; }
-        .grade-unique { color: #ffb900; }
-        .grade-epic { color: #a855f7; }
-        .grade-rare { color: #3b82f6; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
 </head>
 <body class="bg-slate-50 medical-grid min-h-screen font-sans text-slate-900 pb-20">
@@ -87,10 +82,8 @@
         this.selectedItem = item;
         this.showDetail = true;
     },
-
-    /* --- [수정] 옵션 수치 계산용 헬퍼 함수 추가 --- */
     getSafeValue(val) {
-        return Number(val) || 0; // undefined나 null을 0으로 안전하게 변환
+        return Number(val) || 0;
     },
     getTotalStat(item, key) {
         if (!item || !item.raw_options) return 0;
@@ -98,14 +91,13 @@
         const a = this.getSafeValue(item.raw_options.add?.[key]);
         const e = this.getSafeValue(item.raw_options.etc?.[key]);
         const s = this.getSafeValue(item.raw_options.starforce?.[key]);
-        return b + a + e + s; // 산술 덧셈 수행
+        const ex = this.getSafeValue(item.raw_options.exceptional?.[key]);
+        return b + a + e + s + ex;
     },
     formatTotalStat(item, key, label) {
         const total = this.getTotalStat(item, key);
-        return label.includes('%') ? total + '%' : total; // % 옵션일 경우 % 기호 추가
+        return label.includes('%') ? total + '%' : total;
     },
-    /* ------------------------------------------------ */
-
     getStatColor(val, key) {
         const s = parseFloat(val);
         if (key === 'pot') {
@@ -151,13 +143,13 @@
         if (score >= 250) return 'border-[3px] border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.2)] bg-purple-50/30';
         return 'border border-slate-200 bg-slate-50';
     },
-    getGradeClass(grade) {
-        if (!grade) return '';
-        if (grade.includes('레전더리')) return 'text-[#b2e52c]';
-        if (grade.includes('유니크')) return 'grade-unique';
-        if (grade.includes('에픽')) return 'grade-epic';
-        if (grade.includes('레어')) return 'grade-rare';
-        return 'text-slate-400';
+    getGradeColor(grade) {
+        if (!grade) return '#475569';
+        if (grade.includes('레전드리')) return '#b2e52c';
+        if (grade.includes('유니크')) return '#ffb900';
+        if (grade.includes('에픽')) return '#a855f7';
+        if (grade.includes('레어')) return '#3b82f6';
+        return '#475569';
     },
     getGuideStyle(guideText) {
         if (guideText.includes('종결') || guideText.includes('완벽')) return 'bg-indigo-50 text-indigo-700 border-indigo-100';
@@ -174,15 +166,8 @@
                  class="cursor-pointer transition-layout group relative"
                  :class="report ? 'w-48 md:w-56' : 'w-72 md:w-96 mb-3'">
                 <img src="/static/images/logo.png" alt="MECULATOR Logo" class="w-full h-auto drop-shadow-sm group-hover:opacity-80 transition-opacity">
-                <div x-show="!report" class="flex items-center gap-3 mt-3 justify-center">
-                    <div class="h-[1px] w-8 bg-slate-300"></div>
-                    <p class="text-slate-400 text-[10px] font-black tracking-[0.3em] uppercase">Precision Diagnosis System</p>
-                    <div class="h-[1px] w-8 bg-slate-300"></div>
-                </div>
             </div>
-            <button @click="showHelp = true; helpTab = 'guide'"
-                    class="ml-2 p-2 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all shadow-sm group mt-1"
-                    title="사용법 보기">
+            <button @click="showHelp = true; helpTab = 'guide'" class="ml-2 p-2 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-blue-600 mt-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </button>
         </div>
@@ -190,9 +175,9 @@
         <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex gap-2 transition-layout"
          :class="report ? 'w-full md:w-[36rem] shadow-none border-b-2 rounded-none bg-transparent border-slate-300' : 'w-full'">
             <input x-model="nickname" @keyup.enter="fetchReport()" type="text" placeholder="캐릭터 닉네임 입력"
-               class="flex-1 border-none bg-slate-100/50 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-400 outline-none transition-all font-medium"
+               class="flex-1 border-none bg-slate-100/50 rounded-xl px-4 py-2 outline-none transition-all font-medium"
                :class="report ? 'text-base bg-white' : 'text-lg'">
-            <button @click="fetchReport()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 whitespace-nowrap min-w-[100px]">
+            <button @click="fetchReport()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-all min-w-[100px]">
                 <span x-show="!loading" x-text="report ? '재검진' : '검진 시작'"></span>
                 <span x-show="loading" class="animate-spin inline-block">⏳</span>
             </button>
@@ -208,30 +193,26 @@
             </button>
         </div>
 
-        <div class="bg-white border-t-[12px] border-blue-600 rounded-2xl shadow-xl p-6 mb-6 relative overflow-hidden border border-slate-200">
-            <div class="absolute top-[-10px] right-[-10px] opacity-[0.04] font-black text-7xl tracking-tighter select-none uppercase">Meculator</div>
-            <div class="relative z-10">
-                <h1 class="text-2xl font-black text-slate-800 mb-4 tracking-tight uppercase flex items-center gap-2">
-                    <span class="text-blue-600">✚</span> Equipment Diagnosis
-                    <span x-show="viewAll" class="text-[10px] bg-slate-800 text-white px-2 py-1 rounded ml-2 tracking-widest font-black">FULL SCAN</span>
-                </h1>
-                <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm border-t border-slate-100 pt-4">
-                    <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
-                        <span class="text-slate-400 font-bold uppercase text-[10px]">Patient Name</span>
-                        <span class="font-bold text-slate-700" x-text="report.character"></span>
-                    </div>
-                    <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
-                        <span class="text-slate-400 font-bold uppercase text-[10px]">Department</span>
-                        <span class="font-bold text-slate-700" x-text="report.class"></span>
-                    </div>
-                    <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
-                        <span class="text-slate-400 font-bold uppercase text-[10px]">Diagnosis Date</span>
-                        <span class="font-bold text-slate-700" x-text="getTodayDate()"></span>
-                    </div>
-                    <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
-                        <span class="text-slate-400 font-bold uppercase text-[10px]">Patient Level</span>
-                        <span class="font-bold text-slate-700" x-text="'Lv. ' + report.level"></span>
-                    </div>
+        <div class="bg-white border-t-[12px] border-blue-600 rounded-2xl shadow-xl p-6 mb-6 border border-slate-200">
+            <h1 class="text-2xl font-black text-slate-800 mb-4 tracking-tight uppercase flex items-center gap-2">
+                <span class="text-blue-600">✚</span> Equipment Diagnosis
+            </h1>
+            <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm border-t border-slate-100 pt-4">
+                <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
+                    <span class="text-slate-400 font-bold uppercase text-[10px]">Patient Name</span>
+                    <span class="font-bold text-slate-700" x-text="report.character"></span>
+                </div>
+                <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
+                    <span class="text-slate-400 font-bold uppercase text-[10px]">Department</span>
+                    <span class="font-bold text-slate-700" x-text="report.class"></span>
+                </div>
+                <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
+                    <span class="text-slate-400 font-bold uppercase text-[10px]">Diagnosis Date</span>
+                    <span class="font-bold text-slate-700" x-text="getTodayDate()"></span>
+                </div>
+                <div class="flex justify-between border-b border-dotted border-slate-200 pb-1">
+                    <span class="text-slate-400 font-bold uppercase text-[10px]">Patient Level</span>
+                    <span class="font-bold text-slate-700" x-text="'Lv. ' + report.level"></span>
                 </div>
             </div>
         </div>
@@ -242,25 +223,17 @@
                      :class="!viewAll ? 'border-l-4 border-l-red-400' : ''">
 
                     <div class="flex flex-col items-center justify-center min-w-[80px]">
-                        <span class="text-[9px] font-black mb-2 tracking-widest uppercase"
-                              :class="viewAll ? 'text-slate-400' : 'text-red-500'"
-                              x-text="viewAll ? 'Rank ' + (index+1) : 'Priority ' + (index+1)"></span>
+                        <span class="text-[9px] font-black mb-2 tracking-widest uppercase text-slate-400" x-text="viewAll ? 'Rank ' + (index+1) : 'Priority ' + (index+1)"></span>
                         <div @click="openItemDetail(item)" class="relative p-2 rounded-2xl cursor-pointer hover:scale-110 transition-transform active:scale-95 group" :class="getBorderColor(item.total_score)">
                             <img :src="item.icon" class="w-12 h-12 object-contain drop-shadow-sm">
-                            <span class="absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white shadow-sm"
-                                  :class="item.star >= 23 ? 'bg-yellow-400 text-black' : 'bg-slate-900 text-white'"
-                                  x-text="item.star + '★'"></span>
-                            <div class="absolute inset-0 bg-slate-900/40 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <span class="text-[8px] text-white font-black">DETAIL</span>
-                            </div>
+                            <span class="absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white shadow-sm bg-slate-900 text-white" x-text="item.star + '★'"></span>
                         </div>
                     </div>
 
                     <div class="flex-1">
                         <div class="flex items-center gap-2 mb-2">
                             <h3 class="font-black text-slate-800 tracking-tight text-lg" x-text="item.name"></h3>
-                            <span class="text-[9px] px-2 py-1 rounded font-black bg-blue-600 text-white uppercase tracking-tighter"
-                                  x-text="item.guide.match(/\[(.*?)\]/)[1]"></span>
+                            <span class="text-[9px] px-2 py-1 rounded font-black bg-blue-600 text-white uppercase tracking-tighter" x-text="item.guide.match(/\[(.*?)\]/)[1]"></span>
                         </div>
                         <div class="rounded-xl p-3 border mb-4 shadow-sm" :class="getGuideStyle(item.guide)">
                             <p class="text-[13px] leading-snug font-bold" x-text="item.guide.replace(/\[.*?\]/, '').trim()"></p>
@@ -273,33 +246,24 @@
                                         <span class="text-[11px] font-black text-slate-700" x-text="val"></span>
                                     </div>
                                     <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden border border-slate-50">
-                                        <div class="h-full transition-all duration-500 rounded-full"
-                                             :class="getStatColor(val, key)"
-                                             :style="`width: ${getStatWidth(val, key)}%`">
-                                        </div>
+                                        <div class="h-full transition-all duration-500 rounded-full" :class="getStatColor(val, key)" :style="`width: ${getStatWidth(val, key)}%` text-white"></div>
                                     </div>
                                 </div>
                             </template>
                         </div>
                     </div>
 
-                    <div class="w-full md:w-28 border-t md:border-t-0 md:border-l border-slate-100 flex flex-col justify-center items-center bg-slate-50/50 rounded-b-2xl md:rounded-r-2xl md:rounded-bl-none py-4">
-                        <span class="text-[9px] font-bold text-slate-400 tracking-widest mb-1 text-center uppercase">Total Score</span>
-                        <span class="text-3xl font-black text-slate-800 tracking-tighter text-center" x-text="item.total_score"></span>
+                    <div class="w-full md:w-28 border-t md:border-t-0 md:border-l border-slate-100 flex flex-col justify-center items-center bg-slate-50/50 py-4">
+                        <span class="text-[9px] font-bold text-slate-400 tracking-widest mb-1 uppercase">Total Score</span>
+                        <span class="text-3xl font-black text-slate-800 tracking-tighter" x-text="item.total_score"></span>
                     </div>
                 </div>
             </template>
         </div>
-
-        <p class="mt-12 text-center text-[10px] text-slate-400 font-medium italic">
-            This report was generated by MECULATOR AI Engine.<br>
-            © 2026 MECULATOR MEDICAL CENTER. ALL RIGHTS RESERVED.
-        </p>
     </div>
 
     <div x-show="showDetail" x-cloak class="fixed inset-0 z-[110] flex items-center justify-center p-4">
-        <div x-show="showDetail" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-             @click="showDetail = false" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md"></div>
+        <div x-show="showDetail" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" @click="showDetail = false" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md"></div>
 
         <div x-show="showDetail" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-8 scale-95" x-transition:enter-end="opacity-100 translate-y-0 scale-100"
              class="relative bg-slate-900 text-white rounded-3xl shadow-2xl max-w-sm w-full border border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
@@ -320,22 +284,20 @@
             </div>
 
             <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-
                 <div>
                     <h4 class="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest">Equipment Options</h4>
                     <div class="space-y-1.5">
                         <template x-for="(label, key) in labelMap" :key="key">
-                            <div x-show="getTotalStat(selectedItem, key) !== 0"
-                                 class="flex justify-between items-center text-xs">
-                                <span class="text-slate-400 font-medium" x-text="label"></span>
-                                <div class="font-bold">
+                            <div x-show="getTotalStat(selectedItem, key) !== 0" class="flex justify-start items-center text-xs gap-3">
+                                <span class="text-slate-400 font-medium min-w-[75px]" x-text="label"></span>
+                                <div class="font-bold text-white flex flex-wrap items-center">
                                     <span x-text="formatTotalStat(selectedItem, key, label)"></span>
-
-                                    <span class="text-[10px] ml-1 opacity-80" x-show="(getTotalStat(selectedItem, key) - getSafeValue(selectedItem?.raw_options.base[key])) !== 0">
-                                        (<span x-text="getSafeValue(selectedItem?.raw_options.base[key]) + (label.includes('%') ? '%' : '')"></span>
-                                         <span class="text-emerald-400" x-show="getSafeValue(selectedItem?.raw_options.add[key]) > 0" x-text="'+' + getSafeValue(selectedItem?.raw_options.add[key]) + (label.includes('%') ? '%' : '')"></span>
-                                         <span class="text-sky-400" x-show="getSafeValue(selectedItem?.raw_options.etc[key]) > 0" x-text="'+' + getSafeValue(selectedItem?.raw_options.etc[key]) + (label.includes('%') ? '%' : '')"></span>
-                                         <span class="text-yellow-400" x-show="getSafeValue(selectedItem?.raw_options.starforce[key]) > 0" x-text="'+' + getSafeValue(selectedItem?.raw_options.starforce[key]) + (label.includes('%') ? '%' : '')"></span>)
+                                    <span class="text-[10px] ml-1 opacity-80 font-bold">
+                                        (<span x-text="getSafeValue(selectedItem?.raw_options.base[key])"></span>
+                                         <span style="color: #00ff9d;" x-show="getSafeValue(selectedItem?.raw_options.add[key]) > 0" x-text="'+' + getSafeValue(selectedItem?.raw_options.add[key])"></span>
+                                         <span style="color: #00d4ff;" x-show="getSafeValue(selectedItem?.raw_options.etc[key]) > 0" x-text="'+' + getSafeValue(selectedItem?.raw_options.etc[key])"></span>
+                                         <span style="color: #ffcc00;" x-show="getSafeValue(selectedItem?.raw_options.starforce[key]) > 0" x-text="'+' + getSafeValue(selectedItem?.raw_options.starforce[key])"></span>
+                                         <span style="color: #ff4d4d;" x-show="getSafeValue(selectedItem?.raw_options.exceptional?.[key]) > 0" x-text="'+' + getSafeValue(selectedItem?.raw_options.exceptional[key])"></span>)
                                     </span>
                                 </div>
                             </div>
@@ -346,11 +308,16 @@
                 <div x-show="selectedItem?.raw_options.potential_grade" class="pt-4 border-t border-slate-800">
                     <div class="flex items-center gap-2 mb-3">
                         <h4 class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Potential</h4>
-                        <span class="text-[9px] font-black px-1.5 py-0.5 rounded border border-current" :class="getGradeClass(selectedItem?.raw_options.potential_grade)" x-text="selectedItem?.raw_options.potential_grade"></span>
+                        <span class="text-[9px] font-black px-2 py-0.5 rounded-full border text-white"
+                              :style="`border-color: ${getGradeColor(selectedItem?.raw_options.potential_grade)}; background-color: ${getGradeColor(selectedItem?.raw_options.potential_grade)}20`"
+                              x-text="selectedItem?.raw_options.potential_grade"></span>
                     </div>
-                    <ul class="space-y-1">
+                    <ul class="space-y-1.5">
                         <template x-for="(opt, index) in selectedItem?.raw_options.potential_options" :key="index">
-                            <li x-show="opt" class="text-xs font-bold text-slate-200" x-text="opt"></li>
+                            <li x-show="opt" class="text-xs font-bold text-white flex items-center gap-2">
+                                <span class="w-1 h-1 rounded-full" :style="`background-color: ${getGradeColor(selectedItem?.raw_options.potential_grade)}`"></span>
+                                <span x-text="opt"></span>
+                            </li>
                         </template>
                     </ul>
                 </div>
@@ -358,93 +325,103 @@
                 <div x-show="selectedItem?.raw_options.additional_grade" class="pt-4 border-t border-slate-800">
                     <div class="flex items-center gap-2 mb-3">
                         <h4 class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Additional Potential</h4>
-                        <span class="text-[9px] font-black px-1.5 py-0.5 rounded border border-current" :class="getGradeClass(selectedItem?.raw_options.additional_grade)" x-text="selectedItem?.raw_options.additional_grade"></span>
+                        <span class="text-[9px] font-black px-2 py-0.5 rounded-full border text-white"
+                              :style="`border-color: ${getGradeColor(selectedItem?.raw_options.additional_grade)}; background-color: ${getGradeColor(selectedItem?.raw_options.additional_grade)}20`"
+                              x-text="selectedItem?.raw_options.additional_grade"></span>
                     </div>
-                    <ul class="space-y-1">
+                    <ul class="space-y-1.5">
                         <template x-for="(opt, index) in selectedItem?.raw_options.additional_options" :key="index">
-                            <li x-show="opt" class="text-xs font-bold text-slate-200" x-text="opt"></li>
+                            <li x-show="opt" class="text-xs font-bold text-white flex items-center gap-2">
+                                <span class="w-1 h-1 rounded-full" :style="`background-color: ${getGradeColor(selectedItem?.raw_options.additional_grade)}`"></span>
+                                <span x-text="opt"></span>
+                            </li>
                         </template>
                     </ul>
                 </div>
             </div>
 
-            <button @click="showDetail = false" class="w-full py-4 bg-slate-800 text-slate-400 font-black text-[10px] hover:bg-slate-700 hover:text-white transition-all uppercase tracking-[0.3em]">
+            <button @click="showDetail = false" class="w-full py-4 bg-slate-800 text-slate-400 font-black text-[10px] hover:text-white transition-all uppercase tracking-[0.3em]">
                 Close Diagnosis Detail
             </button>
         </div>
     </div>
 
-    <div x-show="showHelp" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-x-hidden overflow-y-auto" @keydown.escape.window="showHelp = false">
-        <div x-show="showHelp" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" @click="showHelp = false" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"></div>
-        <div x-show="showHelp" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" class="relative bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 overflow-hidden border border-slate-200">
+    <div x-show="showHelp" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div x-show="showHelp" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" @click="showHelp = false" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+
+        <div x-show="showHelp" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 scale-95" x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             class="relative bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 overflow-hidden border border-slate-200">
             <div class="absolute top-0 right-0 p-4">
                 <button @click="showHelp = false" class="text-slate-400 hover:text-slate-600 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l18 18" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
+
             <div class="mb-8">
                 <div class="flex items-center gap-4 mb-2">
                     <button @click="helpTab = 'guide'" class="text-2xl font-black transition-all" :class="helpTab === 'guide' ? 'text-slate-800 scale-100' : 'text-slate-300 scale-90 hover:text-slate-400'">📖 사용법</button>
                     <span class="text-slate-200 text-2xl font-light">|</span>
                     <button @click="helpTab = 'notice'" class="text-2xl font-black transition-all" :class="helpTab === 'notice' ? 'text-red-500 scale-100' : 'text-slate-300 scale-90 hover:text-slate-400'">⚠️ 주의사항</button>
                 </div>
-                <p class="text-slate-400 text-xs" x-text="helpTab === 'guide' ? '장비 진단서를 100% 활용하는 방법입니다.' : '서비스 이용 전 반드시 확인해 주세요.'"></p>
             </div>
-            <div class="min-h-[280px]">
-                <div x-show="helpTab === 'guide'" class="space-y-6">
+
+            <div class="min-h-[250px]">
+                <div x-show="helpTab === 'guide'" class="space-y-6 animate-fade-in">
                     <div class="flex gap-4 group">
-                        <div class="flex-none w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-black text-sm group-hover:bg-blue-600 group-hover:text-white transition-colors">1</div>
-                        <div><h4 class="font-bold mb-1 text-sm text-slate-800">캐릭터 검색</h4><p class="text-[12px] text-slate-500 leading-relaxed">분석을 원하는 캐릭터의 닉네임을 입력하세요. 점수가 낮은 순서대로 5개의 아이템이 노출됩니다.</p></div>
-                    </div>
-                    <div class="flex gap-4 group">
-                        <div class="flex-none w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-black text-sm group-hover:bg-blue-600 group-hover:text-white transition-colors">2</div>
+                        <div class="flex-none w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-black text-sm">1</div>
                         <div>
-                            <h4 class="font-bold mb-1 text-sm text-slate-800">진단 결과 해석</h4>
-                            <p class="text-[12px] text-slate-500 leading-relaxed">상세 가이드를 확인하세요. 스타포스, 잠재능력, 추옵 중 무엇이 부족한지 구체적으로 짚어드립니다.</p>
+                            <h4 class="font-bold mb-1 text-sm text-slate-800">캐릭터 검색</h4>
+                            <p class="text-[12px] text-slate-500 leading-relaxed">진단을 원하는 메이플스토리 캐릭터 닉네임을 입력하세요.</p>
                         </div>
                     </div>
-
                     <div class="flex gap-4 group">
-                        <div class="flex-none w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-black text-sm group-hover:bg-blue-600 group-hover:text-white transition-colors">3</div>
+                        <div class="flex-none w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-black text-sm">2</div>
                         <div>
-                            <h4 class="font-bold mb-1 text-sm text-slate-800">전체 결과 확인</h4>
-                            <p class="text-[12px] text-slate-500 leading-relaxed">취약한 5부위 외에 다른 부위를 확인하고 싶다면, 전체 아이템 보기 버튼을 통해서 다른 부위를 확인하세요.</p>
+                            <h4 class="font-bold mb-1 text-sm text-slate-800">장비 정밀 진단</h4>
+                            <p class="text-[12px] text-slate-500 leading-relaxed">아이템 아이콘을 클릭하면 상세 수치와 등급별 옵션을 확인할 수 있습니다.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 group">
+                        <div class="flex-none w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-black text-sm">3</div>
+                        <div>
+                            <h4 class="font-bold mb-1 text-sm text-slate-800">결과 분석</h4>
+                            <p class="text-[12px] text-slate-500 leading-relaxed">점수가 낮은 순서대로 '우선 교체' 대상이 상단에 배치됩니다.</p>
                         </div>
                     </div>
                 </div>
 
-                <div x-show="helpTab === 'notice'"
-                     x-transition:enter="transition ease-out duration-300"
-                     x-transition:enter-start="opacity-0 -translate-x-4"
-                     x-transition:enter-end="opacity-100 translate-x-0"
-                     class="space-y-4">
+                <div x-show="helpTab === 'notice'" class="space-y-4 animate-fade-in">
                     <div class="bg-red-50 p-4 rounded-2xl border border-red-100 shadow-sm">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="w-2 h-2 bg-red-400 rounded-full animate-pulse"></span>
-                            <h5 class="text-[12px] font-bold text-red-700">데이터 갱신 지연 알림</h5>
-                        </div>
-                        <p class="text-[11px] text-red-600 leading-relaxed ml-4">
-                            넥슨 오픈 API의 특성상 게임 내 정보가 웹에 반영되기까지 **최대 15~30분** 정도의 시차가 발생할 수 있습니다.
+                        <p class="text-[11px] text-red-600 leading-relaxed font-medium">
+                            • 본 프로그램은 Nexon Open API 기반으로 데이터를 수집하며, 실제 인게임 정보와 약간의 시차가 있을 수 있습니다.<br>
                         </p>
                     </div>
+                </div>
 
-                    <div class="bg-amber-50 p-4 rounded-2xl border border-amber-100 shadow-sm">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="w-2 h-2 bg-amber-400 rounded-full"></span>
-                            <h5 class="text-[12px] font-bold text-amber-700">진단 점수 참고용 사용</h5>
-                        </div>
-                        <p class="text-[11px] text-amber-600 leading-relaxed ml-4">
-                            본 점수는 MECULATOR 엔진의 자체 로직(아이템 레벨, 등급 비중 등)을 기반으로 합니다. 강화 여부 결정 시 **보조 지표**로만 활용하세요. (기준점: 별,추옵: 100점, 잠재능력: 99점, 에디셔널: 40점)
+                <br>
+
+                <div x-show="helpTab === 'notice'" class="space-y-4 animate-fade-in">
+                    <div class="bg-red-50 p-4 rounded-2xl border border-red-100 shadow-sm">
+                        <p class="text-[11px] text-red-600 leading-relaxed font-medium">
+                            • 아이템 점수는 통계적 가중치를 기반으로 산출된 권장 지표입니다.
                         </p>
                     </div>
+                </div>
 
-                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                        <h5 class="text-[11px] font-bold text-slate-600 mb-2 italic">Tip: 특수 직업 사용불가</h5>
-                        <p class="text-[10px] text-slate-400 leading-relaxed">현재 데몬어벤저, 제논 직업의 경우 출력이 되지 않습니다. 양해 바랍니다.</p>
+                <br>
+
+                <div x-show="helpTab === 'notice'" class="space-y-4 animate-fade-in">
+                    <div class="bg-red-50 p-4 rounded-2xl border border-red-100 shadow-sm">
+                        <p class="text-[11px] text-red-600 leading-relaxed font-medium">
+                            • 현재 제논, 데몬어벤저 직업군은 출력이 되지 않습니다. 양해 바랍니다
+                        </p>
                     </div>
                 </div>
             </div>
-            <button @click="showHelp = false" class="w-full mt-8 py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-[0.98] border-b-4 bg-slate-900 text-white border-slate-700 hover:bg-slate-800">확인</button>
+
+            <button @click="showHelp = false" class="w-full mt-8 py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-[0.98] border-b-4 bg-slate-900 text-white border-slate-700 hover:bg-slate-800">
+                확인
+            </button>
         </div>
     </div>
 </div>

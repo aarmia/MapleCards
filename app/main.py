@@ -164,7 +164,7 @@ async def check_items(character_name: str):
                     # 단계별 스타포스 성장 제안
                     if star_val <= 18:
                         target_star = 21 if max_star_possible >= 21 else max_star_possible
-                        return f"⚔️ [1단계 강화] 베이스가 훌륭합니다. 우선 안전하게 '{target_star}성 안착'을 목표로 강화를 추천합니다."
+                        return f"⚔️ [단계적 강화] 베이스가 훌륭합니다. 우선 '{target_star}성 안착'을 목표로 강화를 추천합니다."
 
                     if star_val < 22:
                         # 밸런스 붕괴 확인
@@ -176,7 +176,7 @@ async def check_items(character_name: str):
 
             elif total_score >= 250:
                 if star_val < 17 and 3 in eval_indices:
-                    return "📦 [가성비 강화] 최소 18성 달성 후 잠재능력을 손보는 것이 효율적입니다."
+                    return "📦 [가성비 강화] 최소 17 ~ 18성 달성 후 잠재능력을 손보는 것이 효율적입니다."
                 return f"📈 [효율 투자 / 교체] '{worst_label}'부터 차근차근 올리거나, 상위 아이템으로 교체를 추천합니다."
             else:
                 return "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다."
