@@ -165,7 +165,21 @@ async def check_items(character_name: str):
             elif total_score >= 300:
                 # 330점 이상 준종결 관리
                 if total_score >= 330:
-                    return f"💎 [준종결] 종결급 체급입니다. 마지막 퍼즐인 '{worst_label}' 수치 보완을 추천합니다."
+
+                    target_star = 23 if item_req_level <= 160 else 22
+
+                    # 목표치 미달 시 스타포스 우선 추천
+                    if star_val < target_star and 3 in eval_indices:
+                        return f"⚔️ [스타포스 권장] 체급에 걸맞은 '{target_star}성' 달성이 시급합니다. 우선적으로 {star_val + 1}성 강화를 최우선하세요."
+
+                    if worst_label == "추가옵션":
+                        return "💎 [준종결] 베이스가 훌륭합니다. 추옵이 1% 아쉬운 상황이니 조금 더 높은 추옵을 노려보세요."
+                    elif worst_label == "윗잠재":
+                        return "💎 [준종결] 체급은 완성되었습니다. 잠재능력을 조금 더 높은 단계로 끌어올릴 차례입니다."
+                    elif worst_label == "에디셔널":
+                        return "💎 [준종결] 장비의 뼈대는 완벽합니다. 에디셔널을 더 완벽하게 만드는 것이 종결의 열쇠입니다."
+                    else:
+                        return f"💎 [준종결] 종결급 체급입니다. 마지막 퍼즐인 '{worst_label}' 수치 보완을 추천합니다."
 
                 if 3 in eval_indices:
                     # 강화 한계 도달 확인
