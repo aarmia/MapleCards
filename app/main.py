@@ -60,11 +60,22 @@ async def check_items(character_name: str):
         basic_info = await nexon_api.get_character_basic(ocid)
         item_data = await nexon_api.get_character_item(ocid)
 
+        stat_data = await nexon_api.get_character_stat(ocid)
+
         if not basic_info or not item_data:
             return {"error": "데이터를 불러오는 데 실패했습니다."}
 
         char_class = basic_info.get("character_class")
         char_level = int(basic_info.get("character_level", 0))
+
+        char_image = basic_info.get("character_image", "")
+
+        combat_power = 0
+        if stat_data and "final_stat" in stat_data:
+            for stat in stat_data["final_stat"]:
+                if stat.get("stat_name") == "전투력":
+                    combat_power = stat.get("stat_value")
+                    break
 
         best_preset_idx = nexon_api.get_best_preset(item_data, char_class, char_level)
         items = item_data.get(f"item_equipment_preset_{best_preset_idx}")
@@ -244,5 +255,6 @@ async def check_items(character_name: str):
         all_sorted_results = sorted(evaluate_list, key=lambda x: x["total_score"])
         return {
             "character": character_name, "class": char_class, "level": char_level,
+            "character_image": char_image, "combat_power": combat_power,
             "best_preset": best_preset_idx, "results": all_sorted_results
         }
