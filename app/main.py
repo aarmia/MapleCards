@@ -22,7 +22,7 @@ app = FastAPI()
 nexon_api = NexonAPIHandler()
 card_gen = CardGenerator()
 
-# [추가] 서버 세마포어 설정 (동시 API 처리 인원을 10명으로 제한)
+# 서버 세마포어 설정 (동시 API 처리 인원을 10명으로 제한)
 api_semaphore = asyncio.Semaphore(10)
 
 # 경로 설정
@@ -35,7 +35,7 @@ else:
     print(f"⚠️ Warning: Static directory not found at {static_dir}")
 
 
-# [추가] 파비콘 404 에러 방지 핸들러
+# 파비콘 404 에러 방지 핸들러
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     favicon_path = os.path.join(static_dir, "favicon.ico")
@@ -51,7 +51,7 @@ async def read_root(request: Request):
 
 @app.get("/check-items/{character_name}")
 async def check_items(character_name: str):
-    # [적용] 세마포어를 사용하여 넥슨 API 호출 구간 보호
+    # 세마포어를 사용하여 넥슨 API 호출 구간 보호
     async with api_semaphore:
         ocid = await nexon_api.get_ocid(character_name)
         if not ocid:
@@ -122,9 +122,15 @@ async def check_items(character_name: str):
 
             return round(max(0, score), 2)
 
-        # --- [헬퍼 함수 2: 세분화된 가이드 생성 (개선 버전)] ---
+        # --- [헬퍼 함수 2: 공통 스타포스 점수 계산] ---
+        def get_starforce_score(star, level):
+            if level <= 0: return 0.0
+            weight = 1.0 + (level - 200) / 600.0
+            base22 = 100.0 * ((min(star, 22) / 22.0) ** 2) * weight
+            return base22 if star <= 22 else base22 + (3.0 * math.log(star - 21))
+
+        # --- [헬퍼 함수 3: 세분화된 가이드 생성] ---
         def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_req_level):
-            # 특수 아이템 처리
             target_hearts = ["리튬 하트", "페어리 하트", "플라즈마 하트"]
             black_heart = ["블랙 하트"]
             if any(heart in item_name for heart in target_hearts):
@@ -132,7 +138,6 @@ async def check_items(character_name: str):
             if any(heart in item_name for heart in black_heart):
                 return "🚨 블랙 하트는 점수 환산을 지원하지 않습니다."
 
-            # 스타포스 한계치 계산
             max_star_possible = 30
             if item_req_level < 128:
                 max_star_possible = 15
@@ -140,10 +145,11 @@ async def check_items(character_name: str):
                 max_star_possible = 20
 
             labels = ["추가옵션", "윗잠재", "에디셔널", "스타포스"]
-            max_bench = [135, 118.8, 50, 110]
+            max_bench = [110, 108, 40, 105]
 
             eval_indices = [1, 2]
-            if not any(k in part_name for k in ["반지", "어깨장식", "기계 심장"]):
+            # [수정] 보조무기, 엠블렘은 추옵/스타포스가 없으므로 평가 대상에서 완벽히 제외
+            if not any(k in part_name for k in ["반지", "어깨장식", "기계 심장", "보조무기", "엠블렘"]):
                 eval_indices.append(0)
             if not any(k in part_name for k in ["보조무기", "엠블렘"]):
                 eval_indices.append(3)
@@ -154,23 +160,22 @@ async def check_items(character_name: str):
             worst_idx = eval_indices[valid_ratios.index(min_ratio)]
             worst_label = labels[worst_idx]
 
-            # [점수대별 가이드 로직]
             if total_score >= 350:
                 if star_val >= 22 or star_val >= max_star_possible:
                     if scores[2] <= 43:
-                        return "♻️ [에디/교체 권장] 추옵과 윗잠 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요"
-                    return f"🌌 [종결] 완벽한 장비입니다. {star_val + 1}성 도전 외엔 투자가 무의미합니다."
+                        return "✨ [에디/교체 권장] 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요"
+                    return f"👑 [종결] 완벽한 장비입니다. {star_val + 1}성 도전 외엔 투자가 무의미합니다."
                 return f"🔍 [미세조정] 종결급이나 '{worst_label}'이(가) 평균보다 낮습니다."
 
             elif total_score >= 300:
-                # 330점 이상 준종결 관리
                 if total_score >= 330:
+                    if star_val >= 23:
+                        return "✨ [종결 / 상위매물 교체] 23성 이상 도달한 장비입니다. 추가 강화보다는 이대로 사용하시거나, 상위 등급의 베이스 아이템 매물로 교체하는 것을 추천합니다."
 
                     target_star = 23 if item_req_level <= 160 else 22
 
-                    # 목표치 미달 시 스타포스 우선 추천
                     if star_val < target_star and 3 in eval_indices:
-                        return f"⚔️ [스타포스 권장] 체급에 걸맞은 '{target_star}성' 달성이 시급합니다. 우선적으로 {star_val + 1}성 강화를 최우선하세요."
+                        return f"⭐ [스타포스 권장] 체급에 걸맞은 '{target_star}성' 달성이 시급합니다. 우선적으로 {star_val + 1}성 강화를 최우선하세요."
 
                     if worst_label == "추가옵션":
                         return "💎 [준종결] 베이스가 훌륭합니다. 추옵이 1% 아쉬운 상황이니 조금 더 높은 추옵을 노려보세요."
@@ -182,17 +187,14 @@ async def check_items(character_name: str):
                         return f"💎 [준종결] 종결급 체급입니다. 마지막 퍼즐인 '{worst_label}' 수치 보완을 추천합니다."
 
                 if 3 in eval_indices:
-                    # 강화 한계 도달 확인
                     if star_val >= max_star_possible:
                         return f"✅ [강화 한계] 최대치까지 강화되었습니다. 이제 부족한 '{worst_label}'에 집중하세요."
 
-                    # 단계별 스타포스 성장 제안
                     if star_val <= 18:
                         target_star = 21 if max_star_possible >= 21 else max_star_possible
                         return f"⚔️ [단계적 강화] 베이스가 훌륭합니다. 우선 '{target_star}성 안착'을 목표로 강화를 추천합니다."
 
                     if star_val < 22:
-                        # 밸런스 붕괴 확인
                         if min_ratio < 0.25:
                             return f"🚨 [밸런스 보완] 스타포스보다 급한 것은 '{worst_label}'입니다. 밸런스를 먼저 맞춰주세요."
                         return "📈 [상위 강화] 22성 도전의 가치가 있는 베이스입니다. 22성 강화를 고려하세요."
@@ -206,27 +208,50 @@ async def check_items(character_name: str):
             else:
                 return "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다."
 
+        # --- [아이템 개별 평가 루프] ---
         for item in items:
-            part = item.get("item_equipment_part")
-            name = item.get("item_name")
-            icon = item.get("item_icon")
+            slot = item.get("item_equipment_slot", "")
+            part = item.get("item_equipment_part", "")
+            name = item.get("item_name", "")
+            icon = item.get("item_icon", "")
             star = int(item.get("starforce", 0))
             item_req_level = int(item.get("item_base_option", {}).get("base_equipment_level", 0))
 
-            adv_star_score = 0.0
-            if item_req_level > 0:
-                level_weight = 1.0 + (item_req_level - 200) / 600.0
-                base22 = 100.0 * ((min(star, 22) / 22.0) ** 2) * level_weight
-                adv_star_score = base22 if star <= 22 else base22 + (3.0 * math.log(star - 21))
+            # [핵심] 무기류와 방어구를 분리하여 로직 적용
+            is_weapon = any(k in slot for k in ["무기", "보조무기", "엠블렘"])
 
-            pot_val = nexon_api.calculate_potential_score(item, "potential", char_class, char_level)
-            pot_score = (pot_val * 3.3) if pot_val > 0 else 0
-            eddy_val = nexon_api.calculate_potential_score(item, "additional_potential", char_class, char_level)
-            eddy_score = (eddy_val * 2.5) if eddy_val > 0 else 0
+            if is_weapon:
+                if any(k in slot for k in ["보조무기", "엠블렘"]):
+                    add_score = 100.0  # 보조/엠블렘은 추옵 100점 고정 보정
+                    adv_star_score = 100.0  # 스타포스 100점 고정 보정
+                else:
+                    # 무기 전용 추가옵션 계산 및 350점 척도 스케일링 (* 2.0)
+                    weapon_add_val = nexon_api.calculate_weapon_add_option_score(item, char_class)
+                    add_score = weapon_add_val * 2.0
+                    adv_star_score = get_starforce_score(star, item_req_level)
 
-            actual_add_급수 = nexon_api.calculate_item_score(item.get("item_add_option", {}), char_class)
-            add_score = get_advanced_add_score(actual_add_급수, item_req_level, part)
+                # 무기 전용 잠재능력 계산 및 스케일링 (* 3.3, * 2.5)
+                weapon_pot_val = nexon_api.calculate_weapon_potential_score(item, "potential", char_class)
+                pot_score = (weapon_pot_val * 3.3) if weapon_pot_val > 0 else 0
 
+                weapon_eddy_val = nexon_api.calculate_weapon_potential_score(item, "additional_potential", char_class)
+                eddy_score = (weapon_eddy_val * 2.5) if weapon_eddy_val > 0 else 0
+
+                pot_val = weapon_pot_val  # -1 필터링 통과용
+
+            else:
+                # 기존 방어구 계산 로직
+                actual_add_급수 = nexon_api.calculate_item_score(item.get("item_add_option", {}), char_class)
+                add_score = get_advanced_add_score(actual_add_급수, item_req_level, part)
+                adv_star_score = get_starforce_score(star, item_req_level)
+
+                pot_val = nexon_api.calculate_potential_score(item, "potential", char_class, char_level)
+                pot_score = (pot_val * 3.3) if pot_val > 0 else 0
+
+                eddy_val = nexon_api.calculate_potential_score(item, "additional_potential", char_class, char_level)
+                eddy_score = (eddy_val * 2.5) if eddy_val > 0 else 0
+
+            # 총점 합산
             total_item_score = add_score + pot_score + eddy_score + adv_star_score
 
             special_rings = ["리스트레인트", "컨티뉴어스", "웨폰퍼프"]
@@ -238,7 +263,7 @@ async def check_items(character_name: str):
                                                total_item_score, name, item_req_level)
 
                 evaluate_list.append({
-                    "part": part, "name": name, "icon": icon, "star": star,
+                    "is_wse": is_weapon, "part": part, "name": name, "icon": icon, "star": star,
                     "total_score": round(total_item_score, 2),
                     "guide": guide_text,
                     "detail": {
