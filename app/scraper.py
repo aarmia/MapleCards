@@ -233,3 +233,95 @@ class NexonAPIHandler:
 
         # 가장 점수가 높은 프리셋 번호 반환 (모두 0이면 현재 착용 중인 1번 기본)
         return max(preset_scores, key=preset_scores.get)
+
+    def calculate_weapon_add_option_score(self, item_data: dict, class_name: str) -> float:
+        """
+        무기 추가옵션을 '공격력 %' 수치로 환산합니다.
+        (제논, 데몬어벤져는 특수 스탯 체계를 사용하므로 계산에서 제외합니다.)
+        """
+        # 1. 특수 직업군 제외 로직
+        if class_name in ["제논", "데몬어벤져"]:
+            return 0.0
+
+        add_option = item_data.get("item_add_option", {})
+        base_option = item_data.get("item_base_option", {})
+
+        if not add_option or not base_option:
+            return 0.0
+
+        # 직업별 공/마 타겟 설정
+        main_stat = self.get_main_stat(class_name)
+        target_atk_key = "magic_power" if main_stat == "int" else "attack_power"
+
+        # 기본 공격력 및 추가 공격력 수치
+        base_atk = int(base_option.get(target_atk_key, 0))
+        add_atk = int(add_option.get(target_atk_key, 0))
+
+        if base_atk == 0:
+            return 0.0
+
+        # 2. 핵심 계산: 순수 공추옵을 공% 점수로 환산
+        # (추가공격력 / 기본공격력 * 100)
+        atk_score = (add_atk / base_atk) * 100
+
+        # 3. 부가 옵션 환산 (창윤님이 정해주신 공% 환산 기준 적용)
+        # 보공/데미지: 1% = 0.275점, 올스탯: 1% = 0.2475점
+        boss_dmg_score = int(add_option.get("boss_damage", 0)) * 0.275
+        dmg_score = int(add_option.get("damage", 0)) * 0.275
+        all_stat_score = int(add_option.get("all_stat", 0)) * 0.2475
+
+        # 주스탯 정수치는 무기에서 영향력이 적으므로 0.05 가중치 유지
+        target_stat_score = int(add_option.get(main_stat, 0)) * 0.05
+
+        total_score = atk_score + boss_dmg_score + dmg_score + all_stat_score + target_stat_score
+
+        return round(total_score, 2)
+
+    def calculate_weapon_potential_score(self, item_data: dict, potential_type: str, class_name: str) -> float:
+        """무보엠 전용: 올스탯%를 포함하여 모든 옵션을 '공격력/마력 %' 수치로 환산합니다."""
+        slot = item_data.get("item_equipment_slot", "")
+        part = item_data.get("item_equipment_part", "")
+        is_wse = any(k in slot for k in ["무기", "보조무기"]) or "엠블렘" in part
+        if not is_wse:
+            return 0.0
+
+        main_stat = self.get_main_stat(class_name)
+        target_atk = "마력" if main_stat == "int" else "공격력"
+        target_stat = main_stat.upper()
+
+        options = [
+            item_data.get(f"{potential_type}_option_1"),
+            item_data.get(f"{potential_type}_option_2"),
+            item_data.get(f"{potential_type}_option_3")
+        ]
+
+        total_converted_atk_pct = 0.0
+
+        for opt in options:
+            if not opt: continue
+
+            val_match = re.search(r'\+(\d+)%', opt)
+            if not val_match: continue
+            val = int(val_match.group(1))
+
+            # 1. 공격력/마력 % (1:1)
+            if target_atk in opt and "%" in opt:
+                total_converted_atk_pct += val
+
+            # 2. 보스 데미지 / 데미지 (1% = 0.275)
+            elif "데미지" in opt:
+                total_converted_atk_pct += val * 0.275
+
+            # 3. 방어율 무시 (1% = 0.1875)
+            elif "방어율 무시" in opt:
+                total_converted_atk_pct += val * 0.1875
+
+            # 4. 올스탯 % (1% = 0.2475) -> 주스탯%의 1.1배
+            elif "올스탯" in opt and "%" in opt:
+                total_converted_atk_pct += val * 0.2475
+
+            # 5. 주스탯 % (1% = 0.225)
+            elif target_stat in opt and "%" in opt:
+                total_converted_atk_pct += val * 0.225
+
+        return round(total_converted_atk_pct, 2)
