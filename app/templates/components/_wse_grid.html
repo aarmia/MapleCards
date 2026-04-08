@@ -1,0 +1,75 @@
+<template x-for="(item, index) in getFilteredItems()" :key="item.name + index">
+    <div class="bg-slate-900 text-white rounded-3xl shadow-xl overflow-hidden flex flex-col border border-slate-700 h-full">
+        <div class="p-5 border-b border-slate-800 flex items-center gap-4 bg-slate-800/50">
+            <div class="p-2 bg-slate-800 rounded-xl border border-slate-700 shadow-inner">
+                <img :src="item.icon" class="w-10 h-10 object-contain">
+            </div>
+            <div class="overflow-hidden">
+                <h2 class="text-sm font-black tracking-tight truncate" x-text="item.name"></h2>
+                <p class="text-[10px] text-slate-400 font-bold uppercase">
+                    <span class="text-yellow-400" x-text="item.star + '★'"></span> | <span x-text="item.part"></span>
+                </p>
+            </div>
+        </div>
+
+        <div class="p-5 flex-1 flex flex-col gap-6">
+            <div class="h-[210px] overflow-y-auto custom-scrollbar pr-2">
+                <h4 class="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest">Base Options</h4>
+                <div class="space-y-1.5">
+                    <template x-for="(label, key) in labelMap" :key="key">
+                        <div x-show="getTotalStat(item, key) !== 0" class="flex justify-start items-center text-[11px] gap-2">
+                            <span class="text-slate-400 font-medium min-w-[75px]" x-text="label"></span>
+                            <div class="font-bold text-white flex flex-wrap items-center">
+                                <span x-text="formatTotalStat(item, key, label)"></span>
+                                <span class="text-[9px] ml-1 opacity-80 font-bold">
+                                    (<span x-text="getSafeValue(item.raw_options.base[key])"></span><span style="color: #00ff9d;" x-show="getSafeValue(item.raw_options.add[key]) > 0" x-text="' +' + getSafeValue(item.raw_options.add[key])"></span><span style="color: #00d4ff;" x-show="getSafeValue(item.raw_options.etc[key]) > 0" x-text="' +' + getSafeValue(item.raw_options.etc[key])"></span><span style="color: #ffcc00;" x-show="getSafeValue(item.raw_options.starforce[key]) > 0" x-text="' +' + getSafeValue(item.raw_options.starforce[key])"></span><span style="color: #ff4d4d;" x-show="getSafeValue(item.raw_options.exceptional?.[key]) > 0" x-text="' +' + getSafeValue(item.raw_options.exceptional[key])"></span>)
+                                </span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <div x-show="item.raw_options.potential_grade" class="pt-4 border-t border-slate-800">
+                <div class="flex items-center gap-2 mb-2">
+                    <h4 class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Potential</h4>
+                    <span class="text-[9px] font-black px-2 py-0.5 rounded-full border text-white"
+                          :style="`border-color: ${getGradeColor(item.raw_options.potential_grade)}; background-color: ${getGradeColor(item.raw_options.potential_grade)}20`"
+                          x-text="item.raw_options.potential_grade"></span>
+                </div>
+                <ul class="space-y-1.5">
+                    <template x-for="opt in item.raw_options.potential_options">
+                        <li x-show="opt" class="text-[11px] font-bold text-slate-200 flex items-start gap-2">
+                            <span class="mt-1.5 w-1 h-1 rounded-full flex-none"
+                                  :style="`background-color: ${getOptionLineColor(opt, item.level, item.is_wse, item.raw_options.potential_grade)}`"></span>
+                            <span x-text="opt"></span>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+
+            <div x-show="item.raw_options.additional_grade" class="pt-4 border-t border-slate-800">
+                <div class="flex items-center gap-2 mb-2">
+                    <h4 class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Additional</h4>
+                    <span class="text-[9px] font-black px-2 py-0.5 rounded-full border text-white"
+                          :style="`border-color: ${getGradeColor(item.raw_options.additional_grade)}; background-color: ${getGradeColor(item.raw_options.additional_grade)}20`"
+                          x-text="item.raw_options.additional_grade"></span>
+                </div>
+                <ul class="space-y-1.5">
+                    <template x-for="opt in item.raw_options.additional_options">
+                        <li x-show="opt" class="text-[11px] font-bold text-slate-200 flex items-start gap-2">
+                            <span class="mt-1.5 w-1 h-1 rounded-full flex-none"
+                                  :style="`background-color: ${getOptionLineColor(opt, item.level, item.is_wse, item.raw_options.additional_grade, true)}`"></span>
+                            <span x-text="opt"></span>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+        </div>
+
+        <div class="px-5 py-4 bg-blue-600/10 border-t border-slate-800 flex justify-between items-center">
+            <span class="text-[9px] font-bold text-blue-400 uppercase tracking-widest">WSE Score</span>
+            <span class="text-xl font-black text-blue-400" x-text="item.total_score"></span>
+        </div>
+    </div>
+</template>

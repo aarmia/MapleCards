@@ -1,0 +1,49 @@
+<div class="bg-white border-t-[12px] border-blue-600 rounded-3xl shadow-xl mb-6 relative overflow-hidden border border-slate-200">
+    <div class="flex flex-col md:flex-row">
+        <div class="w-full md:w-[22%] bg-slate-50 flex flex-col items-center justify-center p-4 border-b md:border-b-0 md:border-r border-slate-100 relative overflow-hidden min-h-[220px]">
+            <img x-show="report.character_image" :src="report.character_image" class="w-full h-auto object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.15)] z-10 scale-[2.0]" alt="Character Image">
+            <div x-show="!report.character_image" class="text-slate-300 font-bold text-xs tracking-widest z-10 flex flex-col items-center">
+                <svg class="w-10 h-10 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                NO IMAGE
+            </div>
+        </div>
+        <div class="flex-1 p-6 md:p-8 flex flex-col justify-between">
+            <div class="flex flex-col md:flex-row justify-between items-start gap-6 mb-8">
+                <div>
+                    <h1 class="text-2xl font-black text-slate-800 tracking-tight uppercase flex items-center gap-2">
+                        <span class="text-blue-600">✚</span> Diagnosis Report
+                    </h1>
+                    <p class="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-1">Meculator Precision Scan</p>
+                </div>
+                <div class="flex flex-col gap-4 text-left md:text-right w-full md:w-auto">
+                    <div class="flex flex-col md:items-end">
+                        <span class="text-[10px] font-black text-red-400 uppercase tracking-widest block mb-1">Combat Power</span>
+                        <span class="text-3xl md:text-4xl font-black text-red-500 tracking-tighter" x-text="report.combat_power ? Number(report.combat_power).toLocaleString() : 'N/A'"></span>
+                    </div>
+                    <div class="flex flex-col md:items-end">
+                        <span class="text-[10px] font-black text-blue-400 uppercase tracking-widest block mb-1">Total Score</span>
+                        <span class="text-3xl md:text-4xl font-black text-blue-600 tracking-tighter" x-text="report.results ? report.results.filter(i => !i.is_wse).reduce((acc, item) => acc + item.total_score, 0).toLocaleString() : 0"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm border-t border-slate-100 pt-6">
+                <div class="flex flex-col gap-1 md:border-r md:border-slate-100 md:pr-4">
+                    <span class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Patient</span>
+                    <span class="font-bold text-slate-700 truncate" x-text="report.character"></span>
+                </div>
+                <div class="flex flex-col gap-1 md:border-r md:border-slate-100 md:pr-4">
+                    <span class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Job Class</span>
+                    <span class="font-bold text-slate-700 truncate" x-text="report.class"></span>
+                </div>
+                <div class="flex flex-col gap-1 md:border-r md:border-slate-100 md:pr-4">
+                    <span class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Level</span>
+                    <span class="font-bold text-slate-700" x-text="'Lv. ' + report.level"></span>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <span class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Date</span>
+                    <span class="font-bold text-slate-700" x-text="getTodayDate()"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
