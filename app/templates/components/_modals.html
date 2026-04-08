@@ -115,26 +115,62 @@
             </div>
 
             <div x-show="helpTab === 'score'" class="space-y-6 animate-fade-in">
-                <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                    <h4 class="font-bold text-slate-800 mb-2">📊 아이템별 종합 점수 산출</h4>
+                <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <h4 class="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                        <span>📊</span> 아이템별 종합 점수 산출
+                    </h4>
                     <p class="text-xs text-slate-500 leading-relaxed">추가옵션, 잠재능력, 에디셔널, 스타포스 등 모든 수치를 주스탯 및 공격력 수치로 환산하여 합산합니다. 장비 레벨과 부위별 가중치가 적용되어 실질적인 기여도를 평가합니다.</p>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="p-4 border border-slate-100 rounded-xl">
-                        <span class="text-[10px] font-bold text-blue-500 uppercase tracking-widest block mb-1">Transcendence</span>
-                        <span class="text-lg font-black text-slate-800">360+ 점</span>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="p-3 border border-blue-100 bg-blue-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
+                        <span class="text-[9px] font-bold text-blue-600 uppercase tracking-tighter mb-1">Transcendence</span>
+                        <span class="text-base font-black text-slate-800">SSS+</span>
+                        <span class="text-[10px] text-slate-500">360+ 점</span>
                     </div>
-                    <div class="p-4 border border-slate-100 rounded-xl">
-                        <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest block mb-1">Legendary</span>
-                        <span class="text-lg font-black text-slate-800">350+ 점</span>
+
+                    <div class="p-3 border border-emerald-100 bg-emerald-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
+                        <span class="text-[9px] font-bold text-emerald-600 uppercase tracking-tighter mb-1">Legendary</span>
+                        <span class="text-base font-black text-slate-800">SSS</span>
+                        <span class="text-[10px] text-slate-500">350+ 점</span>
                     </div>
-                    <div class="p-4 border border-slate-100 rounded-xl">
-                        <span class="text-[10px] font-bold text-amber-500 uppercase tracking-widest block mb-1">Unique</span>
-                        <span class="text-lg font-black text-slate-800">300+ 점</span>
+                    <div class="p-3 border border-emerald-100 bg-emerald-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
+                        <span class="text-[9px] font-bold text-emerald-600 uppercase tracking-tighter mb-1">Legendary</span>
+                        <span class="text-base font-black text-slate-800">SS</span>
+                        <span class="text-[10px] text-slate-500">300+ 점</span>
                     </div>
-                    <div class="p-4 border border-slate-100 rounded-xl">
-                        <span class="text-[10px] font-bold text-violet-500 uppercase tracking-widest block mb-1">Epic</span>
-                        <span class="text-lg font-black text-slate-800">250+ 점</span>
+
+                    <div class="p-3 border border-amber-100 bg-amber-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
+                        <span class="text-[9px] font-bold text-amber-600 uppercase tracking-tighter mb-1">Unique</span>
+                        <span class="text-base font-black text-slate-800">S</span>
+                        <span class="text-[10px] text-slate-500">250+ 점</span>
+                    </div>
+                    <div class="p-3 border border-amber-100 bg-amber-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
+                        <span class="text-[9px] font-bold text-amber-600 uppercase tracking-tighter mb-1">Unique</span>
+                        <span class="text-base font-black text-slate-800">A</span>
+                        <span class="text-[10px] text-slate-500">200+ 점</span>
+                    </div>
+
+                    <div class="p-3 border border-violet-100 bg-violet-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
+                        <span class="text-[9px] font-bold text-violet-600 uppercase tracking-tighter mb-1">Epic</span>
+                        <span class="text-base font-black text-slate-800">B</span>
+                        <span class="text-[10px] text-slate-500">150+ 점</span>
+                    </div>
+                    <div class="p-3 border border-violet-100 bg-violet-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
+                        <span class="text-[9px] font-bold text-violet-600 uppercase tracking-tighter mb-1">Epic</span>
+                        <span class="text-base font-black text-slate-800">C</span>
+                        <span class="text-[10px] text-slate-500">100+ 점</span>
+                    </div>
+
+                    <div class="p-3 border border-red-100 bg-red-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
+                        <span class="text-[9px] font-bold text-red-600 uppercase tracking-tighter mb-1">Rare</span>
+                        <span class="text-base font-black text-slate-800">D</span>
+                        <span class="text-[10px] text-slate-500">50+ 점</span>
+                    </div>
+                    <div class="p-3 border border-red-100 bg-red-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
+                        <span class="text-[9px] font-bold text-red-600 uppercase tracking-tighter mb-1">Rare</span>
+                        <span class="text-base font-black text-slate-800">F</span>
+                        <span class="text-[10px] text-slate-500">50- 점</span>
                     </div>
                 </div>
             </div>
