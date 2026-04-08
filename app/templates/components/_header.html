@@ -1,0 +1,19 @@
+<div class="transition-layout flex flex-col items-center"
+     :class="report ? 'md:flex-row md:justify-between md:items-end mb-8 gap-4' : 'mb-12'">
+    <div class="flex items-start">
+        <div @click="reset()" class="cursor-pointer transition-layout group relative" :class="report ? 'w-48 md:w-56' : 'w-72 md:w-96 mb-3'">
+            <img src="/static/images/logo.png" alt="MECULATOR Logo" class="w-full h-auto drop-shadow-sm group-hover:opacity-80 transition-opacity">
+        </div>
+        <button @click="showHelp = true; helpTab = 'guide'" class="ml-2 p-2 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-blue-600 mt-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        </button>
+    </div>
+
+    <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex gap-2 transition-layout" :class="report ? 'w-full md:w-[36rem] shadow-none border-b-2 rounded-none bg-transparent border-slate-300' : 'w-full'">
+        <input x-model="nickname" @keyup.enter="fetchReport()" type="text" placeholder="캐릭터 닉네임 입력" class="flex-1 border-none bg-slate-100/50 rounded-xl px-4 py-2 outline-none transition-all font-medium" :class="report ? 'text-base bg-white' : 'text-lg'">
+        <button @click="fetchReport()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-all min-w-[100px]">
+            <span x-show="!loading" x-text="report ? '재검진' : '검진 시작'"></span>
+            <span x-show="loading" class="animate-spin inline-block">⏳</span>
+        </button>
+    </div>
+</div>

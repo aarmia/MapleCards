@@ -1,0 +1,47 @@
+<template x-for="(item, index) in getFilteredItems()" :key="item.name + index">
+    <div class="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col md:flex-row gap-6 shadow-sm animate-fade-in" :class="viewMode === 'top5' ? 'border-l-4 border-l-red-400' : ''">
+
+        <div class="flex flex-col items-center justify-center min-w-[80px]">
+            <span class="text-[9px] font-black mb-2 tracking-widest uppercase text-slate-400" x-text="viewMode === 'all' ? 'Rank ' + (index+1) : 'Priority ' + (index+1)"></span>
+            <div @click="openItemDetail(item)" class="relative p-2 rounded-2xl cursor-pointer hover:scale-110 transition-transform active:scale-95 group" :class="getBorderColor(item.total_score)">
+                <img :src="item.icon" class="w-12 h-12 object-contain drop-shadow-sm">
+                <span class="absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white shadow-sm bg-slate-900 text-white" x-text="item.star + '★'"></span>
+            </div>
+        </div>
+
+        <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+                <h3 class="font-black text-slate-800 tracking-tight text-lg" x-text="item.name"></h3>
+                <span class="text-[9px] px-2 py-1 rounded font-black bg-blue-600 text-white uppercase tracking-tighter" x-text="item.guide ? item.guide.match(/\[(.*?)\]/)[1] : 'INFO'"></span>
+            </div>
+            <div class="rounded-xl p-3 border mb-4 shadow-sm" :class="getGuideStyle(item.guide)">
+                <p class="text-[13px] leading-snug font-bold" x-text="item.guide ? item.guide.replace(/\[.*?\]/, '').trim() : ''"></p>
+            </div>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-3">
+                <template x-for="(val, key) in item.detail">
+                    <div class="relative">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[9px] font-bold text-slate-400 uppercase" x-text="key == 'pot_additional' ? '에디셔널' : key == 'pot' ? '잠재능력' : key == 'add' ? '추가옵션' : '별'"></span>
+                            <span class="text-[11px] font-black text-slate-700" x-text="val"></span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden border border-slate-50">
+                            <div class="h-full transition-all duration-500 rounded-full" :class="getStatColor(val, key)" :style="`width: ${getStatWidth(val, key)}%` "></div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div class="w-full md:w-28 border-t md:border-t-0 md:border-l border-slate-100 flex flex-col justify-center items-center bg-slate-50/50 py-4 relative group">
+            <span class="text-[9px] font-bold text-slate-400 tracking-widest mb-1 uppercase">Total Grade</span>
+
+            <span class="text-4xl font-black tracking-tighter drop-shadow-sm"
+                  :class="getScoreDisplayData(item.total_score).class"
+                  :style="getScoreDisplayData(item.total_score).style"
+                  x-text="getGradeFromScore(item.total_score)"></span>
+
+            <span class="text-sm font-black text-slate-400 mt-1 group-hover:text-slate-600 transition-colors" x-text="item.total_score"></span>
+        </div>
+
+    </div>
+</template>

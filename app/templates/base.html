@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MECULATOR - 장비 딸깍 진단서</title>
+    <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/static/images/favicon.ico" type="image/x-icon">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="/static/js/app.js"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .medical-grid { background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 20px 20px; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; letter-spacing: -0.025em; }
+
+        @keyframes rainbow-flow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .bg-ultimate {
+            background: linear-gradient(270deg, #34d399, #3b82f6, #a855f7, #ec4899);
+            background-size: 400% 400%;
+            animation: rainbow-flow 3s ease infinite;
+        }
+
+        .transition-layout { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-50 medical-grid min-h-screen font-sans text-slate-900 pb-20">
+    <div x-data="meculatorApp"
+         class="max-w-3xl mx-auto py-12 px-4 transition-all duration-500"
+         :class="report ? 'max-w-5xl' : 'max-w-3xl'">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
