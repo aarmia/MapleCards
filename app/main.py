@@ -129,11 +129,15 @@ async def check_items(character_name: str):
 
         # --- [헬퍼 함수 3: 세분화된 가이드 생성] ---
         def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_req_level):
-            target_hearts = ["리튬 하트", "페어리 하트", "플라즈마 하트"]
+            target_hearts = ["리튬 하트", "페어리 하트", "티타늄 하트", "플라즈마 하트"]
+            upgrade_hearts = ["리튬 하트", "페어리 하트", "티타늄 하트"]
             black_heart = ["블랙 하트"]
+            if any(heart in item_name for heart in upgrade_hearts):
+                if total_score >= 225:
+                    return "🚨 [업그레이드 권장] 현재 하트는 성능 한계가 명확합니다. 플라즈마 하트로의 강화를 고려하세요."
             if any(heart in item_name for heart in target_hearts):
                 if total_score >= 275:
-                    return "🚨 [교체 권장] 현재 하트는 성능 한계가 명확합니다. 상위 등급의 아이템으로 교체를 고려하세요."
+                    return "🚨 [교체 권장] 현재 하트는 성능 한계가 명확합니다. 컴플리트 언더컨트롤로의 교체를 고려해야할 시기입니다."
             if any(heart in item_name for heart in black_heart):
                 return "🚨 블랙 하트는 점수 환산을 지원하지 않습니다."
 
@@ -199,7 +203,9 @@ async def check_items(character_name: str):
                 return f"📈 [효율 투자 / 교체] '{worst_label}'부터 차근차근 올리거나, 상위 아이템으로 교체를 추천합니다."
 
             elif total_score >= 175:
-                if star_val < 17 and 3 in eval_indices:
+                is_limited = any(h in item_name for h in ["페어리 하트", "리튬 하트", "티타늄 하트", "이터널 플레임 링", "어웨이크 링", "테네브리스 원정대 반지", "글로리온 링 : 슈프림"])
+
+                if not is_limited and star_val < 17 and 3 in eval_indices:
                     return "📦 [가성비 정체] 베이스는 나쁘지 않으나 스타포스가 낮습니다. 17성 강화 시 점수가 대폭 상승합니다."
 
                 if pot_score < 65:
@@ -214,6 +220,8 @@ async def check_items(character_name: str):
                 if add_score < 82.5 and 0 in eval_indices:
                     return "🌀 [베이스 부실] 추옵이 낮아 투자가 비효율적입니다. 추가옵션의 강화를 추천합니다."
 
+                if is_limited:
+                    return f"✅ [다음 단계 준비] 전반적인 밸런스가 좋습니다. 다음 단계로 넘어가기 위한 업그레이드나 교체를 준비하세요."
                 return f"✅ [다음 단계 준비] 전반적인 밸런스가 좋습니다. 다음 단계로 넘어가기 위한 상위 아이템 교체나 {worst_label} 강화를 준비하세요."
 
             else:
