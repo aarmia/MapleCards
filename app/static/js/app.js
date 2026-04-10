@@ -47,6 +47,9 @@ document.addEventListener('alpine:init', () => {
                 const filtered = this.report.results.filter(item => item.is_wse === true);
                 return [...filtered].reverse();
             }
+            if (this.viewMode === 'special') {
+                return this.report.results.filter(item => item.is_special === true);
+            }
             const nonWseItems = this.report.results.filter(item => !item.is_wse);
             if (this.viewMode === 'all') return nonWseItems;
             return nonWseItems.slice(0, 5);

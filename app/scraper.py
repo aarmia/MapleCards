@@ -20,6 +20,13 @@ class NexonAPIHandler:
         self.headers = {
             "x-nxopen-api-key": self.api_key if self.api_key else ""
         }
+        self.client = None
+
+    async def _get_client(self):
+        # 요청 시점에 클라이언트가 없으면 생성 (싱글톤 패턴)
+        if self.client is None or self.client.is_closed:
+            self.client = httpx.AsyncClient(headers=self.headers, timeout=10.0)
+        return self.client
 
     async def get_ocid(self, character_name: str):
         if not self.api_key:

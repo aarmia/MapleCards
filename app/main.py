@@ -22,8 +22,8 @@ app = FastAPI()
 nexon_api = NexonAPIHandler()
 card_gen = CardGenerator()
 
-# 서버 세마포어 설정 (동시 API 처리 인원을 10명으로 제한)
-api_semaphore = asyncio.Semaphore(10)
+# 서버 세마포어 설정 (동시 API 처리 인원을 5명으로 제한)
+api_semaphore = asyncio.Semaphore(5)
 
 # 경로 설정
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -141,7 +141,7 @@ async def check_items(character_name: str):
             if any(heart in item_name for heart in black_heart):
                 return "🚨 블랙 하트는 점수 환산을 지원하지 않습니다."
 
-                # 2. [추가] 타일런트(슈페리얼) 전용 가이드 로직
+            # 타일런트(슈페리얼) 전용 가이드 로직
             if "타일런트" in item_name:
                 if total_score >= 280:
                     return "✨ [교체 권장] 어느정도 완성된 슈페리얼 아이템입니다. 교체를 원하신다면 지금의 아이템보다 상위의 아이템으로 교체를 추천합니다."
@@ -164,16 +164,34 @@ async def check_items(character_name: str):
                 eval_indices.append(3)
 
             ratios = [scores[i] / max_bench[i] for i in range(4)]
-            valid_ratios = [ratios[i] for i in eval_indices]
-            min_ratio = min(valid_ratios)
-            worst_idx = eval_indices[valid_ratios.index(min_ratio)]
-            worst_label = labels[worst_idx]
+
+            # worst_label 및 next_label (차순위) 계산
+            indexed_ratios = [(ratios[i], labels[i]) for i in eval_indices]
+            indexed_ratios.sort(key=lambda x: x[0])
+            worst_label = indexed_ratios[0][1]
+            next_label = indexed_ratios[1][1] if len(indexed_ratios) > 1 else worst_label
+            min_ratio = indexed_ratios[0][0]
 
             if total_score >= 350:
                 if star_val >= 22 or star_val >= max_star_possible:
-                    if scores[2] <= 43:
+                    # 1. 추가옵션 체크 스킵 대상 확인
+                    no_flame_items = ["숄더", "거대한 공포", "마이스터 링", "가디언", "근원의 속삭임", "황홀한 악몽", "컴플리트 언더컨트롤"]
+                    is_no_flame_item = any(k in item_name for k in no_flame_items)
+
+                    # 2. 추가옵션 체크
+                    if not is_no_flame_item:
+                        target_add = 103.5 if item_req_level <= 200 else 101
+                        if scores[0] < target_add:
+                            return "✨ [추가옵션 강화 / 전승] 추가옵션이 완성되지 않았습니다. 강화하거나, 전승을 고려하세요."
+
+                    # 3. 잠재능력 및 에디셔널 체크
+                    if scores[1] < 101:
+                        return "✨ [잠재능력 강화 / 전승] 베이스는 완벽합니다. 잠재능력 수치를 극대화하기 위해 강화하거나, 전승을 고려하세요."
+                    elif scores[2] <= 43:
                         return "✨ [에디/교체 권장] 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요"
+
                     return f"👑 [종결] 완벽한 장비입니다. {star_val + 1}성 도전 외엔 투자가 무의미합니다."
+
                 return f"🔍 [미세조정] 종결급이나 '{worst_label}'이(가) 평균보다 낮습니다."
 
             elif total_score >= 300:
@@ -203,13 +221,14 @@ async def check_items(character_name: str):
                 return f"📈 [효율 투자 / 교체] '{worst_label}'부터 차근차근 올리거나, 상위 아이템으로 교체를 추천합니다."
 
             elif total_score >= 175:
-                is_limited = any(h in item_name for h in ["페어리 하트", "리튬 하트", "티타늄 하트", "이터널 플레임 링", "어웨이크 링", "테네브리스 원정대 반지", "글로리온 링 : 슈프림"])
+                is_limited = any(h in item_name for h in
+                                 ["페어리 하트", "리튬 하트", "티타늄 하트", "이터널 플레임 링", "어웨이크 링", "테네브리스 원정대 반지", "글로리온 링 : 슈프림"])
 
                 if not is_limited and star_val < 17 and 3 in eval_indices:
                     return "📦 [가성비 정체] 베이스는 나쁘지 않으나 스타포스가 낮습니다. 17성 강화 시 점수가 대폭 상승합니다."
 
-                if pot_score < 65:
-                    if scores[2] <12.5:
+                if scores[1] < 65:
+                    if scores[2] < 12.5:
                         return "🔮 [잠재 / 에디 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다."
                     else:
                         return "🔮 [잠재 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다."
@@ -217,15 +236,29 @@ async def check_items(character_name: str):
                 if scores[2] < 12.5:
                     return "🔮 [에디 부족] 스타포스에 비해 에디셔널 잠재능력이 아쉽습니다. 더 높은 에디셔널 잠재능력을 위해 강화를 추천합니다."
 
-                if add_score < 82.5 and 0 in eval_indices:
+                if scores[0] < 82.5 and 0 in eval_indices:
                     return "🌀 [베이스 부실] 추옵이 낮아 투자가 비효율적입니다. 추가옵션의 강화를 추천합니다."
 
                 if is_limited:
                     return f"✅ [다음 단계 준비] 전반적인 밸런스가 좋습니다. 다음 단계로 넘어가기 위한 업그레이드나 교체를 준비하세요."
-                return f"✅ [다음 단계 준비] 전반적인 밸런스가 좋습니다. 다음 단계로 넘어가기 위한 상위 아이템 교체나 {worst_label} 강화를 준비하세요."
+                return f"✅ [다음 단계 준비] 전반적인 밸런스가 좋습니다. 다음 단계로 넘어가기 위한 상위 아이템 교체나 {next_label} 강화를 준비하세요."
 
             else:
                 return "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다."
+
+        # --- [헬퍼 함수 4: 특수 부위 가이드 생성] ---
+        def get_special_part_guide(total_score, part_name, item_name):
+            if "포켓 아이템" in part_name:
+                if total_score >= 280: return "👑 포켓 부위 종결급 추옵입니다."
+                if total_score >= 200: return "✅ 준수한 가성비 성배입니다."
+                return "🚨 더 높은 급수의 성배(80급 이상)로 교체를 추천합니다."
+            if "뱃지" in part_name:
+                if any(k in item_name for k in ["창세", "칠요"]): return "👑 상위 티어 뱃지를 착용 중입니다."
+                return "💡 칠요의 뱃지 혹은 창세의 뱃지로의 업그레이드 목표를 잡으세요."
+            if "훈장" in part_name:
+                if any(k in item_name for k in ["칠요", "카루타", "멸살"]): return "👑 종결급 훈장입니다."
+                return "💡 더 높은 등급의 훈장 획득을 권장합니다."
+            return "✅ 해당 부위는 표준 성능을 보여주고 있습니다."
 
         # --- [아이템 개별 평가 루프] ---
         for item in items:
@@ -237,17 +270,60 @@ async def check_items(character_name: str):
             item_req_level = int(item.get("item_base_option", {}).get("base_equipment_level", 0))
 
             is_weapon = any(k in slot for k in ["무기", "보조무기", "엠블렘"])
+            is_special = any(k in part for k in ["훈장", "뱃지", "포켓 아이템", "칭호"])
+            special_rings = ["리스트레인트", "컨티뉴어스", "웨폰퍼프"]
 
-            # 1. 스타포스 점수 계산 (타일런트 보정 포함)
+            # 공통: 모든 아이템에 일관되게 들어갈 완벽한 raw_options_dict 생성
+            raw_options_dict = {
+                "base": item.get("item_base_option"),
+                "add": item.get("item_add_option"),
+                "etc": item.get("item_etc_option"),
+                "starforce": item.get("item_starforce_option"),
+                "potential_grade": item.get("potential_option_grade"),
+                "potential_options": [item.get("potential_option_1"), item.get("potential_option_2"),
+                                      item.get("potential_option_3")],
+                "additional_grade": item.get("additional_potential_option_grade"),
+                "additional_options": [item.get("additional_potential_option_1"),
+                                       item.get("additional_potential_option_2"),
+                                       item.get("additional_potential_option_3")],
+                "exceptional": item.get("item_exceptional_option")
+            }
+
+            # 1. 특수 부위 평가 로직 (훈장, 뱃지, 포켓 아이템, 칭호)
+            if is_special:
+                actual_add_급수 = nexon_api.calculate_item_score(item.get("item_add_option", {}), char_class)
+
+                if "포켓" in part:
+                    total_item_score = actual_add_급수 * 2.0
+                elif any(k in name for k in ["창세"]):
+                    total_item_score = 280.0
+                elif any(k in name for k in ["칠요"]):
+                    total_item_score = 250.0
+                elif any(k in name for k in ["불멸"]):
+                    total_item_score = 320.0
+                else:
+                    total_item_score = 180.0
+
+                guide_text = get_special_part_guide(total_item_score, part, name)
+
+                evaluate_list.append({
+                    "is_wse": True, "is_special": True, "part": part, "name": name, "icon": icon, "star": 0,
+                    "total_score": round(total_item_score, 2),
+                    "guide": guide_text,
+                    "detail": {"add": round(total_item_score, 1), "star": 0, "pot": 0, "pot_additional": 0},
+                    "raw_options": raw_options_dict
+                })
+                continue  # 특수 부위는 아래 일반 장비 로직을 건너뜀
+
+            # 2. 일반 장비 점수 산출 로직
             adv_star_score = get_starforce_score(star, item_req_level)
             if "타일런트" in name:
                 adv_star_score = adv_star_score * 3.0
 
-            # 2. 추가옵션 및 잠재능력 계산
             if is_weapon:
                 if any(k in slot for k in ["보조무기", "엠블렘"]):
                     add_score = 100.0
-                    adv_star_score = 100.0  # 보조/엠블렘 스타포스 고정 (타일런트 해당사항 없음)
+                    adv_star_score = 100.0
                 else:
                     weapon_add_val = nexon_api.calculate_weapon_add_option_score(item, char_class)
                     add_score = weapon_add_val * 2.0
@@ -265,35 +341,22 @@ async def check_items(character_name: str):
                 eddy_val = nexon_api.calculate_potential_score(item, "additional_potential", char_class, char_level)
                 eddy_score = (eddy_val * 2.5) if eddy_val > 0 else 0
 
-            # 3. 총점 합산
             total_item_score = add_score + pot_score + eddy_score + adv_star_score
 
-            special_rings = ["리스트레인트", "컨티뉴어스", "웨폰퍼프"]
-            exclude_parts = ["훈장", "뱃지", "포켓 아이템", "칭호"]
-
-            if pot_val != -1 and not any(k in part for k in exclude_parts) and not any(k in name for k in special_rings):
+            # 시드링 계열 제외 후 일반 장비 리스트 추가
+            if pot_val != -1 and not any(k in name for k in special_rings):
                 guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part,
                                                total_item_score, name, item_req_level)
 
                 evaluate_list.append({
-                    "is_wse": is_weapon, "part": part, "name": name, "icon": icon, "star": star,
+                    "is_wse": is_weapon, "is_special": False, "part": part, "name": name, "icon": icon, "star": star,
                     "total_score": round(total_item_score, 2),
                     "guide": guide_text,
                     "detail": {
                         "add": round(add_score, 1), "star": round(adv_star_score, 1),
                         "pot": round(pot_score, 1), "pot_additional": round(eddy_score, 1)
                     },
-                    "raw_options": {
-                        "base": item.get("item_base_option"),
-                        "add": item.get("item_add_option"),
-                        "etc": item.get("item_etc_option"),
-                        "starforce": item.get("item_starforce_option"),
-                        "potential_grade": item.get("potential_option_grade"),
-                        "potential_options": [item.get("potential_option_1"), item.get("potential_option_2"), item.get("potential_option_3")],
-                        "additional_grade": item.get("additional_potential_option_grade"),
-                        "additional_options": [item.get("additional_potential_option_1"), item.get("additional_potential_option_2"), item.get("additional_potential_option_3")],
-                        "exceptional": item.get("item_exceptional_option")
-                    }
+                    "raw_options": raw_options_dict
                 })
 
         all_sorted_results = sorted(evaluate_list, key=lambda x: x["total_score"])
