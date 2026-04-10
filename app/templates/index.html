@@ -8,7 +8,7 @@
             <button @click="viewMode = (viewMode === 'wse' ? 'top5' : 'wse')"
                     class="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg transition-all shadow-sm border"
                     :class="viewMode === 'wse' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'">
-                <span x-text="viewMode === 'wse' ? '🔙 취약 아이템 보기' : '⚔️ 특수부위 정보 보기'"></span>
+                <span x-text="viewMode === 'wse' ? '🔙 취약 아이템 보기' : '⚔️ 특수 아이템 정보 보기'"></span>
             </button>
             <button @click="viewMode = (viewMode === 'all' ? 'top5' : 'all')"
                     class="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg transition-all shadow-sm border"
@@ -19,16 +19,19 @@
 
         {% include "components/_summary.html" %}
 
+        {% include "components/_overall_review.html" %}
+
         <div class="space-y-4">
-            <template x-if="viewMode !== 'wse'">
-                <div class="space-y-4">
-                    {% include "components/_item_list.html" %}
-                </div>
-            </template>
 
             <template x-if="viewMode === 'wse'">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
                     {% include "components/_wse_grid.html" %}
+                </div>
+            </template>
+
+            <template x-if="viewMode === 'top5' || viewMode === 'all'">
+                <div class="space-y-4">
+                    {% include "components/_item_list.html" %}
                 </div>
             </template>
         </div>

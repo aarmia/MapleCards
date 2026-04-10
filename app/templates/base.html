@@ -3,7 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MECULATOR - 장비 딸깍 진단서</title>
+    <title>메큘레이터 (MECULATOR) | 장비 딸깍 진단서</title>
+    <meta name="description" content="Nexon Open API 기반 실시간 메이플스토리 장비 진단 서비스. 내 캐릭터의 취약한 아이템을 확인하고 스펙업 솔루션을 받아보세요.">
+
+    <meta name="keywords" content="메큘레이터, MECULATOR, 딸깍, 장비딸깍, 메이플스토리, 장비분석, 메이플스토리 진단">
+    <meta name="google-site-verification" content="2fm4LwvSh6Pv-cCyGQlOxVyzFHDmcKSLzIzonyh5F6E" />
+    <meta property="og:title" content="메큘레이터 - 내 캐릭터 장비 분석">
+    <meta property="og:description" content="실시간 데이터를 바탕으로 최적의 장비 교체 순서를 제안합니다.">
+    <meta property="og:url" content="https://meculator.onrender.com">
     <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon">
     <link rel="shortcut icon" href="/static/images/favicon.ico" type="image/x-icon">
 
@@ -11,10 +18,27 @@
     <script defer src="/static/js/app.js"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=Anton&family=Orbitron:wght@900&family=Cinzel:wght@900&display=swap');
         [x-cloak] { display: none !important; }
         .medical-grid { background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 20px 20px; }
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans KR', sans-serif; letter-spacing: -0.025em; }
+
+        .font-rank-cyber {
+        font-family: 'Orbitron', sans-serif;
+        letter-spacing: 0.05em;
+        font-style: italic; /* 약간 기울이면 더 세련되어 보입니다 */
+        }
+
+        .font-rank-impact {
+        font-family: 'Anton', sans-serif;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        }
+
+        .font-rank-classic {
+        font-family: 'Cinzel', serif;
+        letter-spacing: 0.15em;
+        }
 
         @keyframes rainbow-flow {
             0% { background-position: 0% 50%; }

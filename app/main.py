@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Response, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import PlainTextResponse
 import sys
 import os
 import asyncio
@@ -48,6 +49,9 @@ async def favicon():
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots_txt():
+    return "User-agent: *\nAllow: /\nSitemap: https://meculator.onrender.com/sitemap.xml"
 
 @app.get("/check-items/{character_name}")
 async def check_items(character_name: str):
@@ -360,8 +364,38 @@ async def check_items(character_name: str):
                 })
 
         all_sorted_results = sorted(evaluate_list, key=lambda x: x["total_score"])
+
+        # 총평 계산 (특수 부위 제외)
+        total_scores = [item["total_score"] for item in evaluate_list if not item["is_special"]]
+        avg_score = sum(total_scores) / len(total_scores) if total_scores else 0
+        worst_item = next((item for item in all_sorted_results if not item.get("is_special")), None)
+
+        if avg_score >= 380:
+            rank, comment = "ETERNAL", "전 서버 최상위권 장비입니다. 이제 2차 초월의 영역입니다."
+        elif avg_score >= 350:
+            rank, comment = "DESTINY", "데스티니 초월에 충분히 도전할만한 스펙입니다. 당신의 가능성을 믿고 초월에 도전하세요"
+        elif avg_score >= 330:
+            rank, comment = "DESTINY", "데스티니 초월이 가시권에 들어왔습니다. 천천히 부족한 부위를 강화하고 데스티니 초월에 도전하세요"
+        elif avg_score >= 280:
+            rank, comment = "ASTRA", "본격적으로 아스트라 해방에 도전하세요. 2차 해방까지는 가성비의 영역으로 들어섰습니다"
+        elif avg_score >= 220:
+            rank, comment = "ASTRA", "아스트라 보조 해방을 위한 준비를 할 때 입니다. 천천히 아스트라 해방 준비에 도전하세요"
+        elif avg_score >= 200:
+            rank, comment = "GENESIS", "제네시스 해방을 위한 준비를 할 때 입니다. 해방 준비를 해 보세요"
+        else:
+            rank, comment = "EPIC", "성장 가능성이 큽니다. 낮은 점수 부위부터 교체해보세요."
+
+        overall_review = {
+            "rank": rank, "avg_score": round(avg_score, 1), "main_comment": comment,
+            "priority_target": worst_item["name"] if worst_item else "없음",
+            "next_step": f"'{worst_item['name']}' 부위의 보완이 가장 시급합니다." if worst_item else ""
+        }
+
+        all_sorted_results = sorted(evaluate_list, key=lambda x: x["total_score"])
+
         return {
             "character": character_name, "class": char_class, "level": char_level,
             "character_image": char_image, "combat_power": combat_power,
-            "best_preset": best_preset_idx, "results": all_sorted_results
+            "best_preset": best_preset_idx, "overall": overall_review,
+            "results": all_sorted_results
         }
