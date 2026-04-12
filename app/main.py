@@ -132,12 +132,16 @@ async def check_items(character_name: str):
             return base22 if star <= 22 else base22 + (3.0 * math.log(star - 21))
 
         # --- [헬퍼 함수 3: 세분화된 가이드 생성] ---
-        def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_req_level):
+        # 💡 [수정] 놀장강 판별 변수(is_noljang) 추가
+        def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_req_level, is_noljang=False):
+            if is_noljang:
+                return f"💎 [놀라운 장비 강화 아이템] 놀라운 장비 강화 아이템을 착용중입니다. 교체를 원하신다면 명백한 상위 아이템과 베이스의 아이템으로 교체하세요."
+
             target_hearts = ["리튬 하트", "페어리 하트", "티타늄 하트", "플라즈마 하트"]
             upgrade_hearts = ["리튬 하트", "페어리 하트", "티타늄 하트"]
             black_heart = ["블랙 하트"]
             if any(heart in item_name for heart in upgrade_hearts):
-                if total_score >= 225:
+                if total_score >= 125:
                     return "🚨 [업그레이드 권장] 현재 하트는 성능 한계가 명확합니다. 플라즈마 하트로의 강화를 고려하세요."
             if any(heart in item_name for heart in target_hearts):
                 if total_score >= 275:
@@ -226,10 +230,13 @@ async def check_items(character_name: str):
 
             elif total_score >= 175:
                 is_limited = any(h in item_name for h in
-                                 ["페어리 하트", "리튬 하트", "티타늄 하트", "이터널 플레임 링", "어웨이크 링", "테네브리스 원정대 반지", "글로리온 링 : 슈프림"])
+                                 ["이터널 플레임 링", "어웨이크 링", "테네브리스 원정대 반지", "글로리온 링 : 슈프림"])
 
                 if not is_limited and star_val < 17 and 3 in eval_indices:
                     return "📦 [가성비 정체] 베이스는 나쁘지 않으나 스타포스가 낮습니다. 17성 강화 시 점수가 대폭 상승합니다."
+
+                if is_limited:
+                    return "📈 [이벤트 아이템] 이벤트 아이템을 강화하기보다는, 무료 재화를 사용하거나 상위 아이템으로의 교체를 추천합니다."
 
                 if scores[1] < 65:
                     if scores[2] < 12.5:
@@ -311,7 +318,7 @@ async def check_items(character_name: str):
                 guide_text = get_special_part_guide(total_item_score, part, name)
 
                 evaluate_list.append({
-                    "is_wse": True, "is_special": True, "part": part, "name": name, "icon": icon, "star": 0,
+                    "is_wse": True, "is_special": True, "is_noljang": False, "part": part, "name": name, "icon": icon, "star": 0,
                     "total_score": round(total_item_score, 2),
                     "guide": guide_text,
                     "detail": {"add": round(total_item_score, 1), "star": 0, "pot": 0, "pot_additional": 0},
@@ -319,10 +326,44 @@ async def check_items(character_name: str):
                 })
                 continue  # 특수 부위는 아래 일반 장비 로직을 건너뜀
 
+            # 💡 [정밀 판별] 비정상적 강화 수치 기반 놀장강 판별 로직 추가
+            etc_ops = item.get("item_etc_option", {})
+            star_ops = item.get("item_starforce_option", {})
+
+            # 1. 주문서(etc) 수치 중 최대값 추출
+            etc_stats_max = max(
+                int(etc_ops.get("str", 0)), int(etc_ops.get("dex", 0)),
+                int(etc_ops.get("int", 0)), int(etc_ops.get("luk", 0))
+            )
+            etc_atk_max = max(int(etc_ops.get("attack_power", 0)), int(etc_ops.get("magic_power", 0)))
+
+            # 2. 스타포스 수치 중 최대값 추출
+            star_stats_max = max(
+                int(star_ops.get("str", 0)), int(star_ops.get("dex", 0)),
+                int(star_ops.get("int", 0)), int(star_ops.get("luk", 0))
+            )
+
+            is_superior = "타일런트" in name
+            is_noljang = False
+
+            # 놀장강은 150제 이하 아이템에만 존재하며, 12성일 때 주문서(etc) 수치가 비정상적으로 높습니다.
+            if 8 <= star <= 15 and not is_superior and item_req_level <= 150:
+                # 일반적인 주문서(작)로는 150제 펜던트 등에서 공/마가 100(이미지의 +114) 근처까지 갈 수 없습니다.
+                # 보통 놀장 12성은 etc_stats가 100 이상, etc_atk가 50~100 이상을 기록합니다.
+                if etc_stats_max > 50 and etc_atk_max > 10:
+                    is_noljang = True
+                # 혹은 API에 따라 starforce_option에 수치가 아예 없고 etc에만 몰려있는 경우도 포함
+                elif star_stats_max == 0 and (etc_stats_max > 30 or etc_atk_max > 15):
+                    is_noljang = True
+
             # 2. 일반 장비 점수 산출 로직
-            adv_star_score = get_starforce_score(star, item_req_level)
-            if "타일런트" in name:
-                adv_star_score = adv_star_score * 3.0
+            # 💡 놀장강일 경우 22성 급 점수 부여, 슈페리얼일 경우 보정치 적용
+            if is_noljang:
+                adv_star_score = get_starforce_score(22, item_req_level)
+            elif is_superior:
+                adv_star_score = get_starforce_score(star, item_req_level) * 3.0
+            else:
+                adv_star_score = get_starforce_score(star, item_req_level)
 
             if is_weapon:
                 if any(k in slot for k in ["보조무기", "엠블렘"]):
@@ -349,11 +390,12 @@ async def check_items(character_name: str):
 
             # 시드링 계열 제외 후 일반 장비 리스트 추가
             if pot_val != -1 and not any(k in name for k in special_rings):
+                # 💡 가이드 함수에 is_noljang 변수 전달
                 guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part,
-                                               total_item_score, name, item_req_level)
+                                               total_item_score, name, item_req_level, is_noljang)
 
                 evaluate_list.append({
-                    "is_wse": is_weapon, "is_special": False, slot: "slot", "part": part, "name": name, "icon": icon, "star": star,
+                    "is_wse": is_weapon, "is_special": False, "is_noljang": is_noljang, "slot": slot, "part": part, "name": name, "icon": icon, "star": star,
                     "total_score": round(total_item_score, 2),
                     "guide": guide_text,
                     "detail": {
@@ -370,6 +412,7 @@ async def check_items(character_name: str):
         avg_score = sum(total_scores) / len(total_scores) if total_scores else 0
         worst_item = next((item for item in all_sorted_results if not item.get("is_special")), None)
 
+        # 💡 [수정] 무기 슬롯이면서 이름에 데스티니가 들어가는지 확인
         has_destiny_weapon = any(
             "데스티니" in item.get("name", "")
             for item in evaluate_list
