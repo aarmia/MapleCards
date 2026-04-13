@@ -112,21 +112,20 @@ class NexonAPIHandler:
         # [케이스 1] 데몬어벤져 (HP)
         if main_stat == "hp":
             hp_val = int(add_option.get("max_hp", 0))
-            # 보통 HP 100 = 주스탯 1로 계산
             return (hp_val // 100) + (all_stat_pct * 10) + (attack_pwr * 4)
 
         # [케이스 2] 제논 (All Stat)
         if main_stat == "all_stat":
-            # 제논은 모든 스탯 합산 + 올스탯% 비중이 높음
             s_val = int(add_option.get("str", 0))
             d_val = int(add_option.get("dex", 0))
             l_val = int(add_option.get("luk", 0))
-            return (s_val + d_val + l_val) + (all_stat_pct * 20) + (attack_pwr * 4)
+            # 수정된 제논 추옵 로직: STR + DEX + LUK + 올스탯% 환산 + (공격력 * 5)
+            return s_val + d_val + l_val + (all_stat_pct * 20) + (attack_pwr * 5)
 
         # [케이스 3] 마법사 (Magic Power 기준)
         if main_stat == "int":
             int_val = int(add_option.get("int", 0))
-            return int_val + (all_stat_pct * 10) + (magic_pwr * 4)
+            return int_val + (all_stat_pct * 10) + (magic_pwr * 3)
 
         # [케이스 4] 일반 직업 (STR, DEX, LUK)
         stat_val = int(add_option.get(main_stat, 0))
@@ -137,17 +136,15 @@ class NexonAPIHandler:
         slot = item_data.get("item_equipment_slot", "")
         part = item_data.get("item_equipment_part", "")
 
-        # [수정] 무보엠만 제외 (장갑, 모자는 이제 계산에 포함됨)
         exclude_keywords = ["무기", "보조무기", "엠블렘"]
         is_excluded = any(k in slot for k in exclude_keywords) or any(k in part for k in exclude_keywords)
 
         if is_excluded:
             return -1
 
-        if class_name in ["데몬어벤져", "제논"]:
+        if class_name in ["데몬어벤져"]:
             return -1
 
-        # 주스탯 결정 (예: LUK)
         main_stat = self.get_main_stat(class_name).upper()
 
         options = [
@@ -156,69 +153,86 @@ class NexonAPIHandler:
             item_data.get(f"{potential_type}_option_3")
         ]
 
-        total_converted_pct = 0.0
+        total_stat_score = 0.0
+        total_special_score = 0.0
 
         for opt in options:
             if not opt: continue
 
-            # 1. 크리티컬 데미지 (장갑 특수 옵션)
-            # 1%당 주스탯 4%로 환산 (임시 수치)
+            # --- [분리] 공통 특수 옵션 (가중치 제외 대상) ---
             if "크리티컬 데미지" in opt:
                 val_match = re.search(r'\+(\d+)%', opt)
                 if val_match:
-                    val = int(val_match.group(1))
-                    total_converted_pct += val * 1.75
+                    total_special_score += int(val_match.group(1)) * 1.75
+                continue
 
-            # 2. 재사용 대기시간 감소 (모자 특수 옵션)
-            # 1초당 주스탯 10%로 환산 (임시 수치)
-            elif "스킬 재사용 대기시간" in opt:
-                # "(N초, 10레벨당 -1초...)" 형태에서 숫자 추출
+            if "스킬 재사용 대기시간" in opt:
                 val_match = re.search(r'(\d+)초', opt)
                 if val_match:
-                    val = int(val_match.group(1))
-                    total_converted_pct += val * 7.25
+                    total_special_score += int(val_match.group(1)) * 7.25
+                continue
 
-            # 3. 올스탯%
-            elif "올스탯" in opt and "%" in opt:
-                val_match = re.search(r'\+(\d+)%', opt)
-                if val_match:
-                    val = int(val_match.group(1))
-                    weight = 1.2 if class_name in ["섀도어", "카데나", "듀얼블레이더"] else 1.1
-                    total_converted_pct += val * weight
-
-            # 4. 캐릭터 레벨당 주스탯
-            elif "레벨" in opt and main_stat in opt:
-                val_match = re.search(r'\+(\d+)', opt)
-                if val_match:
-                    val = int(val_match.group(1))
-                    total_converted_pct += val * 3.5
-
-            # 5. 주스탯% (LUK : +12% 등)
-            elif main_stat in opt and "%" in opt:
-                val_match = re.search(r'\+(\d+)%', opt)
-                if val_match:
-                    total_converted_pct += int(val_match.group(1))
-
-            # 6. 공격력/마력 (정수치)
-            elif ("공격력" in opt or "마력" in opt) and "%" not in opt:
-                atk_key = "마력" if main_stat == "INT" else "공격력"
-                if atk_key in opt:
+            # --- [분리] 스탯 관련 옵션 (제논 가중치 적용 대상) ---
+            # 제논(ALL_STAT) 전용 잠재능력 분기
+            if main_stat == "ALL_STAT":
+                if "올스탯" in opt and "%" in opt:
+                    val_match = re.search(r'\+(\d+)%', opt)
+                    if val_match:
+                        total_stat_score += int(val_match.group(1))
+                elif "레벨" in opt:
                     val_match = re.search(r'\+(\d+)', opt)
                     if val_match:
-                        total_converted_pct += int(val_match.group(1)) * 0.3
+                        val = int(val_match.group(1))
+                        if any(stat in opt for stat in ["STR", "DEX", "LUK"]):
+                            total_stat_score += val / 3.0
+                elif any(stat in opt for stat in ["STR", "DEX", "LUK"]) and "%" in opt:
+                    val_match = re.search(r'\+(\d+)%', opt)
+                    if val_match:
+                        total_stat_score += int(val_match.group(1)) / 3.0
+                elif "공격력" in opt and "%" not in opt:
+                    val_match = re.search(r'\+(\d+)', opt)
+                    if val_match:
+                        total_stat_score += int(val_match.group(1)) * 0.3
+                elif any(stat in opt for stat in ["STR", "DEX", "LUK"]) and "%" not in opt:
+                    val_match = re.search(r'\+(\d+)', opt)
+                    if val_match:
+                        total_stat_score += (int(val_match.group(1)) / 3.0) * 0.09
 
-            # 7. 주스탯 정수치 (LUK : +10 등)
-            elif main_stat in opt and "%" not in opt:
-                val_match = re.search(r'\+(\d+)', opt)
-                if val_match:
-                    total_converted_pct += int(val_match.group(1)) * 0.09
+            # 일반 직업 잠재능력 분기
+            else:
+                if "올스탯" in opt and "%" in opt:
+                    val_match = re.search(r'\+(\d+)%', opt)
+                    if val_match:
+                        val = int(val_match.group(1))
+                        weight = 1.2 if class_name in ["섀도어", "카데나", "듀얼블레이더"] else 1.1
+                        total_stat_score += val * weight
+                elif "레벨" in opt and main_stat in opt:
+                    val_match = re.search(r'\+(\d+)', opt)
+                    if val_match:
+                        val = int(val_match.group(1))
+                        total_stat_score += val * 3.5
+                elif main_stat in opt and "%" in opt:
+                    val_match = re.search(r'\+(\d+)%', opt)
+                    if val_match:
+                        total_stat_score += int(val_match.group(1))
+                elif ("공격력" in opt or "마력" in opt) and "%" not in opt:
+                    atk_key = "마력" if main_stat == "INT" else "공격력"
+                    if atk_key in opt:
+                        val_match = re.search(r'\+(\d+)', opt)
+                        if val_match:
+                            total_stat_score += int(val_match.group(1)) * 0.3
+                elif main_stat in opt and "%" not in opt:
+                    val_match = re.search(r'\+(\d+)', opt)
+                    if val_match:
+                        total_stat_score += int(val_match.group(1)) * 0.09
 
-        return round(total_converted_pct, 2)
+        # 제논일 경우 스탯 관련 점수에만 1.3배 적용
+        if main_stat == "ALL_STAT":
+            total_stat_score *= 1.5
+
+        return round(total_stat_score + total_special_score, 2)
 
     def get_best_preset(self, item_data: dict, class_name: str, char_level: int) -> int:
-        """
-        1, 2, 3번 프리셋 중 주스탯 % 합산이 가장 높은 프리셋 번호를 반환합니다.
-        """
         preset_scores = {1: 0.0, 2: 0.0, 3: 0.0}
 
         for i in range(1, 4):
@@ -228,8 +242,6 @@ class NexonAPIHandler:
 
             total_score = 0.0
             for item in preset_items:
-                # calculate_potential_score를 호출하여 점수 합산
-                # (무보엠, 모자, 장갑은 -1을 반환하므로 합산에서 자연스럽게 제외됨)
                 score = self.calculate_potential_score(item, "potential", class_name, char_level)
                 add_score = self.calculate_potential_score(item, "additional_potential", class_name, char_level)
 
@@ -238,16 +250,10 @@ class NexonAPIHandler:
 
             preset_scores[i] = total_score
 
-        # 가장 점수가 높은 프리셋 번호 반환 (모두 0이면 현재 착용 중인 1번 기본)
         return max(preset_scores, key=preset_scores.get)
 
     def calculate_weapon_add_option_score(self, item_data: dict, class_name: str) -> float:
-        """
-        무기 추가옵션을 '공격력 %' 수치로 환산합니다.
-        (제논, 데몬어벤져는 특수 스탯 체계를 사용하므로 계산에서 제외합니다.)
-        """
-        # 1. 특수 직업군 제외 로직
-        if class_name in ["제논", "데몬어벤져"]:
+        if class_name in ["데몬어벤져"]:
             return 0.0
 
         add_option = item_data.get("item_add_option", {})
@@ -256,28 +262,20 @@ class NexonAPIHandler:
         if not add_option or not base_option:
             return 0.0
 
-        # 직업별 공/마 타겟 설정
         main_stat = self.get_main_stat(class_name)
         target_atk_key = "magic_power" if main_stat == "int" else "attack_power"
 
-        # 기본 공격력 및 추가 공격력 수치
         base_atk = int(base_option.get(target_atk_key, 0))
         add_atk = int(add_option.get(target_atk_key, 0))
 
         if base_atk == 0:
             return 0.0
 
-        # 2. 핵심 계산: 순수 공추옵을 공% 점수로 환산
-        # (추가공격력 / 기본공격력 * 100)
         atk_score = (add_atk / base_atk) * 100
 
-        # 3. 부가 옵션 환산 (창윤님이 정해주신 공% 환산 기준 적용)
-        # 보공/데미지: 1% = 0.275점, 올스탯: 1% = 0.2475점
         boss_dmg_score = int(add_option.get("boss_damage", 0)) * 0.275
         dmg_score = int(add_option.get("damage", 0)) * 0.275
         all_stat_score = int(add_option.get("all_stat", 0)) * 0.2475
-
-        # 주스탯 정수치는 무기에서 영향력이 적으므로 0.05 가중치 유지
         target_stat_score = int(add_option.get(main_stat, 0)) * 0.05
 
         total_score = atk_score + boss_dmg_score + dmg_score + all_stat_score + target_stat_score
@@ -285,7 +283,6 @@ class NexonAPIHandler:
         return round(total_score, 2)
 
     def calculate_weapon_potential_score(self, item_data: dict, potential_type: str, class_name: str) -> float:
-        """무보엠 전용: 올스탯%를 포함하여 모든 옵션을 '공격력/마력 %' 수치로 환산합니다."""
         slot = item_data.get("item_equipment_slot", "")
         part = item_data.get("item_equipment_part", "")
         is_wse = any(k in slot for k in ["무기", "보조무기"]) or "엠블렘" in part
@@ -302,7 +299,8 @@ class NexonAPIHandler:
             item_data.get(f"{potential_type}_option_3")
         ]
 
-        total_converted_atk_pct = 0.0
+        total_stat_score = 0.0
+        total_special_score = 0.0
 
         for opt in options:
             if not opt: continue
@@ -311,24 +309,18 @@ class NexonAPIHandler:
             if not val_match: continue
             val = int(val_match.group(1))
 
-            # 1. 공격력/마력 % (1:1)
-            if target_atk in opt and "%" in opt:
-                total_converted_atk_pct += val
-
-            # 2. 보스 데미지 / 데미지 (1% = 0.275)
-            elif "데미지" in opt:
-                total_converted_atk_pct += val * 0.275
-
-            # 3. 방어율 무시 (1% = 0.1875)
+            # --- [분리] 특수 옵션 (데미지, 방무 등은 가중치 제외) ---
+            if "데미지" in opt:
+                total_special_score += val * 0.275
             elif "방어율 무시" in opt:
-                total_converted_atk_pct += val * 0.1875
+                total_special_score += val * 0.1875
 
-            # 4. 올스탯 % (1% = 0.2475) -> 주스탯%의 1.1배
+            # --- [분리] 스탯/공격력 옵션 (가중치 적용 대상) ---
+            elif target_atk in opt and "%" in opt:
+                total_stat_score += val
             elif "올스탯" in opt and "%" in opt:
-                total_converted_atk_pct += val * 0.2475
-
-            # 5. 주스탯 % (1% = 0.225)
+                total_stat_score += val * 0.2475
             elif target_stat in opt and "%" in opt:
-                total_converted_atk_pct += val * 0.225
+                total_stat_score += val * 0.225
 
-        return round(total_converted_atk_pct, 2)
+        return round(total_stat_score + total_special_score, 2)

@@ -87,19 +87,30 @@ async def check_items(character_name: str):
         evaluate_list = []
 
         # --- [헬퍼 함수 1: 추옵 점수 산출 로직] ---
-        def get_advanced_add_score(actual_급수, level, part_name):
+        # 💡 [수정] 직업 정보를 받아 제논 전용 target_map을 적용할 수 있도록 char_name_class 파라미터 추가
+        def get_advanced_add_score(actual_급수, level, part_name, char_name_class):
             no_add_slots = ["반지", "어깨장식", "기계 심장", "훈장", "뱃지", "포켓 아이템", "엠블렘", "보조무기", "무기"]
             if any(k in part_name for k in no_add_slots):
                 return 100.0
 
-            target_map = {250: 186, 200: 162, 160: 144, 150: 132, 140: 126, 135: 123, 130: 120}
-            target = target_map.get(level)
-
-            if target is None:
-                if level >= 100:
-                    target = (level * 0.6) + 42
-                else:
-                    return 100.0
+            # 제논 전용 추옵 타겟 맵
+            if char_name_class == "제논":
+                target_map = {250: 300, 200: 265, 160: 240, 150: 220}
+                target = target_map.get(level)
+                if target is None:
+                    if level >= 100:
+                        target = (level * 1.2) + 40  # 제논 전용 보정치
+                    else:
+                        return 100.0
+            # 일반 직업 추옵 타겟 맵
+            else:
+                target_map = {250: 186, 200: 162, 160: 144, 150: 132, 140: 126, 135: 123, 130: 120}
+                target = target_map.get(level)
+                if target is None:
+                    if level >= 100:
+                        target = (level * 0.6) + 42
+                    else:
+                        return 100.0
 
             diff_percent = ((actual_급수 - target) / target) * 100.0
             score = 100.0
@@ -132,7 +143,6 @@ async def check_items(character_name: str):
             return base22 if star <= 22 else base22 + (3.0 * math.log(star - 21))
 
         # --- [헬퍼 함수 3: 세분화된 가이드 생성] ---
-        # 💡 [수정] 놀장강 판별 변수(is_noljang) 추가
         def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_req_level, is_noljang=False):
             if is_noljang:
                 return f"💎 [놀라운 장비 강화 아이템] 놀라운 장비 강화 아이템을 착용중입니다. 교체를 원하신다면 명백한 상위 아이템과 베이스의 아이템으로 교체하세요."
@@ -305,7 +315,7 @@ async def check_items(character_name: str):
                 actual_add_급수 = nexon_api.calculate_item_score(item.get("item_add_option", {}), char_class)
 
                 if "포켓" in part:
-                    total_item_score = actual_add_급수 * 2.0
+                    total_item_score = actual_add_급수
                 elif any(k in name for k in ["창세"]):
                     total_item_score = 280.0
                 elif any(k in name for k in ["칠요"]):
@@ -326,7 +336,7 @@ async def check_items(character_name: str):
                 })
                 continue  # 특수 부위는 아래 일반 장비 로직을 건너뜀
 
-            # 💡 [정밀 판별] 비정상적 강화 수치 기반 놀장강 판별 로직 추가
+            # 💡 [정밀 판별] 비정상적 강화 수치 기반 놀장강 판별 로직
             etc_ops = item.get("item_etc_option", {})
             star_ops = item.get("item_starforce_option", {})
 
@@ -348,16 +358,12 @@ async def check_items(character_name: str):
 
             # 놀장강은 150제 이하 아이템에만 존재하며, 12성일 때 주문서(etc) 수치가 비정상적으로 높습니다.
             if 8 <= star <= 15 and not is_superior and item_req_level <= 150:
-                # 일반적인 주문서(작)로는 150제 펜던트 등에서 공/마가 100(이미지의 +114) 근처까지 갈 수 없습니다.
-                # 보통 놀장 12성은 etc_stats가 100 이상, etc_atk가 50~100 이상을 기록합니다.
                 if etc_stats_max > 50 and etc_atk_max > 10:
                     is_noljang = True
-                # 혹은 API에 따라 starforce_option에 수치가 아예 없고 etc에만 몰려있는 경우도 포함
                 elif star_stats_max == 0 and (etc_stats_max > 30 or etc_atk_max > 15):
                     is_noljang = True
 
             # 2. 일반 장비 점수 산출 로직
-            # 💡 놀장강일 경우 22성 급 점수 부여, 슈페리얼일 경우 보정치 적용
             if is_noljang:
                 adv_star_score = get_starforce_score(22, item_req_level)
             elif is_superior:
@@ -380,7 +386,8 @@ async def check_items(character_name: str):
                 pot_val = weapon_pot_val
             else:
                 actual_add_급수 = nexon_api.calculate_item_score(item.get("item_add_option", {}), char_class)
-                add_score = get_advanced_add_score(actual_add_급수, item_req_level, part)
+                # 💡 [수정] get_advanced_add_score 호출 시 char_class 파라미터 전달
+                add_score = get_advanced_add_score(actual_add_급수, item_req_level, part, char_class)
                 pot_val = nexon_api.calculate_potential_score(item, "potential", char_class, char_level)
                 pot_score = (pot_val * 3.3) if pot_val > 0 else 0
                 eddy_val = nexon_api.calculate_potential_score(item, "additional_potential", char_class, char_level)
@@ -390,7 +397,6 @@ async def check_items(character_name: str):
 
             # 시드링 계열 제외 후 일반 장비 리스트 추가
             if pot_val != -1 and not any(k in name for k in special_rings):
-                # 💡 가이드 함수에 is_noljang 변수 전달
                 guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part,
                                                total_item_score, name, item_req_level, is_noljang)
 
@@ -412,7 +418,6 @@ async def check_items(character_name: str):
         avg_score = sum(total_scores) / len(total_scores) if total_scores else 0
         worst_item = next((item for item in all_sorted_results if not item.get("is_special")), None)
 
-        # 💡 [수정] 무기 슬롯이면서 이름에 데스티니가 들어가는지 확인
         has_destiny_weapon = any(
             "데스티니" in item.get("name", "")
             for item in evaluate_list
