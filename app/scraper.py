@@ -226,9 +226,9 @@ class NexonAPIHandler:
                     if val_match:
                         total_stat_score += int(val_match.group(1)) * 0.09
 
-        # 제논일 경우 스탯 관련 점수에만 1.3배 적용
+        # 제논일 경우 스탯 관련 점수에만 1.35배 적용
         if main_stat == "ALL_STAT":
-            total_stat_score *= 1.5
+            total_stat_score *= 1.35
 
         return round(total_stat_score + total_special_score, 2)
 

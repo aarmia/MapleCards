@@ -423,24 +423,32 @@ async def check_items(character_name: str):
             for item in evaluate_list
         )
 
+        has_genesis_weapon = any(
+            "제네시스" in item.get("name", "")
+            for item in evaluate_list
+        )
+
         if avg_score >= 380:
             rank, comment = "ETERNAL", "전 서버 최상위권 장비입니다. 이제 2차 초월의 영역입니다."
         elif avg_score >= 350:
             if has_destiny_weapon:
                 rank, comment = "DESTINY", "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 더 높은 곳으로의 성장을 준비하세요!"
             else:
-                rank, comment = "DESTINY", "데스티니 초월에 충분히 도전할만한 스펙입니다.  당신의 가능성을 믿고 초월에 도전하세요"
+                rank, comment = "DESTINY", "데스티니 초월에 충분히 도전할만한 스펙입니다.  당신의 가능성을 믿고 초월에 도전하세요!"
         elif avg_score >= 330:
             if has_destiny_weapon:
                 rank, comment = "DESTINY", "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 더 높은 곳으로의 성장을 준비하세요!"
             else:
-                rank, comment = "DESTINY", "데스티니 초월이 가시권에 들어왔습니다.  천천히 부족한 부위를 강화하고 데스티니 초월에 도전하세요"
+                rank, comment = "DESTINY", "데스티니 초월이 가시권에 들어왔습니다.  천천히 부족한 부위를 강화하고 데스티니 초월에 도전하세요!"
         elif avg_score >= 280:
-            rank, comment = "ASTRA", "본격적으로 아스트라 해방에 도전하세요.  2차 해방까지는 가성비의 영역으로 들어섰습니다"
+            rank, comment = "ASTRA", "본격적으로 아스트라 해방에 도전하세요.  2차 해방까지는 가성비의 영역으로 들어섰습니다."
         elif avg_score >= 220:
-            rank, comment = "ASTRA", "아스트라 보조 해방을 위한 준비를 할 때 입니다.  천천히 아스트라 해방 준비에 도전하세요"
+            rank, comment = "ASTRA", "아스트라 보조 해방을 위한 준비를 할 때 입니다.  천천히 아스트라 해방 준비에 도전하세요."
         elif avg_score >= 200:
-            rank, comment = "GENESIS", "제네시스 해방을 위한 준비를 할 때 입니다.  해방 준비를 해 보세요"
+            if has_destiny_weapon:
+                rank, comment = "GENESIS", "제네시스 해방에 성공하셨군요!  더 높은 곳을 위한 성장의 준비가 필요한 단계입니다."
+            else:
+                rank, comment = "GENESIS", "제네시스 해방을 위한 준비를 할 때 입니다.  해방 준비를 해 보세요."
         else:
             rank, comment = "EPIC", "성장 가능성이 큽니다. 낮은 점수 부위부터 교체해보세요."
 
