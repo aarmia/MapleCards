@@ -445,7 +445,7 @@ async def check_items(character_name: str):
         elif avg_score >= 220:
             rank, comment = "ASTRA", "아스트라 보조 해방을 위한 준비를 할 때 입니다.  천천히 아스트라 해방 준비에 도전하세요."
         elif avg_score >= 200:
-            if has_destiny_weapon:
+            if has_genesis_weapon:
                 rank, comment = "GENESIS", "제네시스 해방에 성공하셨군요!  더 높은 곳을 위한 성장의 준비가 필요한 단계입니다."
             else:
                 rank, comment = "GENESIS", "제네시스 해방을 위한 준비를 할 때 입니다.  해방 준비를 해 보세요."
