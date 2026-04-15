@@ -160,7 +160,7 @@ class NexonAPIHandler:
             if "크리티컬 데미지" in opt:
                 val_match = re.search(r'\+(\d+)%', opt)
                 if val_match:
-                    total_special_score += int(val_match.group(1)) * 1.75
+                    total_special_score += int(val_match.group(1)) * 3
                 continue
 
             if "스킬 재사용 대기시간" in opt:

@@ -176,7 +176,9 @@ async def check_items(character_name: str):
                     return "⚠️ [교체 권장] 하나에서 두개 정도 부분이 아쉬운 슈페리얼 아이템입니다. 강화를 하시기보다는 동급이나 상위의 아이템으로 교체를 추천합니다."
 
             max_star_possible = 30
-            if item_req_level < 128:
+            if item_req_level < 118:
+                max_star_possible = 10
+            elif item_req_level < 128:
                 max_star_possible = 15
             elif item_req_level < 138:
                 max_star_possible = 20
@@ -243,16 +245,26 @@ async def check_items(character_name: str):
                 return f"🛠️ [강화 권장] 엘리트 장비입니다. 전체적인 밸런스를 위해 '{worst_label}'을 보완하세요."
 
             elif total_score >= 250:
-                if star_val < 17 and 3 in eval_indices:
-                    return "📦 [가성비 강화] 최소 17 ~ 18성 달성 후 잠재능력을 손보는 것이 효율적입니다."
+                target_star = min(17, max_star_possible)
+
+                if star_val < target_star and 3 in eval_indices:
+                    if max_star_possible < 17:
+                        return f"📦 [가성비 강화] 해당 아이템의 한계치인 {max_star_possible}성 달성 후 잠재능력을 손보는 것이 효율적입니다."
+                    else:
+                        return "📦 [가성비 강화] 최소 17 ~ 18성 달성 후 잠재능력을 손보는 것이 효율적입니다."
                 return f"📈 [효율 투자 / 교체] '{worst_label}'부터 차근차근 올리거나, 상위 아이템으로 교체를 추천합니다."
 
             elif total_score >= 175:
                 is_limited = any(h in item_name for h in
-                                 ["이터널 플레임 링", "어웨이크 링", "테네브리스 원정대 반지", "글로리온 링 : 슈프림"])
+                                 ["이터널 플레임 링", "어웨이크 링", "테네브리스 원정대 반지", "글로리온 링 : 슈프림", "카오스 링", "SS급 마스터 쥬얼링", "결속의 반지"])
 
-                if not is_limited and star_val < 17 and 3 in eval_indices:
-                    return "📦 [가성비 정체] 베이스는 나쁘지 않으나 스타포스가 낮습니다. 17성 강화 시 점수가 대폭 상승합니다."
+                target_star = min(17, max_star_possible)
+
+                if not is_limited and star_val < target_star and 3 in eval_indices:
+                    if max_star_possible < 17:
+                        return f"📦 [가성비 정체] 베이스는 나쁘지 않으나 스타포스가 낮습니다. {max_star_possible}성(한계치) 강화 시 점수가 상승합니다."
+                    else:
+                        return "📦 [가성비 정체] 베이스는 나쁘지 않으나 스타포스가 낮습니다. 17성 강화 시 점수가 대폭 상승합니다."
 
                 if is_limited:
                     return "📈 [이벤트 아이템] 이벤트 아이템을 강화하기보다는, 무료 재화를 사용하거나 상위 아이템으로의 교체를 추천합니다."
