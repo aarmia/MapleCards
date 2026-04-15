@@ -112,7 +112,7 @@ class NexonAPIHandler:
         # [케이스 1] 데몬어벤져 (HP)
         if main_stat == "hp":
             hp_val = int(add_option.get("max_hp", 0))
-            return (hp_val // 100) + (all_stat_pct * 10) + (attack_pwr * 4)
+            return hp_val + (attack_pwr * 15)
 
         # [케이스 2] 제논 (All Stat)
         if main_stat == "all_stat":
@@ -140,9 +140,6 @@ class NexonAPIHandler:
         is_excluded = any(k in slot for k in exclude_keywords) or any(k in part for k in exclude_keywords)
 
         if is_excluded:
-            return -1
-
-        if class_name in ["데몬어벤져"]:
             return -1
 
         main_stat = self.get_main_stat(class_name).upper()
@@ -211,7 +208,7 @@ class NexonAPIHandler:
                     if val_match:
                         val = int(val_match.group(1))
                         total_stat_score += val * 3.5
-                elif main_stat in opt and "%" in opt:
+                elif main_stat in opt and "%" in opt and "회복" not in opt:
                     val_match = re.search(r'\+(\d+)%', opt)
                     if val_match:
                         total_stat_score += int(val_match.group(1))
@@ -221,7 +218,7 @@ class NexonAPIHandler:
                         val_match = re.search(r'\+(\d+)', opt)
                         if val_match:
                             total_stat_score += int(val_match.group(1)) * 0.3
-                elif main_stat in opt and "%" not in opt:
+                elif main_stat in opt and "%" not in opt and "회복" not in opt:
                     val_match = re.search(r'\+(\d+)', opt)
                     if val_match:
                         total_stat_score += int(val_match.group(1)) * 0.09
@@ -229,6 +226,10 @@ class NexonAPIHandler:
         # 제논일 경우 스탯 관련 점수에만 1.35배 적용
         if main_stat == "ALL_STAT":
             total_stat_score *= 1.35
+
+        # --- [추가] 데몬어벤져 에디셔널 가중치(0.9) 적용 ---
+        if class_name == "데몬어벤져" and potential_type == "additional_potential":
+            total_stat_score *= 0.9
 
         return round(total_stat_score + total_special_score, 2)
 
@@ -253,8 +254,6 @@ class NexonAPIHandler:
         return max(preset_scores, key=preset_scores.get)
 
     def calculate_weapon_add_option_score(self, item_data: dict, class_name: str) -> float:
-        if class_name in ["데몬어벤져"]:
-            return 0.0
 
         add_option = item_data.get("item_add_option", {})
         base_option = item_data.get("item_base_option", {})
@@ -320,7 +319,7 @@ class NexonAPIHandler:
                 total_stat_score += val
             elif "올스탯" in opt and "%" in opt:
                 total_stat_score += val * 0.2475
-            elif target_stat in opt and "%" in opt:
+            elif target_stat in opt and "%" in opt and "회복" not in opt:
                 total_stat_score += val * 0.225
 
         return round(total_stat_score + total_special_score, 2)
