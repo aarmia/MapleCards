@@ -87,7 +87,7 @@ async def check_items(character_name: str):
         evaluate_list = []
 
         # --- [헬퍼 함수 1: 추옵 점수 산출 로직] ---
-        # 💡 [수정] 직업 정보를 받아 제논 전용 target_map을 적용할 수 있도록 char_name_class 파라미터 추가
+        # 💡 [수정] 직업 정보를 받아 제논 및 데몬어벤져 전용 target_map을 적용
         def get_advanced_add_score(actual_급수, level, part_name, char_name_class):
             no_add_slots = ["반지", "어깨장식", "기계 심장", "훈장", "뱃지", "포켓 아이템", "엠블렘", "보조무기", "무기"]
             if any(k in part_name for k in no_add_slots):
@@ -100,6 +100,15 @@ async def check_items(character_name: str):
                 if target is None:
                     if level >= 100:
                         target = (level * 1.2) + 40  # 제논 전용 보정치
+                    else:
+                        return 100.0
+            # 💡 [추가됨] 데몬어벤져 전용 추옵 타겟 맵
+            elif char_name_class == "데몬어벤져":
+                target_map = {250: 4200, 200: 3600, 160: 2880, 150: 2700}
+                target = target_map.get(level)
+                if target is None:
+                    if level >= 100:
+                        target = level * 18  # 데몬어벤져 전용 보정치 (150렙 2700 기준)
                     else:
                         return 100.0
             # 일반 직업 추옵 타겟 맵
@@ -316,6 +325,11 @@ async def check_items(character_name: str):
 
                 if "포켓" in part:
                     total_item_score = actual_add_급수
+
+                    if char_class == "데몬어벤져":
+                        if total_item_score > 0:
+                            total_item_score = total_item_score / 11
+
                 elif any(k in name for k in ["창세"]):
                     total_item_score = 280.0
                 elif any(k in name for k in ["칠요"]):
@@ -386,7 +400,6 @@ async def check_items(character_name: str):
                 pot_val = weapon_pot_val
             else:
                 actual_add_급수 = nexon_api.calculate_item_score(item.get("item_add_option", {}), char_class)
-                # 💡 [수정] get_advanced_add_score 호출 시 char_class 파라미터 전달
                 add_score = get_advanced_add_score(actual_add_급수, item_req_level, part, char_class)
                 pot_val = nexon_api.calculate_potential_score(item, "potential", char_class, char_level)
                 pot_score = (pot_val * 3.3) if pot_val > 0 else 0
