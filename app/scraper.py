@@ -153,6 +153,9 @@ class NexonAPIHandler:
         total_stat_score = 0.0
         total_special_score = 0.0
 
+        crit_count = 0
+        crit_val_sum = 0
+
         for opt in options:
             if not opt: continue
 
@@ -160,7 +163,8 @@ class NexonAPIHandler:
             if "크리티컬 데미지" in opt:
                 val_match = re.search(r'\+(\d+)%', opt)
                 if val_match:
-                    total_special_score += int(val_match.group(1)) * 3
+                    crit_count += 1
+                    crit_val_sum += int(val_match.group(1))
                 continue
 
             if "스킬 재사용 대기시간" in opt:
@@ -222,6 +226,18 @@ class NexonAPIHandler:
                     val_match = re.search(r'\+(\d+)', opt)
                     if val_match:
                         total_stat_score += int(val_match.group(1)) * 0.09
+
+        cd_points = 0
+
+        if potential_type == "potential":
+            if crit_count == 1:
+                cd_points = crit_val_sum * 1.125
+            elif crit_count >= 2:
+                cd_points = crit_val_sum * 1.875
+        elif potential_type == "additional_potential":
+            cd_points = crit_val_sum * 4.0
+
+        total_special_score += cd_points
 
         # 제논일 경우 스탯 관련 점수에만 1.35배 적용
         if main_stat == "ALL_STAT":
