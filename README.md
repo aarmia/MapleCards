@@ -47,13 +47,24 @@
 
 ```text
 app/
-├── main.py          # FastAPI 서버 로직 및 API 엔드포인트
-├── scraper.py       # Nexon API 연동 및 데이터 가공
-├── image_gen.py     # (옵션) 카드 이미지 생성 로직
-├── static/          # 정적 파일 (로고, 파비콘, CSS)
-│   └── images/      # logo.jpg, favicon.ico
-└── templates/       # HTML 템플릿
-    └── index.html   # 메인 진단 페이지
+├── main.py                 # FastAPI 서버 로직 및 API 엔드포인트
+├── scraper.py              # Nexon API 연동 및 데이터 가공
+├── analyzer.py             # 장비 분석
+├── calculator.py           # 기본 점수 로직
+├── image_gen.py            # (옵션) 카드 이미지 생성 로직
+├── static/                 # 정적 파일 (로고, 파비콘, CSS)
+│   └── images/             # logo.jpg, favicon.ico
+└── templates/              # HTML 템플릿
+    ├── index.html          # 메인 진단 페이지
+    ├── base.html           # CSS
+    └── components/         # 구성 요소
+        ├── _footer.html
+        ├── _header.html
+        ├── _item_list.html
+        ├── _modals.html
+        ├── _overall_review.html
+        ├── _summary.html
+        └── _wse_grid.html
 ```
 
 ---
