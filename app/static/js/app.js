@@ -3,6 +3,9 @@ document.addEventListener('alpine:init', () => {
         nickname: '',
         report: null,
         loading: false,
+        errorMessage: '',
+        activeRequestNickname: '',
+        requestController: null,
         viewMode: 'top5',
         showHelp: false,
         helpTab: 'guide',
@@ -23,22 +26,67 @@ document.addEventListener('alpine:init', () => {
         },
 
         reset() {
+            if (this.requestController) {
+                this.requestController.abort();
+                this.requestController = null;
+            }
             this.report = null;
             this.nickname = '';
+            this.errorMessage = '';
+            this.loading = false;
+            this.activeRequestNickname = '';
             this.viewMode = 'top5';
         },
 
         async fetchReport() {
-            if(!this.nickname) return;
-            this.loading = true;
-            this.viewMode = 'top5';
-            try {
-                const res = await fetch(`/check-items/${this.nickname}`);
-                this.report = await res.json();
-            } catch(e) {
-                alert('진단 실패: 서버 연결을 확인하세요.');
+            const trimmedNickname = this.nickname.trim();
+            if (!trimmedNickname) return;
+
+            if (this.loading && this.requestController && trimmedNickname === this.activeRequestNickname) {
+                return;
             }
-            this.loading = false;
+
+            if (this.requestController) {
+                this.requestController.abort();
+            }
+
+            const controller = new AbortController();
+            this.requestController = controller;
+            this.activeRequestNickname = trimmedNickname;
+            this.nickname = trimmedNickname;
+            this.loading = true;
+            this.errorMessage = '';
+            this.viewMode = 'top5';
+
+            try {
+                const res = await fetch(`/check-items/${encodeURIComponent(trimmedNickname)}`, {
+                    signal: controller.signal
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error('서버 요청에 실패했습니다. 잠시 후 다시 시도해주세요.');
+                }
+
+                if (data?.error) {
+                    throw new Error(data.error);
+                }
+
+                this.report = data;
+            } catch(e) {
+                if (e.name === 'AbortError') {
+                    return;
+                }
+
+                this.report = null;
+                this.errorMessage = e.message || '진단 실패: 서버 연결을 확인하세요.';
+            } finally {
+                if (this.requestController === controller) {
+                    this.requestController = null;
+                    this.loading = false;
+                    this.activeRequestNickname = '';
+                }
+            }
         },
 
         getFilteredItems() {
