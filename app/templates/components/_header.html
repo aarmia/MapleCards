@@ -9,11 +9,29 @@
         </button>
     </div>
 
-    <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex gap-2 transition-layout" :class="report ? 'w-full md:w-[36rem] shadow-none border-b-2 rounded-none bg-transparent border-slate-300' : 'w-full'">
-        <input x-model="nickname" @keyup.enter="fetchReport()" type="text" placeholder="캐릭터 닉네임 입력" class="flex-1 border-none bg-slate-100/50 rounded-xl px-4 py-2 outline-none transition-all font-medium" :class="report ? 'text-base bg-white' : 'text-lg'">
-        <button @click="fetchReport()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-all min-w-[100px]">
-            <span x-show="!loading" x-text="report ? '재검진' : '검진 시작'"></span>
-            <span x-show="loading" class="animate-spin inline-block">⏳</span>
-        </button>
+    <div class="w-full" :class="report ? 'md:w-[36rem]' : ''">
+        <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex gap-2 transition-layout" :class="report ? 'w-full shadow-none border-b-2 rounded-none bg-transparent border-slate-300' : 'w-full'">
+            <input x-model="nickname" @keyup.enter="fetchReport()" type="text" placeholder="캐릭터 닉네임 입력" class="flex-1 border-none bg-slate-100/50 rounded-xl px-4 py-2 outline-none transition-all font-medium" :class="report ? 'text-base bg-white' : 'text-lg'">
+            <button @click="fetchReport()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-all min-w-[100px]">
+                <span x-show="!loading" x-text="report ? '재검진' : '검진 시작'"></span>
+                <span x-show="loading" class="animate-spin inline-block">⏳</span>
+            </button>
+        </div>
+
+        <div x-cloak x-show="errorMessage" class="mt-4 relative overflow-hidden rounded-2xl border border-rose-200/80 bg-gradient-to-r from-rose-50 via-white to-orange-50 px-4 py-4 shadow-[0_10px_30px_rgba(244,63,94,0.08)]">
+            <div class="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-rose-400 to-orange-300"></div>
+            <div class="flex items-center gap-4 pl-2">
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-rose-500 shadow-sm ring-1 ring-rose-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86l-7.55 13.09A2 2 0 004.47 20h15.06a2 2 0 001.73-3.05L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-[11px] font-black uppercase tracking-[0.22em] text-rose-400">Lookup Error</p>
+                    <p class="mt-1 text-lg font-black tracking-tight text-slate-900">캐릭터 정보를 불러오지 못했습니다.</p>
+                    <p class="mt-1.5 text-sm leading-relaxed text-slate-600" x-text="'캐릭터 이름을 다시 확인한 뒤 재시도해주세요.'"></p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
