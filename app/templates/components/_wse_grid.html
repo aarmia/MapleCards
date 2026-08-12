@@ -1,4 +1,6 @@
-<div class="bg-slate-900 text-white rounded-3xl shadow-xl overflow-hidden flex flex-col border border-slate-700 h-full">
+<div @click="openItemDetail(item)" @keydown.enter.prevent="openItemDetail(item)"
+     role="button" tabindex="0"
+     class="bg-slate-900 text-white rounded-3xl shadow-xl overflow-hidden flex flex-col border border-slate-700 h-full cursor-pointer transition-all hover:-translate-y-1 hover:border-blue-400/60 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-blue-400">
         <div class="p-5 border-b border-slate-800 flex items-center gap-4 bg-slate-800/50">
             <div class="p-2 bg-slate-800 rounded-xl border border-slate-700 shadow-inner">
                 <img :src="item.icon" class="w-10 h-10 object-contain">

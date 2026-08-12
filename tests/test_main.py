@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import httpx
 
-from app.main import app, check_items
+from app.main import APP_JS_VERSION, app, check_items
 from app.scraper import NexonAPIError
 
 
@@ -48,6 +48,22 @@ class ConcurrentNexonAPI:
 
 
 class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
+    async def test_root_uses_versioned_app_script_and_disables_html_cache(self):
+        transport = httpx.ASGITransport(app=app)
+
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+        ) as client:
+            response = await client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["cache-control"], "no-cache")
+        self.assertIn(
+            f'/static/js/app.js?v={APP_JS_VERSION}',
+            response.text,
+        )
+
     async def test_nexon_error_uses_http_status_and_message(self):
         transport = httpx.ASGITransport(app=app)
 

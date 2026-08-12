@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import os
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -37,6 +38,18 @@ request_tracker = DiagnosticRequestTracker(concurrency=5)
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 static_dir = os.path.join(BASE_DIR, "static")
 
+
+def _static_asset_version(path: str) -> str:
+    """정적 파일 내용이 바뀔 때만 URL 버전을 변경합니다."""
+    try:
+        with open(path, "rb") as asset:
+            return hashlib.sha256(asset.read()).hexdigest()[:12]
+    except OSError:
+        return "missing"
+
+
+APP_JS_VERSION = _static_asset_version(os.path.join(static_dir, "js", "app.js"))
+
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 else:
@@ -63,7 +76,12 @@ async def favicon():
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={"app_js_version": APP_JS_VERSION},
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)

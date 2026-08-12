@@ -53,6 +53,10 @@
                                 {% include "components/_wse_grid.html" %}
                             </template>
                         </div>
+                        <div x-show="getSpecialItems().length === 0"
+                             class="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center text-sm font-bold text-slate-500">
+                            현재 착용 정보에서 확인 가능한 특수 장비가 없습니다.
+                        </div>
                     </section>
                 </div>
             </template>
