@@ -6,6 +6,10 @@ document.addEventListener('alpine:init', () => {
         errorMessage: '',
         activeRequestNickname: '',
         requestController: null,
+        requestId: '',
+        statusPollTimer: null,
+        loadingStage: 'character',
+        queuePosition: null,
         viewMode: 'top5',
         showHelp: false,
         helpTab: 'guide',
@@ -35,7 +39,42 @@ document.addEventListener('alpine:init', () => {
             this.errorMessage = '';
             this.loading = false;
             this.activeRequestNickname = '';
+            this.stopStatusPolling();
+            this.requestId = '';
+            this.loadingStage = 'character';
+            this.queuePosition = null;
             this.viewMode = 'top5';
+        },
+
+        stopStatusPolling() {
+            if (this.statusPollTimer) {
+                clearInterval(this.statusPollTimer);
+                this.statusPollTimer = null;
+            }
+        },
+
+        async pollRequestStatus() {
+            if (!this.requestId || !this.loading) return;
+            try {
+                const response = await fetch(`/request-status/${encodeURIComponent(this.requestId)}`);
+                if (!response.ok) return;
+                const status = await response.json();
+                if (status.stage === 'waiting') {
+                    this.loadingStage = 'waiting';
+                    this.queuePosition = status.queue_position;
+                } else if (['character', 'equipment', 'analysis'].includes(status.stage)) {
+                    this.loadingStage = status.stage;
+                    this.queuePosition = null;
+                }
+            } catch (_) {
+                // 상태 조회 실패는 본 진단 요청에 영향을 주지 않습니다.
+            }
+        },
+
+        startStatusPolling() {
+            this.stopStatusPolling();
+            this.pollRequestStatus();
+            this.statusPollTimer = setInterval(() => this.pollRequestStatus(), 350);
         },
 
         async fetchReport() {
@@ -55,23 +94,33 @@ document.addEventListener('alpine:init', () => {
             this.activeRequestNickname = trimmedNickname;
             this.nickname = trimmedNickname;
             this.loading = true;
+            this.loadingStage = 'character';
+            this.queuePosition = null;
+            this.requestId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
             this.errorMessage = '';
             this.viewMode = 'top5';
+            this.startStatusPolling();
 
             try {
-                const res = await fetch(`/check-items/${encodeURIComponent(trimmedNickname)}`, {
+                const res = await fetch(`/check-items/${encodeURIComponent(trimmedNickname)}?request_id=${encodeURIComponent(this.requestId)}`, {
                     signal: controller.signal
                 });
                 const data = await res.json();
 
                 if (!res.ok) {
-                    throw new Error('서버 요청에 실패했습니다. 잠시 후 다시 시도해주세요.');
+                    throw new Error(
+                        data?.detail ||
+                        data?.error ||
+                        '서버 요청에 실패했습니다. 잠시 후 다시 시도해주세요.'
+                    );
                 }
 
                 if (data?.error) {
                     throw new Error(data.error);
                 }
 
+                this.loadingStage = 'analysis';
+                await new Promise(resolve => setTimeout(resolve, 250));
                 this.report = data;
             } catch(e) {
                 if (e.name === 'AbortError') {
@@ -85,22 +134,28 @@ document.addEventListener('alpine:init', () => {
                     this.requestController = null;
                     this.loading = false;
                     this.activeRequestNickname = '';
+                    this.stopStatusPolling();
+                    this.requestId = '';
+                    this.queuePosition = null;
                 }
             }
         },
 
         getFilteredItems() {
             if (!this.report || !this.report.results) return [];
-            if (this.viewMode === 'wse') {
-                const filtered = this.report.results.filter(item => item.is_wse === true);
-                return [...filtered].reverse();
-            }
-            if (this.viewMode === 'special') {
-                return this.report.results.filter(item => item.is_special === true);
-            }
-            const nonWseItems = this.report.results.filter(item => !item.is_wse);
+            const nonWseItems = this.report.results.filter(item => !item.is_wse && !item.is_special);
             if (this.viewMode === 'all') return nonWseItems;
             return nonWseItems.slice(0, 5);
+        },
+
+        getWseItems() {
+            if (!this.report?.results) return [];
+            return this.report.results.filter(item => item.is_wse && !item.is_special).reverse();
+        },
+
+        getSpecialItems() {
+            if (!this.report?.results) return [];
+            return this.report.results.filter(item => item.is_special);
         },
 
         openItemDetail(item) {

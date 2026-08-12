@@ -1,13 +1,43 @@
 import re
 import math
 
+
+def get_potential_options(item_data: dict, potential_type: str) -> list[str]:
+    """존재하는 잠재능력 줄만 번호 순서대로 반환합니다.
+
+    도전자의 장비처럼 옵션이 2줄만 제공되거나 향후 3줄을 초과하는
+    응답이 추가되어도, 비어 있는 줄 때문에 전체 옵션을 잃지 않습니다.
+    """
+    option_pattern = re.compile(
+        rf"^{re.escape(potential_type)}_option_(\d+)$"
+    )
+    indexed_options = []
+
+    for key, value in item_data.items():
+        match = option_pattern.match(key)
+        if not match or not isinstance(value, str) or not value.strip():
+            continue
+        indexed_options.append((int(match.group(1)), value.strip()))
+
+    indexed_options.sort(key=lambda option: option[0])
+    return [value for _, value in indexed_options]
+
+
+def _score_detail(score: float, recognized: list[dict], options: list[str]) -> dict:
+    recognized_text = {entry["option"] for entry in recognized}
+    return {
+        "score": round(score, 2),
+        "recognized": recognized,
+        "unsupported": [option for option in options if option not in recognized_text],
+    }
+
 def get_main_stat(class_name: str, stat_data: dict = None) -> str:
     """직업명을 받아 주스탯 키워드를 반환합니다."""
     stat_map = {
         "str": ["히어로", "팔라딘", "다크나이트", "소울마스터", "미하일", "데몬슬레이어", "아란", "카이저", "제로", "블래스터", "렌", "아델", "바이퍼",
                 "스트라이커", "은월", "캐논마스터", "아크"],
         "dex": ["보우마스터", "신궁", "패스파인더", "윈드브레이커", "와일드헌터", "메르세데스", "카인", "캡틴", "메카닉", "엔젤릭버스터"],
-        "int": ["아크메이지(불,독)", "아크메이지(썬,콜)", "비숍", "플레임위자드", "에반", "루미너스", "배틀메이지", "일리움", "라라", "키네시스"],
+        "int": ["아크메이지(불,독)", "아크메이지(썬,콜)", "비숍", "플레임위자드", "에반", "루미너스", "배틀메이지", "일리움", "라라", "키네시스", "레테"],
         "luk": ["나이트로드", "섀도어", "듀얼블레이더", "나이트워커", "팬텀", "카데나", "칼리", "호영"]
     }
 
@@ -112,7 +142,7 @@ def get_advanced_add_score(actual_급수, level, part_name, char_name_class):
 
     return round(max(0, score), 2)
 
-def calculate_potential_score(item_data: dict, potential_type: str, class_name: str, char_level: int) -> float:
+def analyze_potential_score(item_data: dict, potential_type: str, class_name: str, char_level: int) -> dict:
     slot = item_data.get("item_equipment_slot", "")
     part = item_data.get("item_equipment_part", "")
 
@@ -120,21 +150,24 @@ def calculate_potential_score(item_data: dict, potential_type: str, class_name: 
     is_excluded = any(k in slot for k in exclude_keywords) or any(k in part for k in exclude_keywords)
 
     if is_excluded:
-        return -1
+        return _score_detail(-1, [], get_potential_options(item_data, potential_type))
 
     main_stat = get_main_stat(class_name).upper()
 
-    options = [
-        item_data.get(f"{potential_type}_option_1"),
-        item_data.get(f"{potential_type}_option_2"),
-        item_data.get(f"{potential_type}_option_3")
-    ]
+    options = get_potential_options(item_data, potential_type)
 
     total_stat_score = 0.0
     total_special_score = 0.0
 
     crit_count = 0
     crit_val_sum = 0
+    crit_options = []
+    recognized = []
+
+    def add_option(option, points, rule):
+        nonlocal total_stat_score
+        total_stat_score += points
+        recognized.append({"option": option, "value": round(points, 2), "rule": rule})
 
     for opt in options:
         if not opt: continue
@@ -144,63 +177,66 @@ def calculate_potential_score(item_data: dict, potential_type: str, class_name: 
             if val_match:
                 crit_count += 1
                 crit_val_sum += int(val_match.group(1))
+                crit_options.append(opt)
             continue
 
         if "스킬 재사용 대기시간" in opt:
             val_match = re.search(r'(\d+)초', opt)
             if val_match:
-                total_special_score += int(val_match.group(1)) * 7.25
+                points = int(val_match.group(1)) * 7.25
+                total_special_score += points
+                recognized.append({"option": opt, "value": round(points, 2), "rule": "초당 7.25"})
             continue
 
         if main_stat == "ALL_STAT":
             if "올스탯" in opt and "%" in opt:
                 val_match = re.search(r'\+(\d+)%', opt)
                 if val_match:
-                    total_stat_score += int(val_match.group(1))
+                    add_option(opt, int(val_match.group(1)), "올스탯%")
             elif "레벨" in opt:
                 val_match = re.search(r'\+(\d+)', opt)
                 if val_match:
                     val = int(val_match.group(1))
                     if any(stat in opt for stat in ["STR", "DEX", "LUK"]):
-                        total_stat_score += val / 3.0
+                        add_option(opt, val / 3.0, "제논 레벨당 스탯 ÷ 3")
             elif any(stat in opt for stat in ["STR", "DEX", "LUK"]) and "%" in opt:
                 val_match = re.search(r'\+(\d+)%', opt)
                 if val_match:
-                    total_stat_score += int(val_match.group(1)) / 3.0
+                    add_option(opt, int(val_match.group(1)) / 3.0, "제논 개별 스탯% ÷ 3")
             elif "공격력" in opt and "%" not in opt:
                 val_match = re.search(r'\+(\d+)', opt)
                 if val_match:
-                    total_stat_score += int(val_match.group(1)) * 0.3
+                    add_option(opt, int(val_match.group(1)) * 0.3, "공격력 × 0.3")
             elif any(stat in opt for stat in ["STR", "DEX", "LUK"]) and "%" not in opt:
                 val_match = re.search(r'\+(\d+)', opt)
                 if val_match:
-                    total_stat_score += (int(val_match.group(1)) / 3.0) * 0.09
+                    add_option(opt, (int(val_match.group(1)) / 3.0) * 0.09, "제논 고정 스탯 ÷ 3 × 0.09")
         else:
             if "올스탯" in opt and "%" in opt:
                 val_match = re.search(r'\+(\d+)%', opt)
                 if val_match:
                     val = int(val_match.group(1))
                     weight = 1.2 if class_name in ["섀도어", "카데나", "듀얼블레이더"] else 1.1
-                    total_stat_score += val * weight
+                    add_option(opt, val * weight, f"올스탯% × {weight}")
             elif "레벨" in opt and main_stat in opt:
                 val_match = re.search(r'\+(\d+)', opt)
                 if val_match:
                     val = int(val_match.group(1))
-                    total_stat_score += val * 3.5
+                    add_option(opt, val * 3.5, "레벨당 주스탯 × 3.5")
             elif main_stat in opt and "%" in opt and "회복" not in opt:
                 val_match = re.search(r'\+(\d+)%', opt)
                 if val_match:
-                    total_stat_score += int(val_match.group(1))
+                    add_option(opt, int(val_match.group(1)), "주스탯%")
             elif ("공격력" in opt or "마력" in opt) and "%" not in opt:
                 atk_key = "마력" if main_stat == "INT" else "공격력"
                 if atk_key in opt:
                     val_match = re.search(r'\+(\d+)', opt)
                     if val_match:
-                        total_stat_score += int(val_match.group(1)) * 0.3
+                        add_option(opt, int(val_match.group(1)) * 0.3, f"{atk_key} × 0.3")
             elif main_stat in opt and "%" not in opt and "회복" not in opt:
                 val_match = re.search(r'\+(\d+)', opt)
                 if val_match:
-                    total_stat_score += int(val_match.group(1)) * 0.09
+                    add_option(opt, int(val_match.group(1)) * 0.09, "고정 주스탯 × 0.09")
 
     cd_points = 0
     if potential_type == "potential":
@@ -212,6 +248,9 @@ def calculate_potential_score(item_data: dict, potential_type: str, class_name: 
         cd_points = crit_val_sum * 4.0
 
     total_special_score += cd_points
+    if cd_points:
+        for option in crit_options:
+            recognized.append({"option": option, "value": round(cd_points / len(crit_options), 2), "rule": "크리티컬 데미지 환산"})
 
     if main_stat == "ALL_STAT":
         total_stat_score *= 1.35
@@ -219,7 +258,11 @@ def calculate_potential_score(item_data: dict, potential_type: str, class_name: 
     if class_name == "데몬어벤져" and potential_type == "additional_potential":
         total_stat_score *= 0.9
 
-    return round(total_stat_score + total_special_score, 2)
+    return _score_detail(total_stat_score + total_special_score, recognized, options)
+
+
+def calculate_potential_score(item_data: dict, potential_type: str, class_name: str, char_level: int) -> float:
+    return analyze_potential_score(item_data, potential_type, class_name, char_level)["score"]
 
 def calculate_weapon_add_option_score(item_data: dict, class_name: str) -> float:
     add_option = item_data.get("item_add_option", {})
@@ -246,25 +289,22 @@ def calculate_weapon_add_option_score(item_data: dict, class_name: str) -> float
     total_score = atk_score + boss_dmg_score + dmg_score + all_stat_score + target_stat_score
     return round(total_score, 2)
 
-def calculate_weapon_potential_score(item_data: dict, potential_type: str, class_name: str) -> float:
+def analyze_weapon_potential_score(item_data: dict, potential_type: str, class_name: str) -> dict:
     slot = item_data.get("item_equipment_slot", "")
     part = item_data.get("item_equipment_part", "")
     is_wse = any(k in slot for k in ["무기", "보조무기"]) or "엠블렘" in part
     if not is_wse:
-        return 0.0
+        return _score_detail(0, [], get_potential_options(item_data, potential_type))
 
     main_stat = get_main_stat(class_name)
     target_atk = "마력" if main_stat == "int" else "공격력"
     target_stat = main_stat.upper()
 
-    options = [
-        item_data.get(f"{potential_type}_option_1"),
-        item_data.get(f"{potential_type}_option_2"),
-        item_data.get(f"{potential_type}_option_3")
-    ]
+    options = get_potential_options(item_data, potential_type)
 
     total_stat_score = 0.0
     total_special_score = 0.0
+    recognized = []
 
     for opt in options:
         if not opt: continue
@@ -273,17 +313,29 @@ def calculate_weapon_potential_score(item_data: dict, potential_type: str, class
         val = int(val_match.group(1))
 
         if "데미지" in opt:
-            total_special_score += val * 0.275
+            points, rule = val * 0.275, "데미지% × 0.275"
+            total_special_score += points
         elif "방어율 무시" in opt:
-            total_special_score += val * 0.1875
+            points, rule = val * 0.1875, "방어율 무시% × 0.1875"
+            total_special_score += points
         elif target_atk in opt and "%" in opt:
-            total_stat_score += val
+            points, rule = val, f"{target_atk}%"
+            total_stat_score += points
         elif "올스탯" in opt and "%" in opt:
-            total_stat_score += val * 0.2475
+            points, rule = val * 0.2475, "올스탯% × 0.2475"
+            total_stat_score += points
         elif target_stat in opt and "%" in opt and "회복" not in opt:
-            total_stat_score += val * 0.225
+            points, rule = val * 0.225, "주스탯% × 0.225"
+            total_stat_score += points
+        else:
+            continue
+        recognized.append({"option": opt, "value": round(points, 2), "rule": rule})
 
-    return round(total_stat_score + total_special_score, 2)
+    return _score_detail(total_stat_score + total_special_score, recognized, options)
+
+
+def calculate_weapon_potential_score(item_data: dict, potential_type: str, class_name: str) -> float:
+    return analyze_weapon_potential_score(item_data, potential_type, class_name)["score"]
 
 def get_starforce_score(star, level):
     if level <= 0: return 0.0

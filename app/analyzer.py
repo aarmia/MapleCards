@@ -1,7 +1,23 @@
+import json
+import logging
+
 try:
     from calculator import *
 except ImportError:
     from app.calculator import *
+
+logger = logging.getLogger(__name__)
+
+
+def _log_unsupported_options(item_name, potential_type, analysis):
+    for option in analysis.get("unsupported", []):
+        logger.warning(
+            "Unsupported equipment option: %s",
+            json.dumps(
+                {"item": item_name, "type": potential_type, "option": option},
+                ensure_ascii=True,
+            ),
+        )
 
 
 def get_best_preset(item_data: dict, class_name: str, char_level: int) -> int:
@@ -87,9 +103,7 @@ def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_
 
     if total_score >= 350:
         if star_val >= 22 or star_val >= max_star_possible:
-            no_flame_items = ["숄더", "거대한 공포", "마이스터 링", "가디언", "근원의 속삭임", "황홀한 악몽", "컴플리트 언더컨트롤"]
-            is_no_flame_item = any(k in item_name for k in no_flame_items)
-            if not is_no_flame_item:
+            if 0 in eval_indices:
                 target_add = 103.5 if item_req_level <= 200 else 101
                 if scores[0] < target_add:
                     return "✨ [추가옵션 강화 / 전승] 추가옵션이 완성되지 않았습니다. 강화하거나, 전승을 고려하세요."
@@ -171,6 +185,7 @@ def evaluate_equipment(items, char_class, char_level):
 
     for item in items:
         add_score, pot_score, eddy_score, adv_star_score = 0.0, 0.0, 0.0, 0.0
+        add_raw_score = 0.0
         is_noljang = False
 
         slot = item.get("item_equipment_slot", "")
@@ -182,6 +197,7 @@ def evaluate_equipment(items, char_class, char_level):
 
         is_weapon = any(k in slot for k in ["무기", "보조무기", "엠블렘"])
         is_special = any(k in part for k in ["훈장", "뱃지", "포켓 아이템", "칭호"])
+        main_stat = get_main_stat(char_class).upper()
 
         raw_options_dict = {
             "base": item.get("item_base_option"),
@@ -189,14 +205,15 @@ def evaluate_equipment(items, char_class, char_level):
             "etc": item.get("item_etc_option"),
             "starforce": item.get("item_starforce_option"),
             "potential_grade": item.get("potential_option_grade"),
-            "potential_options": [item.get("potential_option_1"), item.get("potential_option_2"), item.get("potential_option_3")],
+            "potential_options": get_potential_options(item, "potential"),
             "additional_grade": item.get("additional_potential_option_grade"),
-            "additional_options": [item.get("additional_potential_option_1"), item.get("additional_potential_option_2"), item.get("additional_potential_option_3")],
+            "additional_options": get_potential_options(item, "additional_potential"),
             "exceptional": item.get("item_exceptional_option")
         }
 
         if is_special:
             actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class)
+            add_raw_score = actual_add_급수
             if "포켓" in part:
                 total_item_score = actual_add_급수
                 if char_class == "데몬어벤져" and total_item_score > 0:
@@ -207,11 +224,23 @@ def evaluate_equipment(items, char_class, char_level):
             else: total_item_score = 180.0
 
             evaluate_list.append({
-                "is_wse": True, "is_special": True, "is_noljang": False, "slot": slot, "part": part, "name": name, "icon": icon, "star": 0,
+                "is_wse": False, "is_special": True, "is_noljang": False, "slot": slot, "part": part, "name": name, "icon": icon, "star": 0, "level": item_req_level,
                 "total_score": round(total_item_score, 2),
                 "guide": get_special_part_guide(total_item_score, part, name),
                 "detail": {"add": round(total_item_score, 1), "star": 0, "pot": 0, "pot_additional": 0},
-                "raw_options": raw_options_dict
+                "raw_options": raw_options_dict,
+                "scoring_basis": {
+                    "main_stat": main_stat,
+                    "recognized_options": [],
+                    "weights": ["특수 장비 고유 기준"],
+                    "breakdown": [
+                        {"key": "add", "label": "추가옵션", "raw_score": round(add_raw_score, 2), "weighted_score": round(total_item_score, 2)},
+                        {"key": "pot", "label": "윗잠재", "raw_score": 0, "weighted_score": 0},
+                        {"key": "pot_additional", "label": "에디셔널", "raw_score": 0, "weighted_score": 0},
+                        {"key": "star", "label": "스타포스", "raw_score": 0, "weighted_score": 0, "star": 0},
+                    ],
+                    "star_score": 0,
+                },
             })
             continue
 
@@ -241,31 +270,74 @@ def evaluate_equipment(items, char_class, char_level):
         if is_weapon:
             if any(k in slot for k in ["보조무기", "엠블렘"]):
                 add_score = 100.0
+                add_raw_score = 100.0
                 adv_star_score = 100.0
             else:
-                add_score = calculate_weapon_add_option_score(item, char_class) * 2.0
-            pot_val = calculate_weapon_potential_score(item, "potential", char_class)
+                add_raw_score = calculate_weapon_add_option_score(item, char_class)
+                add_score = add_raw_score * 2.0
+            pot_analysis = analyze_weapon_potential_score(item, "potential", char_class)
+            pot_val = pot_analysis["score"]
             pot_score = (pot_val * 3.3) if pot_val > 0 else 0
-            eddy_val = calculate_weapon_potential_score(item, "additional_potential", char_class)
+            eddy_analysis = analyze_weapon_potential_score(item, "additional_potential", char_class)
+            eddy_val = eddy_analysis["score"]
             eddy_score = (eddy_val * 2.5) if eddy_val > 0 else 0
         else:
             actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class)
+            add_raw_score = actual_add_급수
             add_score = get_advanced_add_score(actual_add_급수, item_req_level, part, char_class)
-            pot_val = calculate_potential_score(item, "potential", char_class, char_level)
+            pot_analysis = analyze_potential_score(item, "potential", char_class, char_level)
+            pot_val = pot_analysis["score"]
             pot_score = (pot_val * 3.3) if pot_val > 0 else 0
-            eddy_val = calculate_potential_score(item, "additional_potential", char_class, char_level)
+            eddy_analysis = analyze_potential_score(item, "additional_potential", char_class, char_level)
+            eddy_val = eddy_analysis["score"]
             eddy_score = (eddy_val * 2.5) if eddy_val > 0 else 0
+
+        _log_unsupported_options(name, "potential", pot_analysis)
+        _log_unsupported_options(name, "additional_potential", eddy_analysis)
+        def with_weighted_values(analysis, category, weighted_total):
+            raw_total = sum(entry["value"] for entry in analysis["recognized"])
+            effective_weight = (weighted_total / raw_total) if raw_total else 0
+            return [
+                {
+                    **entry,
+                    "category": category,
+                    "weighted_value": round(entry["value"] * effective_weight, 2),
+                    "weight": round(effective_weight, 3),
+                }
+                for entry in analysis["recognized"]
+            ]
+
+        recognized_options = (
+            with_weighted_values(pot_analysis, "윗잠재", pot_score)
+            + with_weighted_values(eddy_analysis, "에디셔널", eddy_score)
+        )
 
         total_item_score = add_score + pot_score + eddy_score + adv_star_score
 
         if pot_val != -1 and not any(k in name for k in special_rings):
             guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part, total_item_score, name, item_req_level, is_noljang)
             evaluate_list.append({
-                "is_wse": is_weapon, "is_special": False, "is_noljang": is_noljang, "slot": slot, "part": part, "name": name, "icon": icon, "star": star,
+                "is_wse": is_weapon, "is_special": False, "is_noljang": is_noljang, "slot": slot, "part": part, "name": name, "icon": icon, "star": star, "level": item_req_level,
                 "total_score": round(total_item_score, 2),
                 "guide": guide_text,
                 "detail": {"add": round(add_score, 1), "star": round(adv_star_score, 1), "pot": round(pot_score, 1), "pot_additional": round(eddy_score, 1)},
-                "raw_options": raw_options_dict
+                "raw_options": raw_options_dict,
+                "scoring_basis": {
+                    "main_stat": main_stat,
+                    "recognized_options": recognized_options,
+                    "weights": [
+                        "윗잠재 환산값 × 3.3",
+                        "에디셔널 환산값 × 2.5",
+                        f"스타포스 레벨 가중치 × {round(1.0 + (item_req_level - 200) / 600.0, 3) if item_req_level > 0 else 0}",
+                    ],
+                    "breakdown": [
+                        {"key": "add", "label": "추가옵션", "raw_score": round(add_raw_score, 2), "weighted_score": round(add_score, 2)},
+                        {"key": "pot", "label": "윗잠재", "raw_score": round(max(pot_val, 0), 2), "weighted_score": round(pot_score, 2)},
+                        {"key": "pot_additional", "label": "에디셔널", "raw_score": round(max(eddy_val, 0), 2), "weighted_score": round(eddy_score, 2)},
+                        {"key": "star", "label": "스타포스", "raw_score": star, "weighted_score": round(adv_star_score, 2), "star": star},
+                    ],
+                    "star_score": round(adv_star_score, 2),
+                },
             })
 
     return evaluate_list

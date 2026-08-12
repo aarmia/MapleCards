@@ -24,8 +24,36 @@
         <div class="space-y-4">
 
             <template x-if="viewMode === 'wse'">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
-                    {% include "components/_wse_grid.html" %}
+                <div class="space-y-8 animate-fade-in">
+                    <section>
+                        <div class="mb-3 flex items-center justify-between">
+                            <div>
+                                <h3 class="font-black text-slate-800">무기 · 보조무기 · 엠블렘</h3>
+                                <p class="text-[11px] text-slate-500">공격력·마력, 보스 데미지, 방어율 무시 중심 평가</p>
+                            </div>
+                            <span class="text-xs font-bold text-blue-600" x-text="getWseItems().length + '개'"></span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <template x-for="(item, index) in getWseItems()" :key="'wse-' + item.name + index">
+                                {% include "components/_wse_grid.html" %}
+                            </template>
+                        </div>
+                    </section>
+
+                    <section>
+                        <div class="mb-3 flex items-center justify-between">
+                            <div>
+                                <h3 class="font-black text-slate-800">특수 장비</h3>
+                                <p class="text-[11px] text-slate-500">훈장·뱃지·포켓 아이템·칭호의 고유 기준 평가</p>
+                            </div>
+                            <span class="text-xs font-bold text-violet-600" x-text="getSpecialItems().length + '개'"></span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <template x-for="(item, index) in getSpecialItems()" :key="'special-' + item.name + index">
+                                {% include "components/_wse_grid.html" %}
+                            </template>
+                        </div>
+                    </section>
                 </div>
             </template>
 

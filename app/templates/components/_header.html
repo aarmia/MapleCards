@@ -18,6 +18,31 @@
             </button>
         </div>
 
+        <div x-cloak x-show="loading" class="mt-4 rounded-2xl border border-blue-100 bg-white p-5 shadow-sm animate-fade-in">
+            <div x-show="loadingStage === 'waiting'" class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+                <p class="text-xs font-black">서버가 혼잡하여 진단 순서를 기다리고 있습니다.</p>
+                <p class="mt-1 text-[11px]" x-text="queuePosition ? '현재 대기 순서: ' + queuePosition + '번째' : '잠시만 기다려주세요.'"></p>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+                <template x-for="step in [
+                    {key: 'character', number: 1, label: '캐릭터 확인'},
+                    {key: 'equipment', number: 2, label: '장비 조회'},
+                    {key: 'analysis', number: 4, label: '결과 생성'}
+                ]" :key="step.key">
+                    <div class="rounded-xl border px-3 py-3 text-center transition-all"
+                         :class="loadingStage === step.key ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' : 'border-slate-100 bg-slate-50 text-slate-400'">
+                        <div class="mx-auto mb-1 flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black"
+                             :class="loadingStage === step.key ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'"
+                             x-text="step.number"></div>
+                        <p class="text-[10px] font-black" x-text="step.label"></p>
+                    </div>
+                </template>
+            </div>
+            <p class="mt-3 text-center text-[11px] font-bold text-slate-500"
+               x-text="loadingStage === 'waiting' ? '요청 가능 시 자동으로 시작됩니다.' : loadingStage === 'character' ? '닉네임과 캐릭터 정보를 확인하고 있습니다.' : loadingStage === 'equipment' ? '착용 장비와 스탯 정보를 불러오고 있습니다.' : '점수를 계산하고 진단서를 만들고 있습니다.'"></p>
+        </div>
+
         <div x-cloak x-show="errorMessage" class="mt-4 relative overflow-hidden rounded-2xl border border-rose-200/80 bg-gradient-to-r from-rose-50 via-white to-orange-50 px-4 py-4 shadow-[0_10px_30px_rgba(244,63,94,0.08)]">
             <div class="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-rose-400 to-orange-300"></div>
             <div class="flex items-center gap-4 pl-2">

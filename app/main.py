@@ -1,30 +1,37 @@
-from fastapi import FastAPI, HTTPException, Response, Request
+import asyncio
+import os
+from contextlib import asynccontextmanager
+from typing import Annotated
+
+from fastapi import FastAPI, Query, Response, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse, PlainTextResponse
-import sys
-import os
-import asyncio
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, PlainTextResponse
 
-# 현재 파일의 부모 폴더(app)를 경로에 추가
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(BASE_DIR)
 
-try:
-    from scraper import NexonAPIHandler
-    from analyzer import evaluate_equipment, generate_overall_review, get_best_preset
-except ImportError:
-    from app.scraper import NexonAPIHandler
-    from app.analyzer import evaluate_equipment, generate_overall_review, get_best_preset
-
+from app.analyzer import evaluate_equipment, generate_overall_review, get_best_preset
 from app.image_gen import CardGenerator
+from app.request_tracker import DiagnosticRequestTracker
+from app.scraper import NexonAPIError, NexonAPIHandler
 
-app = FastAPI()
 nexon_api = NexonAPIHandler()
 card_gen = CardGenerator()
 
-# 서버 세마포어 설정 (동시 API 처리 인원을 5명으로 제한)
-api_semaphore = asyncio.Semaphore(5)
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    await nexon_api.start()
+    try:
+        yield
+    finally:
+        await nexon_api.close()
+
+
+app = FastAPI(lifespan=lifespan)
+
+# 동시 진단 5건 제한 및 요청별 진행 상태 추적
+request_tracker = DiagnosticRequestTracker(concurrency=5)
 
 # 경로 설정
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -34,6 +41,16 @@ if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 else:
     print(f"⚠️ Warning: Static directory not found at {static_dir}")
+
+
+@app.exception_handler(NexonAPIError)
+async def nexon_api_exception_handler(_: Request, exc: NexonAPIError):
+    headers = {"Retry-After": "5"} if exc.status_code == 429 else None
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.message},
+        headers=headers,
+    )
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -54,19 +71,30 @@ async def robots_txt():
     return "User-agent: *\nAllow: /\nSitemap: https://meculator.onrender.com/sitemap.xml"
 
 
-@app.get("/check-items/{character_name}")
-async def check_items(character_name: str):
-    async with api_semaphore:
-        ocid = await nexon_api.get_ocid(character_name)
-        if not ocid:
-            return {"error": "캐릭터를 찾을 수 없습니다."}
+@app.get("/request-status/{request_id}")
+async def request_status(request_id: str):
+    return await request_tracker.status(request_id)
 
-        basic_info = await nexon_api.get_character_basic(ocid)
-        item_data = await nexon_api.get_character_item(ocid)
-        stat_data = await nexon_api.get_character_stat(ocid)
+
+@app.get("/check-items/{character_name}")
+async def check_items(
+    character_name: str,
+    request_id: Annotated[str | None, Query()] = None,
+):
+    async with request_tracker.track(request_id) as tracked_request_id:
+        ocid = await nexon_api.get_ocid(character_name)
+        await request_tracker.set_stage(tracked_request_id, "equipment")
+
+        basic_info, item_data, stat_data = await asyncio.gather(
+            nexon_api.get_character_basic(ocid),
+            nexon_api.get_character_item(ocid),
+            nexon_api.get_character_stat(ocid),
+        )
 
         if not basic_info or not item_data:
-            return {"error": "데이터를 불러오는 데 실패했습니다."}
+            raise NexonAPIError("캐릭터 장비 데이터가 비어 있습니다.", status_code=502)
+
+        await request_tracker.set_stage(tracked_request_id, "analysis")
 
         char_class = basic_info.get("character_class")
         char_level = int(basic_info.get("character_level", 0))
