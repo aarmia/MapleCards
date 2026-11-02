@@ -1,5 +1,5 @@
-import re
 import math
+import re
 
 
 def get_potential_options(item_data: dict, potential_type: str) -> list[str]:

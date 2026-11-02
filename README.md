@@ -1,5 +1,7 @@
 # 🩺 MECULATOR - 장비 딸깍 진단서
 
+[![CI](https://github.com/aarmia/MapleCards/actions/workflows/ci.yml/badge.svg)](https://github.com/aarmia/MapleCards/actions/workflows/ci.yml)
+
 **MECULATOR**는 메이플스토리 유저의 아이템 상태를 정밀 분석하여, 어떤 부위를 우선적으로 강화하거나 교체해야 하는지 정해진 기준을 통해 점수로 환산하여 가이드를 제공하는 **Precision Diagnosis System**입니다.
 
 ---
@@ -34,7 +36,7 @@
 ## 🛠 기술 스택 (Tech Stack)
 
 ### Backend
-- **Framework**: FastAPI (Python)
+- **Framework**: FastAPI (Python 3.12+)
 - **HTTP Client**: httpx (AsyncClient, 연결 풀 공유)
 - **Concurrency**: Asyncio (Semaphore control)
 - **Template Engine**: Jinja2
@@ -47,6 +49,12 @@
 ### API
 - **Nexon Open API**: 캐릭터 정보 및 장비 데이터 수집
 
+### Tooling
+- **의존성 관리**: uv (`pyproject.toml` + `uv.lock`, 배포용 `requirements.txt`는 lock에서 내보냄)
+- **린트**: ruff
+- **테스트**: unittest + 실제 API 응답 픽스처 기반 골든 테스트
+- **CI**: GitHub Actions (Python 3.12 / 3.13 매트릭스)
+
 ---
 
 ## 📁 프로젝트 구조 (Structure)
@@ -55,7 +63,7 @@
 app/
 ├── main.py                 # FastAPI 서버, 엔드포인트(/, /check-items, /request-status, robots.txt, sitemap.xml)
 ├── scraper.py              # Nexon Open API 클라이언트 및 오류 변환
-├── analyzer.py             # 장비 평가, 가이드 문구, 총평, 최적 프리셋 선택
+├── analyzer.py             # 장비 평가, 가이드 문구, 총평, 최적 프리셋 선택, 진단 결과 조립(build_report)
 ├── calculator.py           # 점수 공식 (추가옵션, 잠재능력, 스타포스, 무기)
 ├── request_tracker.py      # 동시 진단 제한 및 요청 진행 상태 추적
 ├── static/
@@ -72,7 +80,20 @@ app/
         ├── _overall_review.html
         ├── _summary.html
         └── _wse_grid.html      # 무기 · 보조무기 · 엠블렘, 특수 장비 카드
-tests/                      # unittest 기반 테스트
+scripts/
+└── fetch_fixtures.py       # 실제 Nexon 응답을 익명화해 테스트 픽스처로 저장
+tests/
+├── fixtures/
+│   ├── characters/         # 직업별 · 스펙대별 실제 응답 픽스처 (식별 정보 제거)
+│   └── golden/             # 픽스처별 진단 결과 스냅샷
+├── test_calculator.py      # 점수 공식 · 가이드 분리 단위 테스트
+├── test_golden.py          # 픽스처 → 진단 결과가 스냅샷과 같은지 검증
+├── test_main.py            # 엔드포인트 · 오류 매핑 · 픽스처 통합 테스트
+├── test_request_tracker.py
+└── test_scraper.py
+.github/workflows/ci.yml    # ruff + unittest + requirements.txt 동기화 검사
+pyproject.toml              # 의존성 · ruff 설정
+uv.lock                     # 잠금 파일 (모든 플랫폼 공용)
 ```
 
 ---
@@ -85,17 +106,44 @@ tests/                      # unittest 기반 테스트
    # 선택: robots.txt / sitemap.xml에 쓰는 공개 주소 (기본값 https://meculator.onrender.com)
    SITE_URL=https://your-domain.example
    ```
-2. **패키지 설치**:
+2. **패키지 설치**: 둘 중 하나를 선택합니다.
    ```bash
-   pip install -r requirements.txt
+   uv sync                           # 권장: .venv 에 lock 그대로 설치 (개발 도구 포함)
+   pip install -r requirements.txt   # 또는 배포와 같은 방식
    ```
 3. **서버 실행**:
    ```bash
-   uvicorn app.main:app --reload
+   uv run uvicorn app.main:app --reload
+   # pip 로 설치했다면: uvicorn app.main:app --reload
    ```
-4. **테스트 실행**:
-   ```bash
-   python -m unittest discover -s tests -t .
-   ```
+
+---
+
+## 🧪 개발 · 테스트
+
+```bash
+uv run ruff check .                                   # 린트
+uv run python -m unittest discover -s tests -t .      # 전체 테스트
+```
+
+### 골든 테스트
+`tests/test_golden.py`는 `tests/fixtures/characters/`의 실제 응답 픽스처로 진단 결과를 만들어 `tests/fixtures/golden/`의 스냅샷과 비교합니다. 점수 공식이나 가이드 문구를 **의도적으로** 바꿨다면 스냅샷을 갱신하고 diff를 확인한 뒤 함께 커밋합니다.
+```bash
+UPDATE_GOLDEN=1 uv run python -m unittest tests.test_golden
+```
+
+### 픽스처 재수집
+직업 세트(히어로 · 보우마스터 · 비숍 · 섀도어 · 데몬어벤져 · 제논)와 중/하위권 표본을 넥슨 랭킹에서 골라 저장합니다. 캐릭터 이름 · 길드 · 월드 · 이미지는 저장하지 않습니다.
+```bash
+uv run python scripts/fetch_fixtures.py                 # 기본 세트 (NEXON_API_KEY 필요)
+uv run python scripts/fetch_fixtures.py --skip-defaults --names 내캐릭 --labels 내캐릭-테스트
+```
+
+### 의존성 변경
+`pyproject.toml`을 고친 뒤 lock과 배포용 requirements를 함께 갱신합니다. CI가 둘의 동기화 여부를 검사합니다.
+```bash
+uv lock
+uv export --format requirements-txt --no-dev --no-hashes --quiet > requirements.txt
+```
 
 ---

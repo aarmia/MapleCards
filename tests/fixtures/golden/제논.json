@@ -1,0 +1,1096 @@
+{
+  "class": "제논",
+  "level": 300,
+  "combat_power": "883781360",
+  "best_preset": 1,
+  "overall": {
+    "rank": "DESTINY",
+    "avg_score": 365.4,
+    "main_comment": "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 더 높은 곳으로의 성장을 준비하세요!",
+    "priority_target": "컴플리트 언더컨트롤",
+    "next_step": "'컴플리트 언더컨트롤' 부위의 보완이 가장 시급합니다."
+  },
+  "items": [
+    {
+      "name": "창세의 뱃지",
+      "part": "뱃지",
+      "slot": "뱃지",
+      "star": 0,
+      "level": 200,
+      "is_wse": false,
+      "is_special": true,
+      "is_noljang": false,
+      "total_score": 280.0,
+      "detail": {
+        "add": 280.0,
+        "star": 0,
+        "pot": 0,
+        "pot_additional": 0
+      },
+      "guide_tag": "INFO",
+      "guide_message": "👑 상위 티어 뱃지를 착용 중입니다.",
+      "guide": "👑 상위 티어 뱃지를 착용 중입니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 0,
+          "weighted_score": 280.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 0,
+          "weighted_score": 0
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 0,
+          "weighted_score": 0
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 0,
+          "weighted_score": 0,
+          "star": 0
+        }
+      ]
+    },
+    {
+      "name": "저주받은 녹의 마도서",
+      "part": "포켓 아이템",
+      "slot": "포켓 아이템",
+      "star": 0,
+      "level": 160,
+      "is_wse": false,
+      "is_special": true,
+      "is_noljang": false,
+      "total_score": 304,
+      "detail": {
+        "add": 304,
+        "star": 0,
+        "pot": 0,
+        "pot_additional": 0
+      },
+      "guide_tag": "INFO",
+      "guide_message": "👑 포켓 부위 종결급 추옵입니다.",
+      "guide": "👑 포켓 부위 종결급 추옵입니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 304,
+          "weighted_score": 304
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 0,
+          "weighted_score": 0
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 0,
+          "weighted_score": 0
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 0,
+          "weighted_score": 0,
+          "star": 0
+        }
+      ]
+    },
+    {
+      "name": "불멸의 유산",
+      "part": "훈장",
+      "slot": "훈장",
+      "star": 0,
+      "level": 250,
+      "is_wse": false,
+      "is_special": true,
+      "is_noljang": false,
+      "total_score": 320.0,
+      "detail": {
+        "add": 320.0,
+        "star": 0,
+        "pot": 0,
+        "pot_additional": 0
+      },
+      "guide_tag": "INFO",
+      "guide_message": "💡 더 높은 등급의 훈장 획득을 권장합니다.",
+      "guide": "💡 더 높은 등급의 훈장 획득을 권장합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 356,
+          "weighted_score": 320.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 0,
+          "weighted_score": 0
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 0,
+          "weighted_score": 0
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 0,
+          "weighted_score": 0,
+          "star": 0
+        }
+      ]
+    },
+    {
+      "name": "컴플리트 언더컨트롤",
+      "part": "기계 심장",
+      "slot": "기계 심장",
+      "star": 21,
+      "level": 200,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 341.91,
+      "detail": {
+        "add": 100.0,
+        "star": 91.1,
+        "pot": 106.9,
+        "pot_additional": 43.9
+      },
+      "guide_tag": "스타포스 권장",
+      "guide_message": "⭐ 체급에 걸맞은 '22성' 달성이 시급합니다. 우선적으로 22성 강화를 최우선하세요.",
+      "guide": "⭐ [스타포스 권장] 체급에 걸맞은 '22성' 달성이 시급합니다. 우선적으로 22성 강화를 최우선하세요.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 32.4,
+          "weighted_score": 106.92
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 17.55,
+          "weighted_score": 43.88
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 21,
+          "weighted_score": 91.12,
+          "star": 21
+        }
+      ]
+    },
+    {
+      "name": "거대한 공포",
+      "part": "반지",
+      "slot": "반지4",
+      "star": 22,
+      "level": 200,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 344.04,
+      "detail": {
+        "add": 100.0,
+        "star": 100.0,
+        "pot": 106.9,
+        "pot_additional": 37.1
+      },
+      "guide_tag": "준종결",
+      "guide_message": "💎 종결급 체급입니다. 마지막 퍼즐인 '에디셔널' 수치 보완을 추천합니다.",
+      "guide": "💎 [준종결] 종결급 체급입니다. 마지막 퍼즐인 '에디셔널' 수치 보완을 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 32.4,
+          "weighted_score": 106.92
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 14.85,
+          "weighted_score": 37.12
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 22,
+          "weighted_score": 100.0,
+          "star": 22
+        }
+      ]
+    },
+    {
+      "name": "앱솔랩스 시프슈즈",
+      "part": "신발",
+      "slot": "신발",
+      "star": 23,
+      "level": 160,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 349.42,
+      "detail": {
+        "add": 110.0,
+        "star": 95.4,
+        "pot": 106.9,
+        "pot_additional": 37.1
+      },
+      "guide_tag": "종결 / 상위매물 교체",
+      "guide_message": "✨ 23성 이상 도달한 장비입니다. 추가 강화보다는 이대로 사용하시거나, 상위 등급의 베이스 아이템 매물로 교체하는 것을 추천합니다.",
+      "guide": "✨ [종결 / 상위매물 교체] 23성 이상 도달한 장비입니다. 추가 강화보다는 이대로 사용하시거나, 상위 등급의 베이스 아이템 매물로 교체하는 것을 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 298,
+          "weighted_score": 109.96
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 32.4,
+          "weighted_score": 106.92
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 14.85,
+          "weighted_score": 37.12
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 23,
+          "weighted_score": 95.41,
+          "star": 23
+        }
+      ]
+    },
+    {
+      "name": "고통의 근원",
+      "part": "펜던트",
+      "slot": "펜던트2",
+      "star": 23,
+      "level": 160,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 349.42,
+      "detail": {
+        "add": 110.0,
+        "star": 95.4,
+        "pot": 106.9,
+        "pot_additional": 37.1
+      },
+      "guide_tag": "종결 / 상위매물 교체",
+      "guide_message": "✨ 23성 이상 도달한 장비입니다. 추가 강화보다는 이대로 사용하시거나, 상위 등급의 베이스 아이템 매물로 교체하는 것을 추천합니다.",
+      "guide": "✨ [종결 / 상위매물 교체] 23성 이상 도달한 장비입니다. 추가 강화보다는 이대로 사용하시거나, 상위 등급의 베이스 아이템 매물로 교체하는 것을 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 298,
+          "weighted_score": 109.96
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 32.4,
+          "weighted_score": 106.92
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 14.85,
+          "weighted_score": 37.12
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 23,
+          "weighted_score": 95.41,
+          "star": 23
+        }
+      ]
+    },
+    {
+      "name": "루즈 컨트롤 머신 마크",
+      "part": "얼굴장식",
+      "slot": "얼굴장식",
+      "star": 23,
+      "level": 160,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 349.56,
+      "detail": {
+        "add": 110.1,
+        "star": 95.4,
+        "pot": 106.9,
+        "pot_additional": 37.1
+      },
+      "guide_tag": "종결 / 상위매물 교체",
+      "guide_message": "✨ 23성 이상 도달한 장비입니다. 추가 강화보다는 이대로 사용하시거나, 상위 등급의 베이스 아이템 매물로 교체하는 것을 추천합니다.",
+      "guide": "✨ [종결 / 상위매물 교체] 23성 이상 도달한 장비입니다. 추가 강화보다는 이대로 사용하시거나, 상위 등급의 베이스 아이템 매물로 교체하는 것을 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 299,
+          "weighted_score": 110.1
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 32.4,
+          "weighted_score": 106.92
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 14.85,
+          "weighted_score": 37.12
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 23,
+          "weighted_score": 95.41,
+          "star": 23
+        }
+      ]
+    },
+    {
+      "name": "마이스터링",
+      "part": "반지",
+      "slot": "반지2",
+      "star": 24,
+      "level": 140,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 352.53,
+      "detail": {
+        "add": 100.0,
+        "star": 93.3,
+        "pot": 120.3,
+        "pot_additional": 39.0
+      },
+      "guide_tag": "에디/교체 권장",
+      "guide_message": "✨ 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "guide": "✨ [에디/교체 권장] 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 36.45,
+          "weighted_score": 120.28
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 15.58,
+          "weighted_score": 38.95
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 24,
+          "weighted_score": 93.3,
+          "star": 24
+        }
+      ]
+    },
+    {
+      "name": "마력이 깃든 안대",
+      "part": "눈장식",
+      "slot": "눈장식",
+      "star": 23,
+      "level": 160,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 354.05,
+      "detail": {
+        "add": 111.2,
+        "star": 95.4,
+        "pot": 106.9,
+        "pot_additional": 40.5
+      },
+      "guide_tag": "에디/교체 권장",
+      "guide_message": "✨ 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "guide": "✨ [에디/교체 권장] 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 308,
+          "weighted_score": 111.22
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 32.4,
+          "weighted_score": 106.92
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 16.2,
+          "weighted_score": 40.5
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 23,
+          "weighted_score": 95.41,
+          "star": 23
+        }
+      ]
+    },
+    {
+      "name": "앱솔랩스 시프케이프",
+      "part": "망토",
+      "slot": "망토",
+      "star": 23,
+      "level": 160,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 354.5,
+      "detail": {
+        "add": 109.4,
+        "star": 95.4,
+        "pot": 106.9,
+        "pot_additional": 42.8
+      },
+      "guide_tag": "에디/교체 권장",
+      "guide_message": "✨ 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "guide": "✨ [에디/교체 권장] 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 294,
+          "weighted_score": 109.42
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 32.4,
+          "weighted_score": 106.92
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 17.1,
+          "weighted_score": 42.75
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 23,
+          "weighted_score": 95.41,
+          "star": 23
+        }
+      ]
+    },
+    {
+      "name": "여명의 가디언 엔젤 링",
+      "part": "반지",
+      "slot": "반지3",
+      "star": 25,
+      "level": 160,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 354.9,
+      "detail": {
+        "add": 100.0,
+        "star": 97.5,
+        "pot": 120.3,
+        "pot_additional": 37.1
+      },
+      "guide_tag": "에디/교체 권장",
+      "guide_message": "✨ 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "guide": "✨ [에디/교체 권장] 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 36.45,
+          "weighted_score": 120.28
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 14.85,
+          "weighted_score": 37.12
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 25,
+          "weighted_score": 97.49,
+          "star": 25
+        }
+      ]
+    },
+    {
+      "name": "이글아이 어새신셔츠",
+      "part": "상의",
+      "slot": "상의",
+      "star": 23,
+      "level": 150,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 354.91,
+      "detail": {
+        "add": 110.4,
+        "star": 93.7,
+        "pot": 106.9,
+        "pot_additional": 43.9
+      },
+      "guide_tag": "종결",
+      "guide_message": "👑 완벽한 장비입니다. 24성 도전 외엔 투자가 무의미합니다.",
+      "guide": "👑 [종결] 완벽한 장비입니다. 24성 도전 외엔 투자가 무의미합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 276,
+          "weighted_score": 110.37
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 32.4,
+          "weighted_score": 106.92
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 17.55,
+          "weighted_score": 43.88
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 23,
+          "weighted_score": 93.75,
+          "star": 23
+        }
+      ]
+    },
+    {
+      "name": "트릭스터 어새신팬츠",
+      "part": "하의",
+      "slot": "하의",
+      "star": 23,
+      "level": 150,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 355.99,
+      "detail": {
+        "add": 111.5,
+        "star": 93.7,
+        "pot": 106.9,
+        "pot_additional": 43.9
+      },
+      "guide_tag": "종결",
+      "guide_message": "👑 완벽한 장비입니다. 24성 도전 외엔 투자가 무의미합니다.",
+      "guide": "👑 [종결] 완벽한 장비입니다. 24성 도전 외엔 투자가 무의미합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 284,
+          "weighted_score": 111.45
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 32.4,
+          "weighted_score": 106.92
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 17.55,
+          "weighted_score": 43.88
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 23,
+          "weighted_score": 93.75,
+          "star": 23
+        }
+      ]
+    },
+    {
+      "name": "몽환의 벨트",
+      "part": "벨트",
+      "slot": "벨트",
+      "star": 23,
+      "level": 200,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 356.2,
+      "detail": {
+        "add": 110.1,
+        "star": 102.1,
+        "pot": 106.9,
+        "pot_additional": 37.1
+      },
+      "guide_tag": "에디/교체 권장",
+      "guide_message": "✨ 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "guide": "✨ [에디/교체 권장] 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 330,
+          "weighted_score": 110.08
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 32.4,
+          "weighted_score": 106.92
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 14.85,
+          "weighted_score": 37.12
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 23,
+          "weighted_score": 102.08,
+          "star": 23
+        }
+      ]
+    },
+    {
+      "name": "커맨더 포스 이어링",
+      "part": "귀고리",
+      "slot": "귀고리",
+      "star": 23,
+      "level": 200,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 357.78,
+      "detail": {
+        "add": 111.7,
+        "star": 102.1,
+        "pot": 106.9,
+        "pot_additional": 37.1
+      },
+      "guide_tag": "에디/교체 권장",
+      "guide_message": "✨ 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "guide": "✨ [에디/교체 권장] 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 344,
+          "weighted_score": 111.66
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 32.4,
+          "weighted_score": 106.92
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 14.85,
+          "weighted_score": 37.12
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 23,
+          "weighted_score": 102.08,
+          "star": 23
+        }
+      ]
+    },
+    {
+      "name": "데이브레이크 펜던트",
+      "part": "펜던트",
+      "slot": "펜던트",
+      "star": 25,
+      "level": 140,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 365.12,
+      "detail": {
+        "add": 112.4,
+        "star": 94.2,
+        "pot": 120.3,
+        "pot_additional": 38.2
+      },
+      "guide_tag": "에디/교체 권장",
+      "guide_message": "✨ 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "guide": "✨ [에디/교체 권장] 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 276,
+          "weighted_score": 112.43
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 36.45,
+          "weighted_score": 120.28
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 15.3,
+          "weighted_score": 38.25
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 25,
+          "weighted_score": 94.16,
+          "star": 25
+        }
+      ]
+    },
+    {
+      "name": "에테르넬 시프숄더",
+      "part": "어깨장식",
+      "slot": "어깨장식",
+      "star": 22,
+      "level": 250,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 372.49,
+      "detail": {
+        "add": 100.0,
+        "star": 108.3,
+        "pot": 120.3,
+        "pot_additional": 43.9
+      },
+      "guide_tag": "종결",
+      "guide_message": "👑 완벽한 장비입니다. 23성 도전 외엔 투자가 무의미합니다.",
+      "guide": "👑 [종결] 완벽한 장비입니다. 23성 도전 외엔 투자가 무의미합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 36.45,
+          "weighted_score": 120.28
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 17.55,
+          "weighted_score": 43.88
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 22,
+          "weighted_score": 108.33,
+          "star": 22
+        }
+      ]
+    },
+    {
+      "name": "아스트라 데카코어 컨트롤러",
+      "part": "컨트롤러",
+      "slot": "보조무기",
+      "star": 23,
+      "level": 200,
+      "is_wse": true,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 380.6,
+      "detail": {
+        "add": 100.0,
+        "star": 100.0,
+        "pot": 105.6,
+        "pot_additional": 75.0
+      },
+      "guide_tag": "추가옵션 강화 / 전승",
+      "guide_message": "✨ 추가옵션이 완성되지 않았습니다. 강화하거나, 전승을 고려하세요.",
+      "guide": "✨ [추가옵션 강화 / 전승] 추가옵션이 완성되지 않았습니다. 강화하거나, 전승을 고려하세요.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 100.0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 32.0,
+          "weighted_score": 105.6
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 30.0,
+          "weighted_score": 75.0
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 23,
+          "weighted_score": 100.0,
+          "star": 23
+        }
+      ]
+    },
+    {
+      "name": "미트라의 분노 : 해적",
+      "part": "엠블렘",
+      "slot": "엠블렘",
+      "star": 0,
+      "level": 200,
+      "is_wse": true,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 383.9,
+      "detail": {
+        "add": 100.0,
+        "star": 100.0,
+        "pot": 108.9,
+        "pot_additional": 75.0
+      },
+      "guide_tag": "미세조정",
+      "guide_message": "🔍 종결급이나 '윗잠재'이(가) 평균보다 낮습니다.",
+      "guide": "🔍 [미세조정] 종결급이나 '윗잠재'이(가) 평균보다 낮습니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 100.0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 33.0,
+          "weighted_score": 108.9
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 30.0,
+          "weighted_score": 75.0
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 0,
+          "weighted_score": 100.0,
+          "star": 0
+        }
+      ]
+    },
+    {
+      "name": "하이네스 어새신보닛",
+      "part": "모자",
+      "slot": "모자",
+      "star": 24,
+      "level": 150,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 383.96,
+      "detail": {
+        "add": 111.5,
+        "star": 95.0,
+        "pot": 135.8,
+        "pot_additional": 41.8
+      },
+      "guide_tag": "에디/교체 권장",
+      "guide_message": "✨ 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "guide": "✨ [에디/교체 권장] 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 284,
+          "weighted_score": 111.45
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 41.15,
+          "weighted_score": 135.79
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 16.7,
+          "weighted_score": 41.75
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 24,
+          "weighted_score": 94.96,
+          "star": 24
+        }
+      ]
+    },
+    {
+      "name": "앱솔랩스 시프글러브",
+      "part": "장갑",
+      "slot": "장갑",
+      "star": 23,
+      "level": 160,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 403.83,
+      "detail": {
+        "add": 111.2,
+        "star": 95.4,
+        "pot": 148.5,
+        "pot_additional": 48.7
+      },
+      "guide_tag": "종결",
+      "guide_message": "👑 완벽한 장비입니다. 24성 도전 외엔 투자가 무의미합니다.",
+      "guide": "👑 [종결] 완벽한 장비입니다. 24성 도전 외엔 투자가 무의미합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 308,
+          "weighted_score": 111.22
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 45.0,
+          "weighted_score": 148.5
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 19.48,
+          "weighted_score": 48.7
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 23,
+          "weighted_score": 95.41,
+          "star": 23
+        }
+      ]
+    },
+    {
+      "name": "데스티니 에너지체인",
+      "part": "에너지소드",
+      "slot": "무기",
+      "star": 22,
+      "level": 250,
+      "is_wse": true,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 442.77,
+      "detail": {
+        "add": 152.6,
+        "star": 108.3,
+        "pot": 114.7,
+        "pot_additional": 67.1
+      },
+      "guide_tag": "종결",
+      "guide_message": "👑 완벽한 장비입니다. 23성 도전 외엔 투자가 무의미합니다.",
+      "guide": "👑 [종결] 완벽한 장비입니다. 23성 도전 외엔 투자가 무의미합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 76.32,
+          "weighted_score": 152.64
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 34.75,
+          "weighted_score": 114.67
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 26.85,
+          "weighted_score": 67.12
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 22,
+          "weighted_score": 108.33,
+          "star": 22
+        }
+      ]
+    }
+  ]
+}

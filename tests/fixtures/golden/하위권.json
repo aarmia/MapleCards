@@ -1,0 +1,1096 @@
+{
+  "class": "칼리",
+  "level": 285,
+  "combat_power": "91663635",
+  "best_preset": 1,
+  "overall": {
+    "rank": "EPIC",
+    "avg_score": 198.2,
+    "main_comment": "성장 가능성이 큽니다. 낮은 점수 부위부터 교체해보세요.",
+    "priority_target": "아케인셰이드 시프슈즈",
+    "next_step": "'아케인셰이드 시프슈즈' 부위의 보완이 가장 시급합니다."
+  },
+  "items": [
+    {
+      "name": "핑크빛 성배",
+      "part": "포켓 아이템",
+      "slot": "포켓 아이템",
+      "star": 0,
+      "level": 140,
+      "is_wse": false,
+      "is_special": true,
+      "is_noljang": false,
+      "total_score": 120,
+      "detail": {
+        "add": 120,
+        "star": 0,
+        "pot": 0,
+        "pot_additional": 0
+      },
+      "guide_tag": "INFO",
+      "guide_message": "🚨 더 높은 급수의 성배(80급 이상)로 교체를 추천합니다.",
+      "guide": "🚨 더 높은 급수의 성배(80급 이상)로 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 120,
+          "weighted_score": 120
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 0,
+          "weighted_score": 0
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 0,
+          "weighted_score": 0
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 0,
+          "weighted_score": 0,
+          "star": 0
+        }
+      ]
+    },
+    {
+      "name": "아케인셰이드 시프슈즈",
+      "part": "신발",
+      "slot": "신발",
+      "star": 18,
+      "level": 200,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 124.23,
+      "detail": {
+        "add": 49.8,
+        "star": 66.9,
+        "pot": 0,
+        "pot_additional": 7.5
+      },
+      "guide_tag": "교체 시급",
+      "guide_message": "🚨 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "guide": "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 104,
+          "weighted_score": 49.79
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 0.0,
+          "weighted_score": 0
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 3.0,
+          "weighted_score": 7.5
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 18,
+          "weighted_score": 66.94,
+          "star": 18
+        }
+      ]
+    },
+    {
+      "name": "에스텔라 이어링",
+      "part": "귀고리",
+      "slot": "귀고리",
+      "star": 17,
+      "level": 160,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 155.52,
+      "detail": {
+        "add": 62.6,
+        "star": 55.7,
+        "pot": 29.7,
+        "pot_additional": 7.5
+      },
+      "guide_tag": "교체 시급",
+      "guide_message": "🚨 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "guide": "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 104,
+          "weighted_score": 62.59
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 9.0,
+          "weighted_score": 29.7
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 3.0,
+          "weighted_score": 7.5
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 17,
+          "weighted_score": 55.73,
+          "star": 17
+        }
+      ]
+    },
+    {
+      "name": "아케인셰이드 시프글러브",
+      "part": "장갑",
+      "slot": "장갑",
+      "star": 18,
+      "level": 200,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 156.59,
+      "detail": {
+        "add": 70.0,
+        "star": 66.9,
+        "pot": 9.9,
+        "pot_additional": 9.8
+      },
+      "guide_tag": "교체 시급",
+      "guide_message": "🚨 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "guide": "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 125,
+          "weighted_score": 70.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 3.0,
+          "weighted_score": 9.9
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 3.9,
+          "weighted_score": 9.75
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 18,
+          "weighted_score": 66.94,
+          "star": 18
+        }
+      ]
+    },
+    {
+      "name": "데이브레이크 펜던트",
+      "part": "펜던트",
+      "slot": "펜던트2",
+      "star": 18,
+      "level": 140,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 158.83,
+      "detail": {
+        "add": 61.4,
+        "star": 60.2,
+        "pot": 29.7,
+        "pot_additional": 7.5
+      },
+      "guide_tag": "교체 시급",
+      "guide_message": "🚨 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "guide": "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 90,
+          "weighted_score": 61.38
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 9.0,
+          "weighted_score": 29.7
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 3.0,
+          "weighted_score": 7.5
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 18,
+          "weighted_score": 60.25,
+          "star": 18
+        }
+      ]
+    },
+    {
+      "name": "글로리온 링 : 슈프림",
+      "part": "반지",
+      "slot": "반지2",
+      "star": 0,
+      "level": 120,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 166.9,
+      "detail": {
+        "add": 100.0,
+        "star": 0.0,
+        "pot": 59.4,
+        "pot_additional": 7.5
+      },
+      "guide_tag": "교체 시급",
+      "guide_message": "🚨 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "guide": "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 18.0,
+          "weighted_score": 59.4
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 3.0,
+          "weighted_score": 7.5
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 0,
+          "weighted_score": 0.0,
+          "star": 0
+        }
+      ]
+    },
+    {
+      "name": "트와일라이트 마크",
+      "part": "얼굴장식",
+      "slot": "얼굴장식",
+      "star": 18,
+      "level": 140,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 169.45,
+      "detail": {
+        "add": 77.7,
+        "star": 60.2,
+        "pot": 21.8,
+        "pot_additional": 9.8
+      },
+      "guide_tag": "교체 시급",
+      "guide_message": "🚨 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "guide": "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 104,
+          "weighted_score": 77.67
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 6.6,
+          "weighted_score": 21.78
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 3.9,
+          "weighted_score": 9.75
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 18,
+          "weighted_score": 60.25,
+          "star": 18
+        }
+      ]
+    },
+    {
+      "name": "하이네스 어새신보닛",
+      "part": "모자",
+      "slot": "모자",
+      "star": 17,
+      "level": 150,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 170.7,
+      "detail": {
+        "add": 78.8,
+        "star": 54.7,
+        "pot": 29.7,
+        "pot_additional": 7.5
+      },
+      "guide_tag": "교체 시급",
+      "guide_message": "🚨 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "guide": "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 110,
+          "weighted_score": 78.77
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 9.0,
+          "weighted_score": 29.7
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 3.0,
+          "weighted_score": 7.5
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 17,
+          "weighted_score": 54.73,
+          "star": 17
+        }
+      ]
+    },
+    {
+      "name": "페어리 하트",
+      "part": "기계 심장",
+      "slot": "기계 심장",
+      "star": 8,
+      "level": 100,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 173.77,
+      "detail": {
+        "add": 100.0,
+        "star": 11.0,
+        "pot": 49.5,
+        "pot_additional": 13.2
+      },
+      "guide_tag": "업그레이드 권장",
+      "guide_message": "🚨 현재 하트는 성능 한계가 명확합니다. 플라즈마 하트로의 강화를 고려하세요.",
+      "guide": "🚨 [업그레이드 권장] 현재 하트는 성능 한계가 명확합니다. 플라즈마 하트로의 강화를 고려하세요.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 15.0,
+          "weighted_score": 49.5
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 5.3,
+          "weighted_score": 13.25
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 8,
+          "weighted_score": 11.02,
+          "star": 8
+        }
+      ]
+    },
+    {
+      "name": "테네브리스 원정대 반지",
+      "part": "반지",
+      "slot": "반지1",
+      "star": 0,
+      "level": 120,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 174.4,
+      "detail": {
+        "add": 100.0,
+        "star": 0.0,
+        "pot": 59.4,
+        "pot_additional": 15.0
+      },
+      "guide_tag": "교체 시급",
+      "guide_message": "🚨 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "guide": "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 18.0,
+          "weighted_score": 59.4
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 6.0,
+          "weighted_score": 15.0
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 0,
+          "weighted_score": 0.0,
+          "star": 0
+        }
+      ]
+    },
+    {
+      "name": "블랙빈 마크",
+      "part": "눈장식",
+      "slot": "눈장식",
+      "star": 17,
+      "level": 135,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 175.53,
+      "detail": {
+        "add": 65.3,
+        "star": 53.2,
+        "pot": 49.5,
+        "pot_additional": 7.5
+      },
+      "guide_tag": "잠재 / 에디 부족",
+      "guide_message": "🔮 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "guide": "🔮 [잠재 / 에디 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 91,
+          "weighted_score": 65.29
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 15.0,
+          "weighted_score": 49.5
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 3.0,
+          "weighted_score": 7.5
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 17,
+          "weighted_score": 53.24,
+          "star": 17
+        }
+      ]
+    },
+    {
+      "name": "카오스 벨룸 킬러",
+      "part": "훈장",
+      "slot": "훈장",
+      "star": 0,
+      "level": 0,
+      "is_wse": false,
+      "is_special": true,
+      "is_noljang": false,
+      "total_score": 180.0,
+      "detail": {
+        "add": 180.0,
+        "star": 0,
+        "pot": 0,
+        "pot_additional": 0
+      },
+      "guide_tag": "INFO",
+      "guide_message": "💡 더 높은 등급의 훈장 획득을 권장합니다.",
+      "guide": "💡 더 높은 등급의 훈장 획득을 권장합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 0,
+          "weighted_score": 180.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 0,
+          "weighted_score": 0
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 0,
+          "weighted_score": 0
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 0,
+          "weighted_score": 0,
+          "star": 0
+        }
+      ]
+    },
+    {
+      "name": "크리스탈 웬투스 뱃지",
+      "part": "뱃지",
+      "slot": "뱃지",
+      "star": 0,
+      "level": 130,
+      "is_wse": false,
+      "is_special": true,
+      "is_noljang": false,
+      "total_score": 180.0,
+      "detail": {
+        "add": 180.0,
+        "star": 0,
+        "pot": 0,
+        "pot_additional": 0
+      },
+      "guide_tag": "INFO",
+      "guide_message": "💡 칠요의 뱃지 혹은 창세의 뱃지로의 업그레이드 목표를 잡으세요.",
+      "guide": "💡 칠요의 뱃지 혹은 창세의 뱃지로의 업그레이드 목표를 잡으세요.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 0,
+          "weighted_score": 180.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 0,
+          "weighted_score": 0
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 0,
+          "weighted_score": 0
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 0,
+          "weighted_score": 0,
+          "star": 0
+        }
+      ]
+    },
+    {
+      "name": "트릭스터 어새신팬츠",
+      "part": "하의",
+      "slot": "하의",
+      "star": 17,
+      "level": 150,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 181.73,
+      "detail": {
+        "add": 76.7,
+        "star": 54.7,
+        "pot": 40.6,
+        "pot_additional": 9.8
+      },
+      "guide_tag": "잠재 / 에디 부족",
+      "guide_message": "🔮 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "guide": "🔮 [잠재 / 에디 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 108,
+          "weighted_score": 76.66
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 12.3,
+          "weighted_score": 40.59
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 3.9,
+          "weighted_score": 9.75
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 17,
+          "weighted_score": 54.73,
+          "star": 17
+        }
+      ]
+    },
+    {
+      "name": "아케인셰이드 시프케이프",
+      "part": "망토",
+      "slot": "망토",
+      "star": 18,
+      "level": 200,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 181.98,
+      "detail": {
+        "add": 49.8,
+        "star": 66.9,
+        "pot": 49.5,
+        "pot_additional": 15.8
+      },
+      "guide_tag": "잠재 부족",
+      "guide_message": "🔮 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "guide": "🔮 [잠재 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 104,
+          "weighted_score": 49.79
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 15.0,
+          "weighted_score": 49.5
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 6.3,
+          "weighted_score": 15.75
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 18,
+          "weighted_score": 66.94,
+          "star": 18
+        }
+      ]
+    },
+    {
+      "name": "이글아이 어새신셔츠",
+      "part": "상의",
+      "slot": "상의",
+      "star": 17,
+      "level": 150,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 182.53,
+      "detail": {
+        "add": 90.8,
+        "star": 54.7,
+        "pot": 19.8,
+        "pot_additional": 17.2
+      },
+      "guide_tag": "잠재 부족",
+      "guide_message": "🔮 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "guide": "🔮 [잠재 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 122,
+          "weighted_score": 90.75
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 6.0,
+          "weighted_score": 19.8
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 6.9,
+          "weighted_score": 17.25
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 17,
+          "weighted_score": 54.73,
+          "star": 17
+        }
+      ]
+    },
+    {
+      "name": "골든 클로버 벨트",
+      "part": "벨트",
+      "slot": "벨트",
+      "star": 18,
+      "level": 140,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 189.47,
+      "detail": {
+        "add": 79.9,
+        "star": 60.2,
+        "pot": 39.6,
+        "pot_additional": 9.8
+      },
+      "guide_tag": "잠재 / 에디 부족",
+      "guide_message": "🔮 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "guide": "🔮 [잠재 / 에디 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 106,
+          "weighted_score": 79.87
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 12.0,
+          "weighted_score": 39.6
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 3.9,
+          "weighted_score": 9.75
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 18,
+          "weighted_score": 60.25,
+          "star": 18
+        }
+      ]
+    },
+    {
+      "name": "매커네이터 펜던트",
+      "part": "펜던트",
+      "slot": "펜던트",
+      "star": 15,
+      "level": 120,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 192.03,
+      "detail": {
+        "add": 94.7,
+        "star": 40.3,
+        "pot": 49.5,
+        "pot_additional": 7.5
+      },
+      "guide_tag": "잠재 / 에디 부족",
+      "guide_message": "🔮 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "guide": "🔮 [잠재 / 에디 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 109,
+          "weighted_score": 94.74
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 15.0,
+          "weighted_score": 49.5
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 3.0,
+          "weighted_score": 7.5
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 15,
+          "weighted_score": 40.29,
+          "star": 15
+        }
+      ]
+    },
+    {
+      "name": "아케인셰이드 시프숄더",
+      "part": "어깨장식",
+      "slot": "어깨장식",
+      "star": 17,
+      "level": 200,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 212.39,
+      "detail": {
+        "add": 100.0,
+        "star": 59.7,
+        "pot": 41.6,
+        "pot_additional": 11.1
+      },
+      "guide_tag": "잠재 / 에디 부족",
+      "guide_message": "🔮 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "guide": "🔮 [잠재 / 에디 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 12.6,
+          "weighted_score": 41.58
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 4.44,
+          "weighted_score": 11.1
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 17,
+          "weighted_score": 59.71,
+          "star": 17
+        }
+      ]
+    },
+    {
+      "name": "여명의 가디언 엔젤 링",
+      "part": "반지",
+      "slot": "반지3",
+      "star": 17,
+      "level": 160,
+      "is_wse": false,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 233.35,
+      "detail": {
+        "add": 100.0,
+        "star": 55.7,
+        "pot": 62.4,
+        "pot_additional": 15.2
+      },
+      "guide_tag": "잠재 부족",
+      "guide_message": "🔮 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "guide": "🔮 [잠재 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 18.9,
+          "weighted_score": 62.37
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 6.1,
+          "weighted_score": 15.25
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 17,
+          "weighted_score": 55.73,
+          "star": 17
+        }
+      ]
+    },
+    {
+      "name": "블랙 인피니트 헥스시커",
+      "part": "헥스시커",
+      "slot": "보조무기",
+      "star": 0,
+      "level": 100,
+      "is_wse": true,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 278.52,
+      "detail": {
+        "add": 100.0,
+        "star": 100.0,
+        "pot": 63.5,
+        "pot_additional": 15.0
+      },
+      "guide_tag": "가성비 강화",
+      "guide_message": "📦 해당 아이템의 한계치인 10성 달성 후 잠재능력을 손보는 것이 효율적입니다.",
+      "guide": "📦 [가성비 강화] 해당 아이템의 한계치인 10성 달성 후 잠재능력을 손보는 것이 효율적입니다.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 100.0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 19.25,
+          "weighted_score": 63.52
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 6.0,
+          "weighted_score": 15.0
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 0,
+          "weighted_score": 100.0,
+          "star": 0
+        }
+      ]
+    },
+    {
+      "name": "골드 체이서 엠블렘",
+      "part": "엠블렘",
+      "slot": "엠블렘",
+      "star": 0,
+      "level": 100,
+      "is_wse": true,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 329.98,
+      "detail": {
+        "add": 100.0,
+        "star": 100.0,
+        "pot": 77.5,
+        "pot_additional": 52.5
+      },
+      "guide_tag": "강화 권장",
+      "guide_message": "🛠️ 엘리트 장비입니다. 전체적인 밸런스를 위해 '윗잠재'을 보완하세요.",
+      "guide": "🛠️ [강화 권장] 엘리트 장비입니다. 전체적인 밸런스를 위해 '윗잠재'을 보완하세요.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 100.0,
+          "weighted_score": 100.0
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 23.48,
+          "weighted_score": 77.48
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 21.0,
+          "weighted_score": 52.5
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 0,
+          "weighted_score": 100.0,
+          "star": 0
+        }
+      ]
+    },
+    {
+      "name": "제네시스 이클립스",
+      "part": "차크람",
+      "slot": "무기",
+      "star": 22,
+      "level": 200,
+      "is_wse": true,
+      "is_special": false,
+      "is_noljang": false,
+      "total_score": 355.18,
+      "detail": {
+        "add": 107.0,
+        "star": 100.0,
+        "pot": 95.7,
+        "pot_additional": 52.5
+      },
+      "guide_tag": "잠재능력 강화 / 전승",
+      "guide_message": "✨ 베이스는 완벽합니다. 잠재능력 수치를 극대화하기 위해 강화하거나, 전승을 고려하세요.",
+      "guide": "✨ [잠재능력 강화 / 전승] 베이스는 완벽합니다. 잠재능력 수치를 극대화하기 위해 강화하거나, 전승을 고려하세요.",
+      "breakdown": [
+        {
+          "key": "add",
+          "label": "추가옵션",
+          "raw_score": 53.49,
+          "weighted_score": 106.98
+        },
+        {
+          "key": "pot",
+          "label": "윗잠재",
+          "raw_score": 29.0,
+          "weighted_score": 95.7
+        },
+        {
+          "key": "pot_additional",
+          "label": "에디셔널",
+          "raw_score": 21.0,
+          "weighted_score": 52.5
+        },
+        {
+          "key": "star",
+          "label": "스타포스",
+          "raw_score": 22,
+          "weighted_score": 100.0,
+          "star": 22
+        }
+      ]
+    }
+  ]
+}

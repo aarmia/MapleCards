@@ -82,7 +82,7 @@ def get_special_part_guide(total_score, part_name, item_name):
 
 def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_req_level, is_noljang=False):
     if is_noljang:
-        return f"💎 [놀라운 장비 강화 아이템] 놀라운 장비 강화 아이템을 착용중입니다. 교체를 원하신다면 명백한 상위 아이템과 베이스의 아이템으로 교체하세요."
+        return "💎 [놀라운 장비 강화 아이템] 놀라운 장비 강화 아이템을 착용중입니다. 교체를 원하신다면 명백한 상위 아이템과 베이스의 아이템으로 교체하세요."
 
     target_hearts = ["리튬 하트", "페어리 하트", "티타늄 하트", "플라즈마 하트"]
     upgrade_hearts = ["리튬 하트", "페어리 하트", "티타늄 하트"]
@@ -197,7 +197,7 @@ def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_
             return "🌀 [베이스 부실] 추옵이 낮아 투자가 비효율적입니다. 추가옵션의 강화를 추천합니다."
 
         if is_limited:
-            return f"✅ [다음 단계 준비] 전반적인 밸런스가 좋습니다. 다음 단계로 넘어가기 위한 업그레이드나 교체를 준비하세요."
+            return "✅ [다음 단계 준비] 전반적인 밸런스가 좋습니다. 다음 단계로 넘어가기 위한 업그레이드나 교체를 준비하세요."
         return f"✅ [다음 단계 준비] 전반적인 밸런스가 좋습니다. 다음 단계로 넘어가기 위한 상위 아이템 교체나 {next_label} 강화를 준비하세요."
 
     else:
@@ -278,7 +278,7 @@ def evaluate_equipment(items, char_class, char_level):
 
         def safe_int(val):
             try: return int(val) if val is not None else 0
-            except: return 0
+            except (TypeError, ValueError): return 0
 
         etc_stats_max = max(safe_int(etc_ops.get(s)) for s in ["str", "dex", "int", "luk"])
         etc_atk_max = max(safe_int(etc_ops.get("attack_power")), safe_int(etc_ops.get("magic_power")))
@@ -409,3 +409,44 @@ def generate_overall_review(evaluate_list):
     }
 
     return overall_review, all_sorted_results
+
+
+def extract_combat_power(stat_data):
+    """스탯 응답에서 전투력 값을 꺼냅니다. 없으면 0을 돌려줍니다."""
+    for stat in (stat_data or {}).get("final_stat") or []:
+        if stat.get("stat_name") == "전투력":
+            return stat.get("stat_value", 0)
+    return 0
+
+
+def select_preset_items(item_data, preset_idx):
+    """선택된 프리셋의 장비 목록을 돌려주고, 비어 있으면 현재 착용 장비로 대체합니다."""
+    items = item_data.get(f"item_equipment_preset_{preset_idx}")
+    return items or item_data.get("item_equipment", [])
+
+
+def build_report(character_name, basic_info, item_data, stat_data):
+    """기본정보·장비·스탯 응답으로 진단 결과 전체를 만듭니다.
+
+    /check-items 응답과 골든 테스트(tests/test_golden.py)가 같은 함수를 사용합니다.
+    """
+    char_class = basic_info.get("character_class")
+    char_level = int(basic_info.get("character_level") or 0)
+    char_image = basic_info.get("character_image", "")
+
+    best_preset_idx = get_best_preset(item_data, char_class, char_level)
+    items = select_preset_items(item_data, best_preset_idx)
+
+    evaluate_list = evaluate_equipment(items, char_class, char_level)
+    overall_review, all_sorted_results = generate_overall_review(evaluate_list)
+
+    return {
+        "character": character_name,
+        "class": char_class,
+        "level": char_level,
+        "character_image": char_image,
+        "combat_power": extract_combat_power(stat_data),
+        "best_preset": best_preset_idx,
+        "overall": overall_review,
+        "results": all_sorted_results,
+    }

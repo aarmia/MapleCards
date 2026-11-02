@@ -4,16 +4,16 @@ import os
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import FastAPI, Query, Response, Request
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI, Query, Request, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, PlainTextResponse
+from fastapi.templating import Jinja2Templates
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-from app.analyzer import evaluate_equipment, generate_overall_review, get_best_preset
+from app.analyzer import build_report
 from app.request_tracker import DiagnosticRequestTracker
 from app.scraper import NexonAPIError, NexonAPIHandler
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 nexon_api = NexonAPIHandler()
 
@@ -126,33 +126,5 @@ async def check_items(
 
         await request_tracker.set_stage(tracked_request_id, "analysis")
 
-        char_class = basic_info.get("character_class")
-        char_level = int(basic_info.get("character_level", 0))
-        char_image = basic_info.get("character_image", "")
-
-        combat_power = 0
-        if stat_data and "final_stat" in stat_data:
-            for stat in stat_data["final_stat"]:
-                if stat.get("stat_name") == "전투력":
-                    combat_power = stat.get("stat_value")
-                    break
-
-        # 분리된 분석 로직(analyzer) 호출
-        best_preset_idx = get_best_preset(item_data, char_class, char_level)
-        items = item_data.get(f"item_equipment_preset_{best_preset_idx}")
-        if not items:
-            items = item_data.get("item_equipment", [])
-
-        evaluate_list = evaluate_equipment(items, char_class, char_level)
-        overall_review, all_sorted_results = generate_overall_review(evaluate_list)
-
-        return {
-            "character": character_name,
-            "class": char_class,
-            "level": char_level,
-            "character_image": char_image,
-            "combat_power": combat_power,
-            "best_preset": best_preset_idx,
-            "overall": overall_review,
-            "results": all_sorted_results
-        }
+        # 분석 로직은 analyzer.build_report 에 모여 있어 골든 테스트와 같은 경로를 탑니다.
+        return build_report(character_name, basic_info, item_data, stat_data)

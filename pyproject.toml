@@ -1,0 +1,36 @@
+[project]
+name = "meculator"
+version = "0.1.0"
+description = "메이플스토리 장비 진단 서비스 (MECULATOR, 장비 딸깍 진단서)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi~=0.115.12",
+    "uvicorn>=0.30,<1.0",
+    "gunicorn>=23.0",
+    "jinja2>=3.1.6,<4.0",
+    "httpx~=0.28.1",
+    "python-dotenv~=1.1.1",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11",
+]
+
+[tool.uv]
+# 배포 가능한 패키지가 아니라 앱이므로 프로젝트 자체는 설치하지 않습니다.
+package = false
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-exclude = [".idea"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+# 점수 로직이 한 줄 if/return 스타일을 널리 쓰고 있어 E701/E702 는 적용하지 않습니다.
+ignore = ["E701", "E702"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tests", "scripts"]
