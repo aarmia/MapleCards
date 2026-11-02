@@ -28,7 +28,7 @@
                 <template x-for="step in [
                     {key: 'character', number: 1, label: '캐릭터 확인'},
                     {key: 'equipment', number: 2, label: '장비 조회'},
-                    {key: 'analysis', number: 4, label: '결과 생성'}
+                    {key: 'analysis', number: 3, label: '결과 생성'}
                 ]" :key="step.key">
                     <div class="rounded-xl border px-3 py-3 text-center transition-all"
                          :class="loadingStage === step.key ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' : 'border-slate-100 bg-slate-50 text-slate-400'">
@@ -52,9 +52,9 @@
                     </svg>
                 </div>
                 <div class="min-w-0 flex-1">
-                    <p class="text-[11px] font-black uppercase tracking-[0.22em] text-rose-400">Lookup Error</p>
-                    <p class="mt-1 text-lg font-black tracking-tight text-slate-900">캐릭터 정보를 불러오지 못했습니다.</p>
-                    <p class="mt-1.5 text-sm leading-relaxed text-slate-600" x-text="'캐릭터 이름을 다시 확인한 뒤 재시도해주세요.'"></p>
+                    <p class="text-[11px] font-black uppercase tracking-[0.22em] text-rose-400" x-text="errorStatus ? 'Lookup Error · ' + errorStatus : 'Lookup Error'"></p>
+                    <p class="mt-1 text-lg font-black tracking-tight text-slate-900" x-text="errorMessage"></p>
+                    <p class="mt-1.5 text-sm leading-relaxed text-slate-600" x-text="getErrorHint()"></p>
                 </div>
             </div>
         </div>

@@ -12,12 +12,10 @@ from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, PlainTex
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 from app.analyzer import evaluate_equipment, generate_overall_review, get_best_preset
-from app.image_gen import CardGenerator
 from app.request_tracker import DiagnosticRequestTracker
 from app.scraper import NexonAPIError, NexonAPIHandler
 
 nexon_api = NexonAPIHandler()
-card_gen = CardGenerator()
 
 
 @asynccontextmanager
@@ -37,6 +35,10 @@ request_tracker = DiagnosticRequestTracker(concurrency=5)
 # 경로 설정
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 static_dir = os.path.join(BASE_DIR, "static")
+favicon_path = os.path.join(static_dir, "images", "favicon.ico")
+
+# robots.txt / sitemap.xml에 쓰는 공개 주소. 배포 환경에서는 SITE_URL 환경 변수로 덮어쓸 수 있습니다.
+SITE_URL = os.getenv("SITE_URL", "https://meculator.onrender.com").rstrip("/")
 
 
 def _static_asset_version(path: str) -> str:
@@ -68,9 +70,8 @@ async def nexon_api_exception_handler(_: Request, exc: NexonAPIError):
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    favicon_path = os.path.join(static_dir, "favicon.ico")
     if os.path.exists(favicon_path):
-        return FileResponse(favicon_path)
+        return FileResponse(favicon_path, media_type="image/x-icon")
     return Response(status_code=204)
 
 
@@ -86,7 +87,18 @@ async def read_root(request: Request):
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
 async def robots_txt():
-    return "User-agent: *\nAllow: /\nSitemap: https://meculator.onrender.com/sitemap.xml"
+    return f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}/sitemap.xml"
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap_xml():
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"  <url><loc>{SITE_URL}/</loc></url>\n"
+        "</urlset>\n"
+    )
+    return Response(content=body, media_type="application/xml")
 
 
 @app.get("/request-status/{request_id}")

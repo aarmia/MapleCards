@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import httpx
 
-from app.main import APP_JS_VERSION, app, check_items
+from app.main import APP_JS_VERSION, SITE_URL, app, check_items
 from app.scraper import NexonAPIError
 
 
@@ -63,6 +63,28 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
             f'/static/js/app.js?v={APP_JS_VERSION}',
             response.text,
         )
+        # 오류 UI는 서버가 보낸 메시지를 그대로 바인딩해야 합니다.
+        self.assertIn('x-text="errorMessage"', response.text)
+        # 가이드 태그는 서버가 분리해 내려주므로 프론트에서 정규식으로 다시 파싱하지 않습니다.
+        self.assertNotIn("item.guide.match(", response.text)
+
+    async def test_favicon_robots_and_sitemap_are_served(self):
+        transport = httpx.ASGITransport(app=app)
+
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+        ) as client:
+            favicon = await client.get("/favicon.ico")
+            robots = await client.get("/robots.txt")
+            sitemap = await client.get("/sitemap.xml")
+
+        self.assertEqual(favicon.status_code, 200)
+        self.assertTrue(favicon.headers["content-type"].startswith("image/"))
+        self.assertEqual(robots.status_code, 200)
+        self.assertIn(f"Sitemap: {SITE_URL}/sitemap.xml", robots.text)
+        self.assertEqual(sitemap.status_code, 200)
+        self.assertIn(f"<loc>{SITE_URL}/</loc>", sitemap.text)
 
     async def test_nexon_error_uses_http_status_and_message(self):
         transport = httpx.ASGITransport(app=app)

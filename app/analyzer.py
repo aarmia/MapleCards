@@ -1,12 +1,37 @@
 import json
 import logging
+import re
 
-try:
-    from calculator import *
-except ImportError:
-    from app.calculator import *
+from app.calculator import (
+    analyze_potential_score,
+    analyze_weapon_potential_score,
+    calculate_item_score,
+    calculate_potential_score,
+    calculate_weapon_add_option_score,
+    get_advanced_add_score,
+    get_main_stat,
+    get_potential_options,
+    get_starforce_score,
+)
 
 logger = logging.getLogger(__name__)
+
+# 가이드 문구의 "[태그]" 부분. 프론트가 정규식으로 다시 파싱하지 않도록 서버에서 분리합니다.
+_GUIDE_TAG_PATTERN = re.compile(r"\[(.*?)\]")
+DEFAULT_GUIDE_TAG = "INFO"
+
+
+def split_guide(guide_text: str) -> tuple[str, str]:
+    """가이드 문구를 (태그, 본문)으로 나눕니다. 태그가 없으면 기본 태그를 돌려줍니다."""
+    text = (guide_text or "").strip()
+    match = _GUIDE_TAG_PATTERN.search(text)
+    if not match:
+        return DEFAULT_GUIDE_TAG, text
+
+    tag = match.group(1).strip() or DEFAULT_GUIDE_TAG
+    message = (text[: match.start()] + text[match.end():]).strip()
+    message = re.sub(r"\s{2,}", " ", message)
+    return tag, message
 
 
 def _log_unsupported_options(item_name, potential_type, analysis):
@@ -69,7 +94,7 @@ def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_
         if total_score >= 275:
             return "🚨 [교체 권장] 현재 하트는 성능 한계가 명확합니다. 컴플리트 언더컨트롤로의 교체를 고려해야할 시기입니다."
     if any(heart in item_name for heart in black_heart):
-        return "🚨 블랙 하트는 점수 환산을 지원하지 않습니다."
+        return "🚨 [미지원] 블랙 하트는 점수 환산을 지원하지 않습니다."
 
     if "타일런트" in item_name:
         if total_score >= 280:
@@ -223,10 +248,14 @@ def evaluate_equipment(items, char_class, char_level):
             elif any(k in name for k in ["불멸"]): total_item_score = 320.0
             else: total_item_score = 180.0
 
+            special_guide = get_special_part_guide(total_item_score, part, name)
+            special_guide_tag, special_guide_message = split_guide(special_guide)
             evaluate_list.append({
                 "is_wse": False, "is_special": True, "is_noljang": False, "slot": slot, "part": part, "name": name, "icon": icon, "star": 0, "level": item_req_level,
                 "total_score": round(total_item_score, 2),
-                "guide": get_special_part_guide(total_item_score, part, name),
+                "guide": special_guide,
+                "guide_tag": special_guide_tag,
+                "guide_message": special_guide_message,
                 "detail": {"add": round(total_item_score, 1), "star": 0, "pot": 0, "pot_additional": 0},
                 "raw_options": raw_options_dict,
                 "scoring_basis": {
@@ -316,10 +345,13 @@ def evaluate_equipment(items, char_class, char_level):
 
         if pot_val != -1 and not any(k in name for k in special_rings):
             guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part, total_item_score, name, item_req_level, is_noljang)
+            guide_tag, guide_message = split_guide(guide_text)
             evaluate_list.append({
                 "is_wse": is_weapon, "is_special": False, "is_noljang": is_noljang, "slot": slot, "part": part, "name": name, "icon": icon, "star": star, "level": item_req_level,
                 "total_score": round(total_item_score, 2),
                 "guide": guide_text,
+                "guide_tag": guide_tag,
+                "guide_message": guide_message,
                 "detail": {"add": round(add_score, 1), "star": round(adv_star_score, 1), "pot": round(pot_score, 1), "pot_additional": round(eddy_score, 1)},
                 "raw_options": raw_options_dict,
                 "scoring_basis": {

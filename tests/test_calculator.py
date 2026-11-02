@@ -1,6 +1,6 @@
 import unittest
 
-from app.analyzer import evaluate_equipment, get_dynamic_guide
+from app.analyzer import evaluate_equipment, get_dynamic_guide, split_guide
 from app.calculator import (
     calculate_potential_score,
     get_main_stat,
@@ -113,6 +113,37 @@ class PotentialOptionTests(unittest.TestCase):
         log_text = "\n".join(captured.output)
         self.assertIn("Unsupported equipment option", log_text)
         self.assertIn("potential", log_text)
+
+    def test_split_guide_separates_tag_and_message(self):
+        self.assertEqual(
+            split_guide("👑 [종결] 완벽한 장비입니다. 23성 도전 외엔 투자가 무의미합니다."),
+            ("종결", "👑 완벽한 장비입니다. 23성 도전 외엔 투자가 무의미합니다."),
+        )
+        self.assertEqual(
+            split_guide("✅ 해당 부위는 표준 성능을 보여주고 있습니다."),
+            ("INFO", "✅ 해당 부위는 표준 성능을 보여주고 있습니다."),
+        )
+        self.assertEqual(split_guide(""), ("INFO", ""))
+
+    def test_evaluated_items_expose_guide_tag_and_message(self):
+        result = evaluate_equipment([self.challenger_top], "레테", 285)[0]
+
+        self.assertEqual(result["guide_tag"], "교체 시급")
+        self.assertNotIn("[", result["guide_message"])
+        self.assertIn(f"[{result['guide_tag']}]", result["guide"])
+
+    def test_black_heart_guide_has_a_tag(self):
+        black_heart = dict(self.challenger_top)
+        black_heart.update({
+            "item_equipment_part": "기계 심장",
+            "item_equipment_slot": "기계 심장",
+            "item_name": "블랙 하트",
+        })
+
+        result = evaluate_equipment([black_heart], "레테", 285)[0]
+
+        self.assertEqual(result["guide_tag"], "미지원")
+        self.assertIn("블랙 하트", result["guide_message"])
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ document.addEventListener('alpine:init', () => {
         report: null,
         loading: false,
         errorMessage: '',
+        errorStatus: null,
         activeRequestNickname: '',
         requestController: null,
         requestId: '',
@@ -37,6 +38,7 @@ document.addEventListener('alpine:init', () => {
             this.report = null;
             this.nickname = '';
             this.errorMessage = '';
+            this.errorStatus = null;
             this.loading = false;
             this.activeRequestNickname = '';
             this.stopStatusPolling();
@@ -98,6 +100,7 @@ document.addEventListener('alpine:init', () => {
             this.queuePosition = null;
             this.requestId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
             this.errorMessage = '';
+            this.errorStatus = null;
             this.viewMode = 'top5';
             this.startStatusPolling();
 
@@ -105,18 +108,17 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/check-items/${encodeURIComponent(trimmedNickname)}?request_id=${encodeURIComponent(this.requestId)}`, {
                     signal: controller.signal
                 });
-                const data = await res.json();
+                const data = await this.parseJsonSafely(res);
 
                 if (!res.ok) {
-                    throw new Error(
-                        data?.detail ||
-                        data?.error ||
-                        '서버 요청에 실패했습니다. 잠시 후 다시 시도해주세요.'
-                    );
+                    throw this.createServerError(this.extractErrorMessage(data), res.status);
                 }
 
-                if (data?.error) {
-                    throw new Error(data.error);
+                if (!data || data.error) {
+                    throw this.createServerError(
+                        this.extractErrorMessage(data, '서버 응답을 해석할 수 없습니다.'),
+                        res.status
+                    );
                 }
 
                 this.loadingStage = 'analysis';
@@ -128,7 +130,14 @@ document.addEventListener('alpine:init', () => {
                 }
 
                 this.report = null;
-                this.errorMessage = e.message || '진단 실패: 서버 연결을 확인하세요.';
+                if (e.isServerError) {
+                    // 서버가 상태 코드별로 만든 메시지(404/429/503/504 등)를 그대로 보여줍니다.
+                    this.errorMessage = e.message;
+                    this.errorStatus = e.status;
+                } else {
+                    this.errorMessage = '서버에 연결할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요.';
+                    this.errorStatus = null;
+                }
             } finally {
                 if (this.requestController === controller) {
                     this.requestController = null;
@@ -138,6 +147,38 @@ document.addEventListener('alpine:init', () => {
                     this.requestId = '';
                     this.queuePosition = null;
                 }
+            }
+        },
+
+        async parseJsonSafely(response) {
+            try {
+                return await response.json();
+            } catch (_) {
+                // 프록시가 HTML 오류 페이지를 돌려주는 등 JSON이 아닌 응답
+                return null;
+            }
+        },
+
+        extractErrorMessage(data, fallback = '서버 요청에 실패했습니다. 잠시 후 다시 시도해주세요.') {
+            if (typeof data?.error === 'string' && data.error) return data.error;
+            if (typeof data?.detail === 'string' && data.detail) return data.detail;
+            return fallback;
+        },
+
+        createServerError(message, status) {
+            const error = new Error(message);
+            error.isServerError = true;
+            error.status = status;
+            return error;
+        },
+
+        getErrorHint() {
+            switch (this.errorStatus) {
+                case 404: return '닉네임의 철자와 띄어쓰기를 확인한 뒤 다시 시도해주세요.';
+                case 429: return '동시에 많은 진단 요청이 들어와 넥슨 API 호출 한도에 도달했습니다.';
+                case 503: return '서버 설정 문제로 조회할 수 없습니다. 계속되면 운영자에게 알려주세요.';
+                case 504: return '넥슨 API가 느리게 응답하고 있습니다. 잠시 후 다시 시도해주세요.';
+                default: return '문제가 계속되면 잠시 후 다시 시도해주세요.';
             }
         },
 
