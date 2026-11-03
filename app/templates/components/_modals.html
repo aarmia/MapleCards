@@ -82,8 +82,6 @@
                                 <p class="text-lg font-black text-emerald-400" x-text="'+' + entry.weighted_score"></p>
                                 <p class="text-[10px] text-white/90 font-semibold mt-1" x-show="entry.key !== 'star'" x-text="'원점수 ' + entry.raw_score"></p>
                                 <p class="text-[11px] font-bold text-yellow-300 mt-1" x-show="entry.key === 'star'" x-text="entry.star + '★ → 환산 ' + entry.weighted_score + '점'"></p>
-                                <p class="text-[10px] text-slate-400 mt-0.5" x-show="entry.key === 'star' && entry.gain"
-                                   x-text="'실제 증가 주스탯 +' + entry.gain?.stat + ' · 공/마 +' + entry.gain?.attack + (entry.gain?.percent != null ? ' ≈ ' + entry.gain.percent + '%' : '') + (entry.gain && entry.gain.counted_star < entry.star ? ' (' + entry.gain.counted_star + '성까지 집계)' : '')"></p>
                             </div>
                         </template>
                     </div>
