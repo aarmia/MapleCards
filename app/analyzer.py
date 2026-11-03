@@ -4,17 +4,19 @@ import re
 from collections import Counter
 
 from app.calculator import (
+    Conversion,
     analyze_potential_score,
     analyze_weapon_potential_score,
     calculate_item_score,
     calculate_potential_score,
     calculate_weapon_add_option_score,
+    final_stat_value,
     get_advanced_add_score,
     get_main_stat,
     get_potential_options,
     get_starforce_score,
 )
-from app.scoring_config import GRADES, SCORING, load_guides
+from app.scoring_config import CLASSES, GRADES, SCORING, load_guides
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +84,9 @@ def _log_unsupported_options(item_name, potential_type, analysis, collector=None
         unsupported_registry.record(item_name, potential_type, option, collector)
 
 
-def get_best_preset(item_data: dict, class_name: str, char_level: int, main_stat: str | None = None) -> int:
+def get_best_preset(
+    item_data: dict, class_name: str, char_level: int, main_stat: str | None = None, conversion: Conversion | None = None
+) -> int:
     preset_scores = {1: 0.0, 2: 0.0, 3: 0.0}
 
     for i in range(1, 4):
@@ -92,8 +96,10 @@ def get_best_preset(item_data: dict, class_name: str, char_level: int, main_stat
 
         total_score = 0.0
         for item in preset_items:
-            score = calculate_potential_score(item, "potential", class_name, char_level, main_stat=main_stat)
-            add_score = calculate_potential_score(item, "additional_potential", class_name, char_level, main_stat=main_stat)
+            score = calculate_potential_score(item, "potential", class_name, char_level, main_stat=main_stat, conversion=conversion)
+            add_score = calculate_potential_score(
+                item, "additional_potential", class_name, char_level, main_stat=main_stat, conversion=conversion
+            )
 
             if score > 0: total_score += score
             if add_score > 0: total_score += add_score
@@ -184,7 +190,69 @@ def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_
     return select_guide(GUIDES.rule, context, GUIDES.names.raw, item_name)
 
 
-def evaluate_equipment(items, char_class, char_level, unsupported=None, main_stat=None):
+_PCT_LINE = re.compile(r"^(STR|DEX|INT|LUK|올스탯) \+(\d+)%$")
+
+
+def build_character_profile(char_class, main_stat, equipped_items, stat_data) -> dict:
+    """캐릭터별 기준을 한 번에 정합니다.
+
+    - tier / add_target_multiplier: 전투력으로 자본대를 나눠 추옵 목표 급수에 곱할 배율 (scoring.toml add_option.tiers)
+    - conversion: 고정 주스탯·공/마 옵션을 주스탯 % 로 바꾸는 계수. 스탯 공식 (4 × 주스탯 + 부스탯) × 공격력 에서 유도합니다.
+      주스탯% 합(b)은 착용 장비의 잠재 줄을 더한 뒤 baseline 을 보태 추정하고, 결과는 min/max 로 제한합니다.
+    """
+    tiers = SCORING.add_option.tiers.bands
+    combat_power = final_stat_value(stat_data, "전투력")
+    tier_name, multiplier = tiers[-1][1], tiers[-1][2]
+    for min_power, name, factor in tiers:
+        if combat_power >= min_power:
+            tier_name, multiplier = name, factor
+            break
+    profile = {
+        "main_stat": main_stat.upper(),
+        "combat_power": combat_power,
+        "tier": tier_name,
+        "add_target_multiplier": multiplier,
+        "conversion": None,
+        "stat_pct_total": None,
+        "attack_total": None,
+        "main_stat_total": None,
+    }
+
+    conversion_config = SCORING.potential.conversion
+    if not conversion_config.enabled or main_stat not in ("str", "dex", "int", "luk"):
+        return profile
+    main_total = final_stat_value(stat_data, main_stat.upper())
+    attack_total = final_stat_value(stat_data, "마력" if main_stat == "int" else "공격력")
+    if main_total <= 0 or attack_total <= 0:
+        return profile
+
+    class_key = (char_class or "").replace(" ", "")
+    secondary_names = CLASSES.secondary_stat_overrides.raw.get(class_key) or CLASSES.secondary_stat.raw.get(main_stat, [])
+    secondary_total = sum(final_stat_value(stat_data, name) for name in secondary_names)
+    pct_total = 0
+    for item in equipped_items or []:
+        for potential_type in ("potential", "additional_potential"):
+            for line in get_potential_options(item, potential_type):
+                match = _PCT_LINE.match(line)
+                if match and match.group(1) in (main_stat.upper(), "올스탯"):
+                    pct_total += int(match.group(2))
+
+    stat_pct = 1 + (pct_total + conversion_config.baseline_stat_pct) / 100
+    stat_flat = 100 * stat_pct**2 / main_total
+    attack_flat = 25 * stat_pct * (4 * main_total + secondary_total) / (main_total * attack_total)
+    profile.update(
+        conversion=Conversion(
+            stat_flat=round(min(conversion_config.stat_flat_max, max(conversion_config.stat_flat_min, stat_flat)), 4),
+            attack_flat=round(min(conversion_config.attack_flat_max, max(conversion_config.attack_flat_min, attack_flat)), 4),
+        ),
+        stat_pct_total=pct_total,
+        attack_total=attack_total,
+        main_stat_total=main_total,
+    )
+    return profile
+
+
+def evaluate_equipment(items, char_class, char_level, unsupported=None, main_stat=None, profile=None):
     evaluate_list = []
     special_items = SCORING.special_items
     weights = SCORING.weights
@@ -192,6 +260,21 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
     special_rings = special_items.excluded_rings
     # 주스탯은 호출자(build_report)가 스탯 응답까지 보고 정해 넘깁니다. 없으면 직업명으로 정합니다.
     main_stat = main_stat or get_main_stat(char_class)
+    conversion = profile["conversion"] if profile else None
+    target_multiplier = profile["add_target_multiplier"] if profile else 1.0
+
+    def weight_notes(item_req_level):
+        star_weight = round(1.0 + (item_req_level - SCORING.starforce.reference_level) / SCORING.starforce.level_weight_divisor, 3)
+        notes = [
+            f"윗잠재 환산값 × {weights.potential:g}",
+            f"에디셔널 환산값 × {weights.additional:g}",
+            f"스타포스 레벨 가중치 × {star_weight if item_req_level > 0 else 0}",
+        ]
+        if profile:
+            notes.append(f"추옵 목표 급수 × {target_multiplier:g} ({profile['tier']})")
+        if conversion:
+            notes.append(f"고정 옵션 환산 · 공/마 1 = 주스탯 {conversion.attack_flat:.3g}%, 고정 스탯 1 = {conversion.stat_flat:.3g}%")
+        return notes
 
     for item in items:
         add_score, pot_score, eddy_score, adv_star_score = 0.0, 0.0, 0.0, 0.0
@@ -301,11 +384,13 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         else:
             actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class, main_stat=main_stat)
             add_raw_score = actual_add_급수
-            add_score = get_advanced_add_score(actual_add_급수, item_req_level, part, char_class)
-            pot_analysis = analyze_potential_score(item, "potential", char_class, char_level, main_stat=main_stat)
+            add_score = get_advanced_add_score(actual_add_급수, item_req_level, part, char_class, target_multiplier=target_multiplier)
+            pot_analysis = analyze_potential_score(item, "potential", char_class, char_level, main_stat=main_stat, conversion=conversion)
             pot_val = pot_analysis["score"]
             pot_score = (pot_val * weights.potential) if pot_val > 0 else 0
-            eddy_analysis = analyze_potential_score(item, "additional_potential", char_class, char_level, main_stat=main_stat)
+            eddy_analysis = analyze_potential_score(
+                item, "additional_potential", char_class, char_level, main_stat=main_stat, conversion=conversion
+            )
             eddy_val = eddy_analysis["score"]
             eddy_score = (eddy_val * weights.additional) if eddy_val > 0 else 0
 
@@ -354,11 +439,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                     "main_stat": main_stat_label,
                     "recognized_options": recognized_options,
                     "unrecognized_options": unrecognized_options,
-                    "weights": [
-                        f"윗잠재 환산값 × {weights.potential:g}",
-                        f"에디셔널 환산값 × {weights.additional:g}",
-                        f"스타포스 레벨 가중치 × {round(1.0 + (item_req_level - SCORING.starforce.reference_level) / SCORING.starforce.level_weight_divisor, 3) if item_req_level > 0 else 0}",
-                    ],
+                    "weights": weight_notes(item_req_level),
                     "breakdown": [
                         {"key": "add", "label": "추가옵션", "raw_score": round(add_raw_score, 2), "weighted_score": round(add_score, 2)},
                         {"key": "pot", "label": "윗잠재", "raw_score": round(max(pot_val, 0), 2), "weighted_score": round(pot_score, 2)},
@@ -419,11 +500,13 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
     char_image = basic_info.get("character_image", "")
     # 주스탯은 여기서 한 번만 정합니다. 바이퍼·캐논마스터·캡틴은 스탯 응답의 STR/DEX 비교로 전환 세팅을 반영합니다.
     main_stat = get_main_stat(char_class, stat_data)
+    # 자본대(전투력)와 고정 옵션 환산 계수는 현재 착용 장비와 스탯 응답으로 한 번만 정합니다.
+    profile = build_character_profile(char_class, main_stat, item_data.get("item_equipment", []), stat_data)
 
-    best_preset_idx = get_best_preset(item_data, char_class, char_level, main_stat=main_stat)
+    best_preset_idx = get_best_preset(item_data, char_class, char_level, main_stat=main_stat, conversion=profile["conversion"])
     items = select_preset_items(item_data, best_preset_idx)
 
-    evaluate_list = evaluate_equipment(items, char_class, char_level, unsupported=unsupported, main_stat=main_stat)
+    evaluate_list = evaluate_equipment(items, char_class, char_level, unsupported=unsupported, main_stat=main_stat, profile=profile)
     overall_review, all_sorted_results = generate_overall_review(evaluate_list)
 
     return {
@@ -433,6 +516,14 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
         "character_image": char_image,
         "combat_power": extract_combat_power(stat_data),
         "best_preset": best_preset_idx,
+        "profile": {
+            **{key: value for key, value in profile.items() if key != "conversion"},
+            "conversion": (
+                {"stat_flat": profile["conversion"].stat_flat, "attack_flat": profile["conversion"].attack_flat}
+                if profile["conversion"]
+                else None
+            ),
+        },
         "overall": overall_review,
         "results": all_sorted_results,
     }

@@ -19,3 +19,15 @@ luk = ["나이트로드", "섀도어", "듀얼블레이더", "나이트워커", 
 "캐논마스터" = { base = "str", alternative = "dex" }
 "캡틴" = { base = "dex", alternative = "str" }
 
+# 부스탯. 스탯 공식 (4 × 주스탯 + 부스탯) 의 부스탯 자리에 들어가는 스탯. 직업별 예외는 overrides 에 적습니다.
+[secondary_stat]
+str = ["DEX"]
+dex = ["STR"]
+int = ["LUK"]
+luk = ["DEX"]
+
+[secondary_stat_overrides]
+"섀도어" = ["STR", "DEX"]
+"듀얼블레이더" = ["STR", "DEX"]
+"카데나" = ["STR", "DEX"]
+

@@ -1,7 +1,16 @@
 import math
 import re
+from dataclasses import dataclass
 
 from app.scoring_config import CLASSES, SCORING
+
+
+@dataclass(frozen=True)
+class Conversion:
+    """고정 수치 옵션을 주스탯 % 로 바꾸는 캐릭터별 계수. None 이면 scoring.toml 의 기본값을 씁니다."""
+
+    stat_flat: float  # 고정 주스탯 1 당 %
+    attack_flat: float  # 공격력·마력 1 당 %
 
 
 def get_potential_options(item_data: dict, potential_type: str) -> list[str]:
@@ -52,7 +61,7 @@ def _score_detail(score: float, recognized: list[dict], options: list[str], main
     ignored, unsupported = classify_unrecognized(options, recognized, main_stat)
     return {"score": round(score, 2), "recognized": recognized, "ignored": ignored, "unsupported": unsupported}
 
-def _final_stat_value(stat_data: dict, stat_name: str) -> int:
+def final_stat_value(stat_data: dict, stat_name: str) -> int:
     """스탯 응답(final_stat)에서 stat_name 값을 정수로 꺼냅니다. 없거나 숫자가 아니면 0 입니다."""
     for stat in (stat_data or {}).get("final_stat") or []:
         if stat.get("stat_name") == stat_name:
@@ -78,8 +87,8 @@ def get_main_stat(class_name: str, stat_data: dict = None) -> str:
     # [추가 기능] 주스탯 전환 가능 직업군 판별 로직. 스탯 응답이 주어졌을 때만 작동합니다.
     rule = CLASSES.switchable.raw.get(target_class)
     if rule and stat_data:
-        base_value = _final_stat_value(stat_data, rule["base"].upper())
-        alternative_value = _final_stat_value(stat_data, rule["alternative"].upper())
+        base_value = final_stat_value(stat_data, rule["base"].upper())
+        alternative_value = final_stat_value(stat_data, rule["alternative"].upper())
         return rule["alternative"] if alternative_value > base_value else rule["base"]
 
     for stat, classes in CLASSES.main_stat.raw.items():
@@ -113,7 +122,7 @@ def calculate_item_score(add_option: dict, class_name: str, main_stat: str | Non
     stat_val = int(add_option.get(main_stat, 0))
     return stat_val + (all_stat_pct * grade.all_stat_pct_default) + (attack_pwr * grade.attack_default)
 
-def get_advanced_add_score(actual_급수, level, part_name, char_name_class):
+def get_advanced_add_score(actual_급수, level, part_name, char_name_class, target_multiplier=1.0):
     add_config = SCORING.add_option
     if any(k in part_name for k in add_config.no_add_parts):
         return 100.0
@@ -132,6 +141,9 @@ def get_advanced_add_score(actual_급수, level, part_name, char_name_class):
             target = (level * fallback.slope) + fallback.offset
         else:
             return 100.0
+
+    # 캐릭터 자본대(전투력)에 따른 목표 배율. build_report 가 profile 로 정합니다.
+    target = target * target_multiplier
 
     diff_percent = ((actual_급수 - target) / target) * 100.0
     score = 100.0
@@ -158,11 +170,19 @@ def get_advanced_add_score(actual_급수, level, part_name, char_name_class):
     return round(max(0, score), 2)
 
 def analyze_potential_score(
-    item_data: dict, potential_type: str, class_name: str, char_level: int, main_stat: str | None = None
+    item_data: dict,
+    potential_type: str,
+    class_name: str,
+    char_level: int,
+    main_stat: str | None = None,
+    conversion: Conversion | None = None,
 ) -> dict:
     slot = item_data.get("item_equipment_slot", "")
     part = item_data.get("item_equipment_part", "")
     config = SCORING.potential
+    # 고정 수치 옵션의 환산 계수. 캐릭터 스탯으로 만든 conversion 이 있으면 그것을, 없으면 기본값을 씁니다.
+    stat_flat = conversion.stat_flat if conversion else config.stat_flat
+    attack_flat = conversion.attack_flat if conversion else config.attack_flat
 
     is_excluded = any(k in slot for k in config.excluded_slots) or any(k in part for k in config.excluded_slots)
     main_stat = (main_stat or get_main_stat(class_name)).upper()
@@ -242,7 +262,14 @@ def analyze_potential_score(
                 val_match = re.search(r'\+(\d+)', opt)
                 if val_match:
                     val = int(val_match.group(1))
-                    add_option(opt, val * config.level_stat, f"레벨당 주스탯 × {config.level_stat:g}")
+                    interval_match = re.search(r'(\d+)레벨', opt)
+                    interval = int(interval_match.group(1)) if interval_match else config.level_stat_interval_default
+                    if char_level > 0 and interval > 0:
+                        # 캐릭터 레벨에 비례합니다. 9레벨당 +1 은 Lv.285 에서 고정 주스탯 +31 과 같습니다.
+                        flat_total = val * (char_level // interval)
+                        add_option(opt, flat_total * stat_flat, f"{interval}레벨당 {val} → 고정 {flat_total} × {stat_flat:.3g}")
+                    else:
+                        add_option(opt, val * config.level_stat_fallback, f"레벨당 주스탯 × {config.level_stat_fallback:g}")
             elif main_stat in opt and "%" in opt and "회복" not in opt:
                 val_match = re.search(r'\+(\d+)%', opt)
                 if val_match:
@@ -252,11 +279,11 @@ def analyze_potential_score(
                 if atk_key in opt:
                     val_match = re.search(r'\+(\d+)', opt)
                     if val_match:
-                        add_option(opt, int(val_match.group(1)) * config.attack_flat, f"{atk_key} × {config.attack_flat:g}")
+                        add_option(opt, int(val_match.group(1)) * attack_flat, f"{atk_key} × {attack_flat:.3g}")
             elif main_stat in opt and "%" not in opt and "회복" not in opt:
                 val_match = re.search(r'\+(\d+)', opt)
                 if val_match:
-                    add_option(opt, int(val_match.group(1)) * config.stat_flat, f"고정 주스탯 × {config.stat_flat:g}")
+                    add_option(opt, int(val_match.group(1)) * stat_flat, f"고정 주스탯 × {stat_flat:.3g}")
 
     cd_points = 0
     crit = config.crit_damage
@@ -283,9 +310,16 @@ def analyze_potential_score(
 
 
 def calculate_potential_score(
-    item_data: dict, potential_type: str, class_name: str, char_level: int, main_stat: str | None = None
+    item_data: dict,
+    potential_type: str,
+    class_name: str,
+    char_level: int,
+    main_stat: str | None = None,
+    conversion: Conversion | None = None,
 ) -> float:
-    return analyze_potential_score(item_data, potential_type, class_name, char_level, main_stat=main_stat)["score"]
+    return analyze_potential_score(
+        item_data, potential_type, class_name, char_level, main_stat=main_stat, conversion=conversion
+    )["score"]
 
 def calculate_weapon_add_option_score(item_data: dict, class_name: str, main_stat: str | None = None) -> float:
     add_option = item_data.get("item_add_option", {})

@@ -26,6 +26,9 @@ chunk = 5.0
 above = { mult = 0.5, decay = 0.9 }
 below = { mult = 1.2, decay = 1.05, cap = 3.0 }
 
+[add_option.tiers]            # 캐릭터별 기준: 전투력으로 자본대를 나눠 목표 급수에 배율을 곱합니다. [전투력 하한, 이름, 배율], 하한 내림차순 첫 일치
+bands = [[300000000, "초고자본", 1.0], [100000000, "고자본", 0.94], [30000000, "중자본", 0.87], [0, "저자본", 0.80]]
+
 # ── 잠재능력 (방어구·장신구) ──────────────────────────────
 [potential]
 excluded_slots = ["무기", "보조무기", "엠블렘"]          # 무기류는 weapon 섹션으로 평가
@@ -33,9 +36,10 @@ cooldown_per_second = 7.25                            # 스킬 재사용 대기�
 all_stat_pct = 1.1                                    # 올스탯 n% 환산 배율
 all_stat_pct_boost = 1.2
 all_stat_pct_boost_classes = ["섀도어", "카데나", "듀얼블레이더"]
-level_stat = 3.5                                      # 캐릭터 기준 n레벨 당 주스탯 +1
-attack_flat = 0.3                                     # 공격력·마력 +n (고정값)
-stat_flat = 0.09                                      # 주스탯 +n (고정값)
+level_stat_fallback = 3.5                             # 캐릭터 레벨을 모를 때 레벨당 스탯 1 의 점수. 보통은 레벨 비례로 계산합니다
+level_stat_interval_default = 9                       # "n레벨 당" 의 n 을 문구에서 못 읽을 때의 기본값
+attack_flat = 0.3                                     # 공격력·마력 +n 의 기본 환산. 캐릭터 스탯이 있으면 conversion 으로 대체
+stat_flat = 0.09                                      # 주스탯 +n 의 기본 환산. 캐릭터 스탯이 있으면 conversion 으로 대체
 demon_avenger_additional = 0.9                        # 데몬어벤져 에디셔널 보정
 # 점수에 넣지 않기로 한 옵션. 포함 문자열로 판정하며 로그 집계와 "미지원" 표시에서 뺍니다.
 ignored_keywords = ["최대 MP", "방어력", "점프력", "이동속도", "회복", "피격 시", "확률로", "메소 획득량", "아이템 드롭률", "상태 이상"]
@@ -53,6 +57,15 @@ stat_pct_divisor = 3.0
 attack_flat = 0.3
 stat_flat = 0.09
 multiplier = 1.35
+
+[potential.conversion]        # 고정 수치 옵션의 % 환산을 캐릭터 스탯에서 유도합니다. b = 1 + (장비 잠재의 주스탯%·올스탯% 합 + baseline) ÷ 100
+                              # 고정 스탯 1 = 100 × b² ÷ 주스탯,  공/마 1 = 25 × b × (4 × 주스탯 + 부스탯) ÷ (주스탯 × 공/마)   [단위: 주스탯 %]
+enabled = true
+baseline_stat_pct = 20        # 장비 잠재 밖의 주스탯% (하이퍼스탯 · 유니온 · 어빌리티 · 링크) 추정치
+stat_flat_min = 0.01           # 최상위 스펙(주스탯 10만, 주스탯% 300)에서 약 0.015 가 나오므로 그 아래에서만 제한
+stat_flat_max = 0.15
+attack_flat_min = 0.02         # 최상위 스펙(공격력 1.5만)에서 약 0.03
+attack_flat_max = 0.60
 
 [potential.relevant_keywords]  # 주스탯별로 점수와 관련 있는 스탯 키워드
 STR = ["STR", "공격력"]

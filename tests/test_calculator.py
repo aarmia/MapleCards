@@ -2,6 +2,7 @@ import unittest
 from collections import Counter
 
 from app.analyzer import (
+    build_character_profile,
     build_report,
     evaluate_equipment,
     get_dynamic_guide,
@@ -167,6 +168,37 @@ class PotentialOptionTests(unittest.TestCase):
         basic = {"character_class": "바이퍼", "character_level": 285}
         report = build_report("x", basic, {"item_equipment": [self.challenger_top]}, stats)
         self.assertEqual(report["results"][0]["scoring_basis"]["main_stat"], "DEX")
+
+    def test_character_profile_sets_tier_and_conversion(self):
+        stats = {
+            "final_stat": [
+                {"stat_name": "INT", "stat_value": "20000"},
+                {"stat_name": "LUK", "stat_value": "4000"},
+                {"stat_name": "마력", "stat_value": "1200"},
+                {"stat_name": "전투력", "stat_value": "50000000"},
+            ]
+        }
+        item = dict(self.challenger_top)
+        item["potential_option_3"] = "올스탯 +9%"  # INT 9% + 6% + 올스탯 9% + 에디 INT 4% = 28%
+
+        profile = build_character_profile("레테", "int", [item], stats)
+
+        self.assertEqual((profile["tier"], profile["add_target_multiplier"]), ("중자본", 0.87))
+        self.assertEqual(profile["stat_pct_total"], 28)
+        # b = 1.48 → 고정 스탯 1 = 100 × 1.48² ÷ 20000, 마력 1 = 25 × 1.48 × (80000 + 4000) ÷ (20000 × 1200)
+        self.assertAlmostEqual(profile["conversion"].stat_flat, 0.0110, places=3)
+        self.assertAlmostEqual(profile["conversion"].attack_flat, 0.1295, places=3)
+        self.assertIsNone(build_character_profile("제논", "all_stat", [item], stats)["conversion"])
+
+    def test_level_stat_line_scales_with_character_level(self):
+        item = dict(self.challenger_top)
+        item["potential_option_2"] = "캐릭터 기준 9레벨 당 INT +2"
+
+        by_level = calculate_potential_score(item, "potential", "레테", 285)  # INT 9% + 2 × 31 × 0.09
+        unknown_level = calculate_potential_score(item, "potential", "레테", 0)  # 레벨을 모르면 기본값 3.5
+
+        self.assertAlmostEqual(by_level, 9 + 62 * 0.09, places=2)
+        self.assertAlmostEqual(unknown_level, 9 + 2 * 3.5, places=2)
 
     def test_guide_rules_match_in_order_and_fill_fields(self):
         rules = [

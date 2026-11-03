@@ -64,6 +64,9 @@ def validate(data: dict, spec: dict, source: str) -> None:
             if not isinstance(value, dict):
                 raise ConfigError(f"{source}.{key}: 테이블이어야 합니다")
             validate(value, expected, f"{source}.{key}")
+        elif expected is bool:
+            if not isinstance(value, bool):
+                raise ConfigError(f"{source}.{key}: true/false 여야 합니다")
         elif not isinstance(value, expected) or isinstance(value, bool):
             raise ConfigError(f"{source}.{key}: 타입이 잘못되었습니다 ({type(value).__name__})")
 
@@ -76,7 +79,7 @@ def _int_keyed(table: dict, source: str) -> dict:
 
 
 _FALLBACK = {"min_level": NUMBER, "slope": NUMBER, "offset": NUMBER}
-_CLASSES_SPEC = {"main_stat": dict, "special": dict, "switchable": dict, "default": str}
+_CLASSES_SPEC = {"main_stat": dict, "special": dict, "switchable": dict, "default": str, "secondary_stat": dict, "secondary_stat_overrides": dict}
 _SCORING_SPEC = {
     "add_option": {
         "grade": {k: NUMBER for k in ("all_stat_pct_default", "all_stat_pct_all_stat", "attack_default", "attack_all_stat", "attack_hp", "magic_int")},
@@ -87,10 +90,16 @@ _SCORING_SPEC = {
         },
         "no_add_parts": list,
         "curve": {"chunk": NUMBER, "above": {"mult": NUMBER, "decay": NUMBER}, "below": {"mult": NUMBER, "decay": NUMBER, "cap": NUMBER}},
+        "tiers": {"bands": list},
     },
     "potential": {
         "excluded_slots": list, "cooldown_per_second": NUMBER, "all_stat_pct": NUMBER, "all_stat_pct_boost": NUMBER,
-        "all_stat_pct_boost_classes": list, "level_stat": NUMBER, "attack_flat": NUMBER, "stat_flat": NUMBER,
+        "all_stat_pct_boost_classes": list, "level_stat_fallback": NUMBER, "level_stat_interval_default": NUMBER,
+        "attack_flat": NUMBER, "stat_flat": NUMBER,
+        "conversion": {
+            "enabled": bool, "baseline_stat_pct": NUMBER, "stat_flat_min": NUMBER, "stat_flat_max": NUMBER,
+            "attack_flat_min": NUMBER, "attack_flat_max": NUMBER,
+        },
         "demon_avenger_additional": NUMBER, "ignored_keywords": list, "stat_keywords": list, "relevant_keywords": dict,
         "crit_damage": {"single": NUMBER, "multi": NUMBER, "additional": NUMBER},
         "xenon": {k: NUMBER for k in ("level_stat_divisor", "stat_pct_divisor", "attack_flat", "stat_flat", "multiplier")},
@@ -127,6 +136,13 @@ def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
     targets = data["add_option"]["targets"]
     for name in ("default", "xenon", "demon_avenger"):
         targets[name] = _int_keyed(targets[name], f"{path.name}: add_option.targets.{name}")
+    previous = None
+    for band in data["add_option"]["tiers"]["bands"]:
+        if not (isinstance(band, list) and len(band) == 3 and isinstance(band[0], NUMBER) and isinstance(band[1], str) and isinstance(band[2], NUMBER)):
+            raise ConfigError(f"{path.name}: add_option.tiers.bands 항목은 [전투력 하한, 이름, 배율] 이어야 합니다")
+        if previous is not None and band[0] > previous:
+            raise ConfigError(f"{path.name}: add_option.tiers.bands 는 전투력 하한 내림차순이어야 합니다")
+        previous = band[0]
     for entry in data["special_items"]["fixed"]:
         if not (isinstance(entry, list) and len(entry) == 2 and isinstance(entry[0], str) and isinstance(entry[1], NUMBER)):
             raise ConfigError(f"{path.name}: special_items.fixed 는 [이름, 점수] 쌍의 목록이어야 합니다")
