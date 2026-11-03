@@ -1,4 +1,5 @@
 import logging
+import operator
 import re
 from collections import Counter
 
@@ -13,7 +14,7 @@ from app.calculator import (
     get_potential_options,
     get_starforce_score,
 )
-from app.scoring_config import GRADES, SCORING
+from app.scoring_config import GRADES, SCORING, load_guides
 
 logger = logging.getLogger(__name__)
 
@@ -102,142 +103,85 @@ def get_best_preset(item_data: dict, class_name: str, char_level: int) -> int:
     return max(preset_scores, key=preset_scores.get)
 
 
+# ── 가이드 규칙 (app/data/guides.toml) ──
+# 규칙 표가 참조할 수 있는 필드. build_guide_context 가 만드는 키와 같아야 하며, 로더가 기동 시 대조합니다.
+GUIDE_FIELDS = {
+    "total", "add", "pot", "eddy", "starscore", "star", "star_next", "max_star", "at_cap", "level", "noljang", "limited",
+    "add_evaluated", "star_evaluated", "worst", "next", "min_ratio", "target_add", "target_star_330", "target_star_17",
+    "target_star_21",
+}
+SPECIAL_GUIDE_FIELDS = {"total"}
+GUIDES = load_guides(rule_fields=GUIDE_FIELDS, special_fields=SPECIAL_GUIDE_FIELDS)
+
+_OPERATORS = {"<": operator.lt, "<=": operator.le, ">": operator.gt, ">=": operator.ge, "==": operator.eq, "!=": operator.ne}
+
+
+def _rule_matches(rule: dict, context: dict, names: dict, item_name: str, part_name: str) -> bool:
+    name_any = rule.get("name_any")
+    if name_any is not None:
+        keywords = names[name_any] if isinstance(name_any, str) else name_any
+        if not any(keyword in item_name for keyword in keywords):
+            return False
+    part_any = rule.get("part_any")
+    if part_any is not None and not any(keyword in part_name for keyword in part_any):
+        return False
+    for field, op, value in rule.get("when", []):
+        other = context[value] if isinstance(value, str) else value
+        if not _OPERATORS[op](context[field], other):
+            return False
+    return True
+
+
+def select_guide(rules: list, context: dict, names: dict, item_name: str, part_name: str = "") -> str:
+    """위에서부터 조건이 모두 맞는 첫 규칙의 문구를 돌려줍니다. 마지막 규칙은 조건이 없어 항상 맞습니다."""
+    for rule in rules:
+        if _rule_matches(rule, context, names, item_name, part_name):
+            return rule["text"].format(**context)
+    raise ValueError("가이드 규칙에 기본 규칙이 없습니다")
+
+
+def build_guide_context(scores, star_val, part_name, item_name, total_score, item_req_level, is_noljang) -> dict:
+    """규칙 표가 비교할 값들을 계산합니다. 파생값(최대 스타포스, 최저 축, 목표치)은 코드가 맡고 규칙 표는 조건과 문구만 가집니다."""
+    cap = GUIDES.star_cap
+    max_star = cap.default
+    for level_limit, star_limit in cap.bands:
+        if item_req_level < level_limit:
+            max_star = star_limit
+            break
+
+    axes = GUIDES.axes
+    add_evaluated = not any(k in part_name for k in axes.no_add_parts)
+    star_evaluated = not any(k in part_name for k in axes.no_star_parts)
+    eval_indices = [1, 2] + ([0] if add_evaluated else []) + ([3] if star_evaluated else [])
+    ratios = [scores[i] / axes.benchmarks[i] for i in range(4)]
+    ranked = sorted(((ratios[i], axes.labels[i]) for i in eval_indices), key=lambda entry: entry[0])
+
+    targets = GUIDES.targets
+    return {
+        "total": total_score,
+        "add": scores[0], "pot": scores[1], "eddy": scores[2], "starscore": scores[3],
+        "star": star_val, "star_next": star_val + 1, "max_star": max_star,
+        "at_cap": star_val >= SCORING.starforce.base_star or star_val >= max_star,
+        "level": item_req_level, "noljang": is_noljang,
+        "limited": any(keyword in item_name for keyword in GUIDES.names.limited),
+        "add_evaluated": add_evaluated, "star_evaluated": star_evaluated,
+        "worst": ranked[0][1], "next": ranked[1][1] if len(ranked) > 1 else ranked[0][1], "min_ratio": ranked[0][0],
+        "target_add": targets.add_low if item_req_level <= targets.add_level_split else targets.add_high,
+        "target_star_330": min(
+            targets.star_330_low if item_req_level <= targets.star_330_level_split else targets.star_330_high, max_star
+        ),
+        "target_star_17": min(targets.star_mid, max_star),
+        "target_star_21": targets.star_step if max_star >= targets.star_step else max_star,
+    }
+
+
 def get_special_part_guide(total_score, part_name, item_name):
-    if "포켓 아이템" in part_name:
-        if total_score >= 280: return "👑 포켓 부위 종결급 추옵입니다."
-        if total_score >= 200: return "✅ 준수한 가성비 성배입니다."
-        return "🚨 더 높은 급수의 성배(80급 이상)로 교체를 추천합니다."
-    if "뱃지" in part_name:
-        if any(k in item_name for k in ["창세", "칠요"]): return "👑 상위 티어 뱃지를 착용 중입니다."
-        return "💡 칠요의 뱃지 혹은 창세의 뱃지로의 업그레이드 목표를 잡으세요."
-    if "훈장" in part_name:
-        if any(k in item_name for k in ["칠요", "카루타", "멸살"]): return "👑 종결급 훈장입니다."
-        return "💡 더 높은 등급의 훈장 획득을 권장합니다."
-    return "✅ 해당 부위는 표준 성능을 보여주고 있습니다."
+    return select_guide(GUIDES.special_rule, {"total": total_score}, GUIDES.names.raw, item_name, part_name)
 
 
 def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_req_level, is_noljang=False):
-    if is_noljang:
-        return "💎 [놀라운 장비 강화 아이템] 놀라운 장비 강화 아이템을 착용중입니다. 교체를 원하신다면 명백한 상위 아이템과 베이스의 아이템으로 교체하세요."
-
-    target_hearts = ["리튬 하트", "페어리 하트", "티타늄 하트", "플라즈마 하트"]
-    upgrade_hearts = ["리튬 하트", "페어리 하트", "티타늄 하트"]
-    black_heart = ["블랙 하트"]
-    if any(heart in item_name for heart in upgrade_hearts):
-        if total_score >= 125:
-            return "🚨 [업그레이드 권장] 현재 하트는 성능 한계가 명확합니다. 플라즈마 하트로의 강화를 고려하세요."
-    if any(heart in item_name for heart in target_hearts):
-        if total_score >= 275:
-            return "🚨 [교체 권장] 현재 하트는 성능 한계가 명확합니다. 컴플리트 언더컨트롤로의 교체를 고려해야할 시기입니다."
-    if any(heart in item_name for heart in black_heart):
-        return "🚨 [미지원] 블랙 하트는 점수 환산을 지원하지 않습니다."
-
-    if "타일런트" in item_name:
-        if total_score >= 280:
-            return "✨ [교체 권장] 어느정도 완성된 슈페리얼 아이템입니다. 교체를 원하신다면 지금의 아이템보다 상위의 아이템으로 교체를 추천합니다."
-        else:
-            return "⚠️ [교체 권장] 하나에서 두개 정도 부분이 아쉬운 슈페리얼 아이템입니다. 강화를 하시기보다는 동급이나 상위의 아이템으로 교체를 추천합니다."
-
-    max_star_possible = 30
-    if item_req_level < 118:
-        max_star_possible = 10
-    elif item_req_level < 128:
-        max_star_possible = 15
-    elif item_req_level < 138:
-        max_star_possible = 20
-
-    labels = ["추가옵션", "윗잠재", "에디셔널", "스타포스"]
-    max_bench = [110, 108, 40, 105]
-
-    eval_indices = [1, 2]
-    if not any(k in part_name for k in ["반지", "어깨장식", "기계 심장", "보조무기", "엠블렘"]):
-        eval_indices.append(0)
-    if not any(k in part_name for k in ["보조무기", "엠블렘"]):
-        eval_indices.append(3)
-
-    ratios = [scores[i] / max_bench[i] for i in range(4)]
-    indexed_ratios = [(ratios[i], labels[i]) for i in eval_indices]
-    indexed_ratios.sort(key=lambda x: x[0])
-    worst_label = indexed_ratios[0][1]
-    next_label = indexed_ratios[1][1] if len(indexed_ratios) > 1 else worst_label
-    min_ratio = indexed_ratios[0][0]
-
-    if total_score >= 350:
-        if star_val >= 22 or star_val >= max_star_possible:
-            if 0 in eval_indices:
-                target_add = 103.5 if item_req_level <= 200 else 101
-                if scores[0] < target_add:
-                    return "✨ [추가옵션 강화 / 전승] 추가옵션이 완성되지 않았습니다. 강화하거나, 전승을 고려하세요."
-            if scores[1] < 101:
-                return "✨ [잠재능력 강화 / 전승] 베이스는 완벽합니다. 잠재능력 수치를 극대화하기 위해 강화하거나, 전승을 고려하세요."
-            elif scores[2] <= 43:
-                return "✨ [에디/교체 권장] 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요"
-            return f"👑 [종결] 완벽한 장비입니다. {star_val + 1}성 도전 외엔 투자가 무의미합니다."
-        return f"🔍 [미세조정] 종결급이나 '{worst_label}'이(가) 평균보다 낮습니다."
-
-    elif total_score >= 300:
-        if total_score >= 330:
-            if star_val >= 23:
-                return "✨ [종결 / 상위매물 교체] 23성 이상 도달한 장비입니다. 추가 강화보다는 이대로 사용하시거나, 상위 등급의 베이스 아이템 매물로 교체하는 것을 추천합니다."
-            target_star = 23 if item_req_level <= 160 else 22
-            target_star = min(target_star, max_star_possible)
-            if star_val < target_star and 3 in eval_indices:
-                return f"⭐ [스타포스 권장] 체급에 걸맞은 '{target_star}성' 달성이 시급합니다. 우선적으로 {star_val + 1}성 강화를 최우선하세요."
-            return f"💎 [준종결] 종결급 체급입니다. 마지막 퍼즐인 '{worst_label}' 수치 보완을 추천합니다."
-
-        if 3 in eval_indices:
-            if star_val >= max_star_possible:
-                return f"✅ [강화 한계] 최대치까지 강화되었습니다. 이제 부족한 '{worst_label}'에 집중하세요."
-            if star_val <= 18:
-                target_star = 21 if max_star_possible >= 21 else max_star_possible
-                return f"⚔️ [단계적 강화] 베이스가 훌륭합니다. 우선 '{target_star}성 안착'을 목표로 강화를 추천합니다."
-            if star_val < 22:
-                if min_ratio < 0.25:
-                    return f"🚨 [밸런스 보완] 스타포스보다 급한 것은 '{worst_label}'입니다. 밸런스를 먼저 맞춰주세요."
-                return "📈 [상위 강화] 22성 도전의 가치가 있는 베이스입니다. 22성 강화를 고려하세요."
-        return f"🛠️ [강화 권장] 엘리트 장비입니다. 전체적인 밸런스를 위해 '{worst_label}'을 보완하세요."
-
-    elif total_score >= 250:
-        target_star = min(17, max_star_possible)
-        if star_val < target_star and 3 in eval_indices:
-            if max_star_possible < 17:
-                return f"📦 [가성비 강화] 해당 아이템의 한계치인 {max_star_possible}성 달성 후 잠재능력을 손보는 것이 효율적입니다."
-            else:
-                return "📦 [가성비 강화] 최소 17 ~ 18성 달성 후 잠재능력을 손보는 것이 효율적입니다."
-        return f"📈 [효율 투자 / 교체] '{worst_label}'부터 차근차근 올리거나, 상위 아이템으로 교체를 추천합니다."
-
-    elif total_score >= 175:
-        is_limited = any(h in item_name for h in
-                         ["이터널 플레임 링", "어웨이크 링", "테네브리스 원정대 반지", "글로리온 링 : 슈프림", "카오스 링", "SS급 마스터 쥬얼링", "결속의 반지"])
-
-        target_star = min(17, max_star_possible)
-        if not is_limited and star_val < target_star and 3 in eval_indices:
-            if max_star_possible < 17:
-                return f"📦 [가성비 정체] 베이스는 나쁘지 않으나 스타포스가 낮습니다. {max_star_possible}성(한계치) 강화 시 점수가 상승합니다."
-            else:
-                return "📦 [가성비 정체] 베이스는 나쁘지 않으나 스타포스가 낮습니다. 17성 강화 시 점수가 대폭 상승합니다."
-
-        if is_limited:
-            return "📈 [이벤트 아이템] 이벤트 아이템을 강화하기보다는, 무료 재화를 사용하거나 상위 아이템으로의 교체를 추천합니다."
-
-        if scores[1] < 65:
-            if scores[2] < 12.5:
-                return "🔮 [잠재 / 에디 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다."
-            else:
-                return "🔮 [잠재 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다."
-
-        if scores[2] < 12.5:
-            return "🔮 [에디 부족] 스타포스에 비해 에디셔널 잠재능력이 아쉽습니다. 더 높은 에디셔널 잠재능력을 위해 강화를 추천합니다."
-
-        if scores[0] < 82.5 and 0 in eval_indices:
-            return "🌀 [베이스 부실] 추옵이 낮아 투자가 비효율적입니다. 추가옵션의 강화를 추천합니다."
-
-        if is_limited:
-            return "✅ [다음 단계 준비] 전반적인 밸런스가 좋습니다. 다음 단계로 넘어가기 위한 업그레이드나 교체를 준비하세요."
-        return f"✅ [다음 단계 준비] 전반적인 밸런스가 좋습니다. 다음 단계로 넘어가기 위한 상위 아이템 교체나 {next_label} 강화를 준비하세요."
-
-    else:
-        return "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다."
+    context = build_guide_context(scores, star_val, part_name, item_name, total_score, item_req_level, is_noljang)
+    return select_guide(GUIDES.rule, context, GUIDES.names.raw, item_name)
 
 
 def evaluate_equipment(items, char_class, char_level, unsupported=None):

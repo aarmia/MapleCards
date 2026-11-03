@@ -74,7 +74,8 @@ app/
 ├── data/
 │   ├── classes.toml        # 직업 → 주스탯 표
 │   ├── scoring.toml        # 점수 공식 상수 (계수, 목표 급수, 가중치, 판정값)
-│   └── grades.toml         # 등급 · 색 · 총평 랭크 컷오프. 페이지와 응답에 실려 화면이 같은 값을 씀
+│   ├── grades.toml         # 등급 · 색 · 총평 랭크 컷오프. 페이지와 응답에 실려 화면이 같은 값을 씀
+│   └── guides.toml         # 장비 가이드 규칙 표 (조건 → 태그와 문구, 위에서부터 첫 일치)
 ├── request_tracker.py      # 동시 진단 제한, 대기열 상한 · 타임아웃, 진행 상태 추적
 ├── static/
 │   ├── images/             # logo.png, favicon.ico
@@ -184,6 +185,9 @@ gunicorn -w 1 -k uvicorn.workers.UvicornWorker app.main:app --timeout 120 --grac
 uv run ruff check .                                   # 린트
 uv run python -m unittest discover -s tests -t .      # 전체 테스트
 ```
+
+### 점수 데이터 수정
+점수 상수, 등급 컷, 가이드 문구는 코드가 아니라 `app/data/*.toml`에 있습니다. 필수 키 · 타입 · 구간 순서 · 규칙 필드는 기동 시 검증되어 틀리면 서버가 뜨지 않습니다. 값을 바꾸면 모든 캐릭터의 결과가 바뀌므로, 배포 전에 실제 캐릭터 몇 명의 `build_report` 결과를 변경 전후로 비교해 의도한 차이만 있는지 확인하세요. 비교용 스냅샷은 저장소에 두지 않습니다.
 
 ### 의존성 변경
 `pyproject.toml`을 고친 뒤 lock과 배포용 requirements를 함께 갱신합니다. CI가 둘의 동기화 여부를 검사합니다.

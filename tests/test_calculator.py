@@ -1,7 +1,7 @@
 import unittest
 from collections import Counter
 
-from app.analyzer import evaluate_equipment, get_dynamic_guide, split_guide, unsupported_registry
+from app.analyzer import evaluate_equipment, get_dynamic_guide, select_guide, split_guide, unsupported_registry
 from app.calculator import (
     calculate_potential_score,
     get_main_stat,
@@ -120,6 +120,19 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertEqual(record.getMessage(), "unsupported_option_first_seen")
         self.assertEqual((record.potential_type, record.option), ("potential", "보스 몬스터 공격 시 데미지 +30%"))
         self.assertEqual(collector[("potential", "보스 몬스터 공격 시 데미지 +30%")], 2)
+    def test_guide_rules_match_in_order_and_fill_fields(self):
+        rules = [
+            {"name_any": "hearts", "when": [["total", ">=", 100]], "text": "하트 {star_next}성"},
+            {"when": [["star", "<", "max_star"], ["limited", "==", False]], "text": "강화 '{worst}'"},
+            {"text": "기본"},
+        ]
+        names = {"hearts": ["리튬 하트"]}
+        context = {"total": 120, "star": 17, "star_next": 18, "max_star": 22, "limited": False, "worst": "윗잠재"}
+
+        self.assertEqual(select_guide(rules, context, names, "리튬 하트"), "하트 18성")
+        self.assertEqual(select_guide(rules, context, names, "앱솔랩스 슈즈"), "강화 '윗잠재'")
+        self.assertEqual(select_guide(rules, {**context, "star": 22}, names, "앱솔랩스 슈즈"), "기본")
+
     def test_split_guide_separates_tag_and_message(self):
         self.assertEqual(
             split_guide("👑 [종결] 완벽한 장비입니다. 23성 도전 외엔 투자가 무의미합니다."),

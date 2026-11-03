@@ -175,6 +175,65 @@ def load_grades(path: Path = DATA_DIR / "grades.toml") -> Section:
     return Section(data, path.name)
 
 
+RULE_OPERATORS = ("<", "<=", ">", ">=", "==", "!=")
+_GUIDES_SPEC = {
+    "star_cap": {"bands": list, "default": NUMBER},
+    "axes": {"labels": list, "benchmarks": list, "no_add_parts": list, "no_star_parts": list},
+    "targets": {
+        k: NUMBER
+        for k in ("add_level_split", "add_low", "add_high", "star_330_level_split", "star_330_low", "star_330_high", "star_mid", "star_step")
+    },
+    "names": {k: list for k in ("upgrade_hearts", "target_hearts", "black_hearts", "superior", "limited")},
+    "special_rule": list,
+    "rule": list,
+}
+
+
+def check_rules(rules: list, names: dict, fields: set, source: str) -> None:
+    """규칙 표의 구조를 검증합니다. 모르는 필드·비교 연산자·names 참조는 기동 시점에 걸립니다."""
+    if not rules:
+        raise ConfigError(f"{source}: 규칙이 하나도 없습니다")
+    for index, rule in enumerate(rules):
+        where = f"{source}[{index}]"
+        if not isinstance(rule, dict) or not isinstance(rule.get("text"), str):
+            raise ConfigError(f"{where}: text 가 필요합니다")
+        name_any = rule.get("name_any")
+        if isinstance(name_any, str) and name_any not in names:
+            raise ConfigError(f"{where}: names 표에 '{name_any}' 가 없습니다")
+        if name_any is not None and not isinstance(name_any, (str, list)):
+            raise ConfigError(f"{where}: name_any 는 names 표의 이름이나 목록이어야 합니다")
+        for condition in rule.get("when", []):
+            if not (isinstance(condition, list) and len(condition) == 3):
+                raise ConfigError(f"{where}: when 항목은 [필드, 비교, 값] 이어야 합니다")
+            field, op, value = condition
+            if field not in fields or op not in RULE_OPERATORS:
+                raise ConfigError(f"{where}: 알 수 없는 필드나 비교 ({field!r} {op!r})")
+            if isinstance(value, str) and value not in fields:
+                raise ConfigError(f"{where}: 값 자리의 '{value}' 는 필드 이름이 아닙니다")
+    last = rules[-1]
+    if any(key in last for key in ("when", "name_any", "part_any")):
+        raise ConfigError(f"{source}: 마지막 규칙은 조건 없이 모든 경우를 받아야 합니다")
+
+
+def load_guides(path: Path = DATA_DIR / "guides.toml", rule_fields: set | None = None, special_fields: set | None = None) -> Section:
+    data = load_toml(path)
+    validate(data, _GUIDES_SPEC, path.name)
+    if len(data["axes"]["labels"]) != 4 or len(data["axes"]["benchmarks"]) != 4:
+        raise ConfigError(f"{path.name}: axes.labels 와 axes.benchmarks 는 4개여야 합니다")
+    previous = None
+    for band in data["star_cap"]["bands"]:
+        if not (isinstance(band, list) and len(band) == 2 and all(isinstance(v, NUMBER) for v in band)):
+            raise ConfigError(f"{path.name}: star_cap.bands 항목은 [레벨 미만, 최대 스타포스] 여야 합니다")
+        if previous is not None and band[0] < previous:
+            raise ConfigError(f"{path.name}: star_cap.bands 는 레벨 오름차순이어야 합니다")
+        previous = band[0]
+    if rule_fields is not None:
+        check_rules(data["rule"], data["names"], rule_fields, f"{path.name}: rule")
+    if special_fields is not None:
+        check_rules(data["special_rule"], data["names"], special_fields, f"{path.name}: special_rule")
+    return Section(data, path.name)
+
+
 CLASSES = load_classes()
 SCORING = load_scoring()
 GRADES = load_grades()
