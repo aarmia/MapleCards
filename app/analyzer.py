@@ -16,6 +16,7 @@ from app.calculator import (
     get_main_stat,
     get_potential_options,
     get_starforce_score,
+    starforce_gain,
 )
 from app.scoring_config import CLASSES, GRADES, SCORING, load_guides
 
@@ -453,6 +454,13 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
 
         total_item_score = add_score + pot_score + eddy_score + adv_star_score
 
+        # 상세 모달 참고값: 현재 스타포스까지의 실제 증가량. 점수 곡선(투자 비용 기준)과 별개로 체급을 보여줍니다.
+        star_gain = None
+        if not is_weapon and not is_superior and not is_noljang and item_req_level > 0:
+            star_gain = starforce_gain(star, item_req_level)
+            if conversion:
+                star_gain["percent"] = round(star_gain["stat"] * conversion.stat_flat + star_gain["attack"] * conversion.attack_flat, 2)
+
         if pot_val != -1 and not any(k in name for k in special_rings):
             guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part, total_item_score, name, item_req_level, is_noljang)
             guide_tag, guide_message = split_guide(guide_text)
@@ -473,7 +481,14 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                         {"key": "add", "label": "추가옵션", "raw_score": round(add_raw_score, 2), "weighted_score": round(add_score, 2)},
                         {"key": "pot", "label": "윗잠재", "raw_score": round(max(pot_val, 0), 2), "weighted_score": round(pot_score, 2)},
                         {"key": "pot_additional", "label": "에디셔널", "raw_score": round(max(eddy_val, 0), 2), "weighted_score": round(eddy_score, 2)},
-                        {"key": "star", "label": "스타포스", "raw_score": star, "weighted_score": round(adv_star_score, 2), "star": star},
+                        {
+                            "key": "star",
+                            "label": "스타포스",
+                            "raw_score": star,
+                            "weighted_score": round(adv_star_score, 2),
+                            "star": star,
+                            "gain": star_gain,
+                        },
                     ],
                     "star_score": round(adv_star_score, 2),
                 },

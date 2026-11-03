@@ -112,7 +112,10 @@ _SCORING_SPEC = {
         "add": {k: NUMBER for k in ("boss_damage", "damage", "all_stat", "main_stat")},
         "potential": {k: NUMBER for k in ("damage", "ignore_defense", "all_stat_pct", "main_stat_pct")},
     },
-    "starforce": {k: NUMBER for k in ("reference_level", "level_weight_divisor", "base_star", "over_star_log_weight")},
+    "starforce": {
+        **{k: NUMBER for k in ("reference_level", "level_weight_divisor", "base_star", "over_star_log_weight")},
+        "gains": {"stat_per_star_1_5": NUMBER, "stat_per_star_6_15": NUMBER, "stat_per_star_16_22": dict, "attack_16_22": dict},
+    },
     "weights": {k: NUMBER for k in ("potential", "additional", "superior_star", "weapon_add", "fixed_secondary_emblem")},
     "noljang": {k: NUMBER for k in ("star_min", "star_max", "max_level", "etc_stat_strong", "etc_attack_strong", "etc_stat_weak", "etc_attack_weak")},
     "special_items": {
@@ -140,6 +143,12 @@ def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
     targets = data["add_option"]["targets"]
     for name in ("default", "xenon", "demon_avenger"):
         targets[name] = _int_keyed(targets[name], f"{path.name}: add_option.targets.{name}")
+    gains = data["starforce"]["gains"]
+    for name in ("stat_per_star_16_22", "attack_16_22"):
+        gains[name] = _int_keyed(gains[name], f"{path.name}: starforce.gains.{name}")
+    for level, attacks in gains["attack_16_22"].items():
+        if not (isinstance(attacks, list) and len(attacks) == 7):
+            raise ConfigError(f"{path.name}: starforce.gains.attack_16_22[{level}] 는 16~22성 7개 값이어야 합니다")
     previous = None
     for band in data["add_option"]["tiers"]["bands"]:
         if not (isinstance(band, list) and len(band) == 3 and isinstance(band[0], NUMBER) and isinstance(band[1], str) and isinstance(band[2], NUMBER)):

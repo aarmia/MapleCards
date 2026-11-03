@@ -15,6 +15,7 @@ from app.calculator import (
     calculate_potential_score,
     get_main_stat,
     get_potential_options,
+    starforce_gain,
 )
 
 
@@ -222,6 +223,11 @@ class PotentialOptionTests(unittest.TestCase):
         archer, profile = points("보우마스터", "100.00")  # 궁수는 초과분 9% 가 크리티컬 리인포스 가치
         self.assertAlmostEqual(archer, round(9 * 0.5 * 0.25 * profile["conversion"].crit_damage, 2), places=2)
         self.assertEqual(points("캡틴", "100.00")[1]["conversion"].crit_excess_value, 0.0)
+
+    def test_starforce_gain_follows_the_published_table(self):
+        self.assertEqual(starforce_gain(22, 200), {"stat": 145, "attack": 106, "counted_star": 22})  # 10 + 30 + 7 × 15, 12..19
+        self.assertEqual(starforce_gain(10, 150), {"stat": 25, "attack": 0, "counted_star": 10})
+        self.assertEqual(starforce_gain(25, 160)["counted_star"], 22)  # 23성 이후는 집계하지 않음
 
     def test_level_stat_line_scales_with_character_level(self):
         item = dict(self.challenger_top)

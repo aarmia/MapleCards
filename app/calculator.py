@@ -433,6 +433,27 @@ def calculate_weapon_potential_score(
 ) -> float:
     return analyze_weapon_potential_score(item_data, potential_type, class_name, main_stat=main_stat)["score"]
 
+def starforce_gain(star: int, level: int) -> dict:
+    """현재 스타포스까지 누적된 실제 주스탯·공/마 증가량 (일반 방어구·장신구, scoring.toml starforce.gains).
+
+    점수 곡선과는 별개로 상세 모달에 보여주는 참고값입니다. 23성 이후는 공/마 자료가 없어 22성까지만 셉니다.
+    """
+    gains = SCORING.starforce.gains
+    bands = sorted(gains.stat_per_star_16_22.raw)
+    band = next((limit for limit in bands if level <= limit), bands[-1])
+    counted = max(0, min(int(star), SCORING.starforce.base_star))
+    stat = 0
+    for current in range(1, counted + 1):
+        if current <= 5:
+            stat += gains.stat_per_star_1_5
+        elif current <= 15:
+            stat += gains.stat_per_star_6_15
+        else:
+            stat += gains.stat_per_star_16_22[band]
+    attack = sum(gains.attack_16_22[band][current - 16] for current in range(16, counted + 1))
+    return {"stat": stat, "attack": attack, "counted_star": counted}
+
+
 def get_starforce_score(star, level):
     if level <= 0: return 0.0
     config = SCORING.starforce
