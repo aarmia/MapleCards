@@ -52,8 +52,23 @@ def _score_detail(score: float, recognized: list[dict], options: list[str], main
     ignored, unsupported = classify_unrecognized(options, recognized, main_stat)
     return {"score": round(score, 2), "recognized": recognized, "ignored": ignored, "unsupported": unsupported}
 
+def _final_stat_value(stat_data: dict, stat_name: str) -> int:
+    """스탯 응답(final_stat)에서 stat_name 값을 정수로 꺼냅니다. 없거나 숫자가 아니면 0 입니다."""
+    for stat in (stat_data or {}).get("final_stat") or []:
+        if stat.get("stat_name") == stat_name:
+            try:
+                return int(float(str(stat.get("stat_value", "0")).replace(",", "")))
+            except (TypeError, ValueError):
+                return 0
+    return 0
+
+
 def get_main_stat(class_name: str, stat_data: dict = None) -> str:
-    """직업명을 받아 주스탯 키워드를 반환합니다. 표는 app/data/classes.toml 에 있습니다."""
+    """직업명을 받아 주스탯 키워드를 반환합니다. 표는 app/data/classes.toml 에 있습니다.
+
+    stat_data(스탯 응답)를 주면 전환 가능 직업(classes.toml switchable)은 STR/DEX 중 높은 쪽으로 평가합니다.
+    build_report 가 한 번 계산해 파이프라인 전체에 넘기므로, 다른 함수에서 직접 부를 때는 직업명 기준입니다.
+    """
     target_class = class_name.replace(" ", "")
 
     special = CLASSES.special.raw
@@ -62,10 +77,9 @@ def get_main_stat(class_name: str, stat_data: dict = None) -> str:
 
     # [추가 기능] 주스탯 전환 가능 직업군 판별 로직. 스탯 응답이 주어졌을 때만 작동합니다.
     rule = CLASSES.switchable.raw.get(target_class)
-    if rule and stat_data and "final_stat" in stat_data:
-        final_stats = {s['stat_name']: int(s['stat_value']) for s in stat_data.get('final_stat', [])}
-        base_value = final_stats.get(rule["base"].upper(), 0)
-        alternative_value = final_stats.get(rule["alternative"].upper(), 0)
+    if rule and stat_data:
+        base_value = _final_stat_value(stat_data, rule["base"].upper())
+        alternative_value = _final_stat_value(stat_data, rule["alternative"].upper())
         return rule["alternative"] if alternative_value > base_value else rule["base"]
 
     for stat, classes in CLASSES.main_stat.raw.items():
@@ -74,8 +88,8 @@ def get_main_stat(class_name: str, stat_data: dict = None) -> str:
 
     return CLASSES.default
 
-def calculate_item_score(add_option: dict, class_name: str) -> int:
-    main_stat = get_main_stat(class_name)
+def calculate_item_score(add_option: dict, class_name: str, main_stat: str | None = None) -> int:
+    main_stat = main_stat or get_main_stat(class_name)
     grade = SCORING.add_option.grade
 
     all_stat_pct = int(add_option.get("all_stat", 0))
@@ -143,13 +157,15 @@ def get_advanced_add_score(actual_급수, level, part_name, char_name_class):
 
     return round(max(0, score), 2)
 
-def analyze_potential_score(item_data: dict, potential_type: str, class_name: str, char_level: int) -> dict:
+def analyze_potential_score(
+    item_data: dict, potential_type: str, class_name: str, char_level: int, main_stat: str | None = None
+) -> dict:
     slot = item_data.get("item_equipment_slot", "")
     part = item_data.get("item_equipment_part", "")
     config = SCORING.potential
 
     is_excluded = any(k in slot for k in config.excluded_slots) or any(k in part for k in config.excluded_slots)
-    main_stat = get_main_stat(class_name).upper()
+    main_stat = (main_stat or get_main_stat(class_name)).upper()
     options = get_potential_options(item_data, potential_type)
 
     if is_excluded:
@@ -266,17 +282,19 @@ def analyze_potential_score(item_data: dict, potential_type: str, class_name: st
     return _score_detail(total_stat_score + total_special_score, recognized, options, main_stat)
 
 
-def calculate_potential_score(item_data: dict, potential_type: str, class_name: str, char_level: int) -> float:
-    return analyze_potential_score(item_data, potential_type, class_name, char_level)["score"]
+def calculate_potential_score(
+    item_data: dict, potential_type: str, class_name: str, char_level: int, main_stat: str | None = None
+) -> float:
+    return analyze_potential_score(item_data, potential_type, class_name, char_level, main_stat=main_stat)["score"]
 
-def calculate_weapon_add_option_score(item_data: dict, class_name: str) -> float:
+def calculate_weapon_add_option_score(item_data: dict, class_name: str, main_stat: str | None = None) -> float:
     add_option = item_data.get("item_add_option", {})
     base_option = item_data.get("item_base_option", {})
 
     if not add_option or not base_option:
         return 0.0
 
-    main_stat = get_main_stat(class_name)
+    main_stat = main_stat or get_main_stat(class_name)
     target_atk_key = "magic_power" if main_stat == "int" else "attack_power"
 
     base_atk = int(base_option.get(target_atk_key, 0))
@@ -295,11 +313,13 @@ def calculate_weapon_add_option_score(item_data: dict, class_name: str) -> float
     total_score = atk_score + boss_dmg_score + dmg_score + all_stat_score + target_stat_score
     return round(total_score, 2)
 
-def analyze_weapon_potential_score(item_data: dict, potential_type: str, class_name: str) -> dict:
+def analyze_weapon_potential_score(
+    item_data: dict, potential_type: str, class_name: str, main_stat: str | None = None
+) -> dict:
     slot = item_data.get("item_equipment_slot", "")
     part = item_data.get("item_equipment_part", "")
     is_wse = any(k in slot for k in ["무기", "보조무기"]) or "엠블렘" in part
-    main_stat = get_main_stat(class_name)
+    main_stat = main_stat or get_main_stat(class_name)
     target_atk = "마력" if main_stat == "int" else "공격력"
     target_stat = main_stat.upper()
     options = get_potential_options(item_data, potential_type)
@@ -340,8 +360,10 @@ def analyze_weapon_potential_score(item_data: dict, potential_type: str, class_n
     return _score_detail(total_stat_score + total_special_score, recognized, options, target_stat)
 
 
-def calculate_weapon_potential_score(item_data: dict, potential_type: str, class_name: str) -> float:
-    return analyze_weapon_potential_score(item_data, potential_type, class_name)["score"]
+def calculate_weapon_potential_score(
+    item_data: dict, potential_type: str, class_name: str, main_stat: str | None = None
+) -> float:
+    return analyze_weapon_potential_score(item_data, potential_type, class_name, main_stat=main_stat)["score"]
 
 def get_starforce_score(star, level):
     if level <= 0: return 0.0

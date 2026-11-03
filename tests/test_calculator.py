@@ -1,7 +1,14 @@
 import unittest
 from collections import Counter
 
-from app.analyzer import evaluate_equipment, get_dynamic_guide, select_guide, split_guide, unsupported_registry
+from app.analyzer import (
+    build_report,
+    evaluate_equipment,
+    get_dynamic_guide,
+    select_guide,
+    split_guide,
+    unsupported_registry,
+)
 from app.calculator import (
     calculate_potential_score,
     get_main_stat,
@@ -142,6 +149,24 @@ class PotentialOptionTests(unittest.TestCase):
         # 로그와 집계에는 엔진이 모르는 옵션만 올라갑니다.
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(list(collector), [("potential", "크리티컬 확률 +9%")])
+
+    def test_switchable_classes_follow_the_higher_stat(self):
+        stats = {
+            "final_stat": [
+                {"stat_name": "STR", "stat_value": "7901"},
+                {"stat_name": "DEX", "stat_value": "64324"},
+                {"stat_name": "보스 몬스터 데미지", "stat_value": "462.00"},
+                {"stat_name": "MP", "stat_value": None},
+            ]
+        }
+
+        self.assertEqual(get_main_stat("바이퍼", stats), "dex")  # 기본 STR 이지만 DEX 가 더 높음
+        self.assertEqual(get_main_stat("캡틴", stats), "dex")  # 기본 DEX 유지
+        self.assertEqual(get_main_stat("히어로", stats), "str")  # 전환 대상이 아닌 직업은 영향 없음
+
+        basic = {"character_class": "바이퍼", "character_level": 285}
+        report = build_report("x", basic, {"item_equipment": [self.challenger_top]}, stats)
+        self.assertEqual(report["results"][0]["scoring_basis"]["main_stat"], "DEX")
 
     def test_guide_rules_match_in_order_and_fill_fields(self):
         rules = [

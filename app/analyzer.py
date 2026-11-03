@@ -82,7 +82,7 @@ def _log_unsupported_options(item_name, potential_type, analysis, collector=None
         unsupported_registry.record(item_name, potential_type, option, collector)
 
 
-def get_best_preset(item_data: dict, class_name: str, char_level: int) -> int:
+def get_best_preset(item_data: dict, class_name: str, char_level: int, main_stat: str | None = None) -> int:
     preset_scores = {1: 0.0, 2: 0.0, 3: 0.0}
 
     for i in range(1, 4):
@@ -92,8 +92,8 @@ def get_best_preset(item_data: dict, class_name: str, char_level: int) -> int:
 
         total_score = 0.0
         for item in preset_items:
-            score = calculate_potential_score(item, "potential", class_name, char_level)
-            add_score = calculate_potential_score(item, "additional_potential", class_name, char_level)
+            score = calculate_potential_score(item, "potential", class_name, char_level, main_stat=main_stat)
+            add_score = calculate_potential_score(item, "additional_potential", class_name, char_level, main_stat=main_stat)
 
             if score > 0: total_score += score
             if add_score > 0: total_score += add_score
@@ -184,12 +184,14 @@ def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_
     return select_guide(GUIDES.rule, context, GUIDES.names.raw, item_name)
 
 
-def evaluate_equipment(items, char_class, char_level, unsupported=None):
+def evaluate_equipment(items, char_class, char_level, unsupported=None, main_stat=None):
     evaluate_list = []
     special_items = SCORING.special_items
     weights = SCORING.weights
     noljang = SCORING.noljang
     special_rings = special_items.excluded_rings
+    # 주스탯은 호출자(build_report)가 스탯 응답까지 보고 정해 넘깁니다. 없으면 직업명으로 정합니다.
+    main_stat = main_stat or get_main_stat(char_class)
 
     for item in items:
         add_score, pot_score, eddy_score, adv_star_score = 0.0, 0.0, 0.0, 0.0
@@ -205,7 +207,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None):
 
         is_weapon = any(k in slot for k in special_items.wse_slots)
         is_special = any(k in part for k in special_items.special_parts)
-        main_stat = get_main_stat(char_class).upper()
+        main_stat_label = main_stat.upper()
 
         raw_options_dict = {
             "base": item.get("item_base_option"),
@@ -220,7 +222,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None):
         }
 
         if is_special:
-            actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class)
+            actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class, main_stat=main_stat)
             add_raw_score = actual_add_급수
             if "포켓" in part:
                 total_item_score = actual_add_급수
@@ -244,7 +246,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None):
                 "detail": {"add": round(total_item_score, 1), "star": 0, "pot": 0, "pot_additional": 0},
                 "raw_options": raw_options_dict,
                 "scoring_basis": {
-                    "main_stat": main_stat,
+                    "main_stat": main_stat_label,
                     "recognized_options": [],
                     "unrecognized_options": [],
                     "weights": ["특수 장비 고유 기준"],
@@ -288,22 +290,22 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None):
                 add_raw_score = weights.fixed_secondary_emblem
                 adv_star_score = weights.fixed_secondary_emblem
             else:
-                add_raw_score = calculate_weapon_add_option_score(item, char_class)
+                add_raw_score = calculate_weapon_add_option_score(item, char_class, main_stat=main_stat)
                 add_score = add_raw_score * weights.weapon_add
-            pot_analysis = analyze_weapon_potential_score(item, "potential", char_class)
+            pot_analysis = analyze_weapon_potential_score(item, "potential", char_class, main_stat=main_stat)
             pot_val = pot_analysis["score"]
             pot_score = (pot_val * weights.potential) if pot_val > 0 else 0
-            eddy_analysis = analyze_weapon_potential_score(item, "additional_potential", char_class)
+            eddy_analysis = analyze_weapon_potential_score(item, "additional_potential", char_class, main_stat=main_stat)
             eddy_val = eddy_analysis["score"]
             eddy_score = (eddy_val * weights.additional) if eddy_val > 0 else 0
         else:
-            actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class)
+            actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class, main_stat=main_stat)
             add_raw_score = actual_add_급수
             add_score = get_advanced_add_score(actual_add_급수, item_req_level, part, char_class)
-            pot_analysis = analyze_potential_score(item, "potential", char_class, char_level)
+            pot_analysis = analyze_potential_score(item, "potential", char_class, char_level, main_stat=main_stat)
             pot_val = pot_analysis["score"]
             pot_score = (pot_val * weights.potential) if pot_val > 0 else 0
-            eddy_analysis = analyze_potential_score(item, "additional_potential", char_class, char_level)
+            eddy_analysis = analyze_potential_score(item, "additional_potential", char_class, char_level, main_stat=main_stat)
             eddy_val = eddy_analysis["score"]
             eddy_score = (eddy_val * weights.additional) if eddy_val > 0 else 0
 
@@ -349,7 +351,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None):
                 "detail": {"add": round(add_score, 1), "star": round(adv_star_score, 1), "pot": round(pot_score, 1), "pot_additional": round(eddy_score, 1)},
                 "raw_options": raw_options_dict,
                 "scoring_basis": {
-                    "main_stat": main_stat,
+                    "main_stat": main_stat_label,
                     "recognized_options": recognized_options,
                     "unrecognized_options": unrecognized_options,
                     "weights": [
@@ -415,11 +417,13 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
     char_class = basic_info.get("character_class")
     char_level = int(basic_info.get("character_level") or 0)
     char_image = basic_info.get("character_image", "")
+    # 주스탯은 여기서 한 번만 정합니다. 바이퍼·캐논마스터·캡틴은 스탯 응답의 STR/DEX 비교로 전환 세팅을 반영합니다.
+    main_stat = get_main_stat(char_class, stat_data)
 
-    best_preset_idx = get_best_preset(item_data, char_class, char_level)
+    best_preset_idx = get_best_preset(item_data, char_class, char_level, main_stat=main_stat)
     items = select_preset_items(item_data, best_preset_idx)
 
-    evaluate_list = evaluate_equipment(items, char_class, char_level, unsupported=unsupported)
+    evaluate_list = evaluate_equipment(items, char_class, char_level, unsupported=unsupported, main_stat=main_stat)
     overall_review, all_sorted_results = generate_overall_review(evaluate_list)
 
     return {
