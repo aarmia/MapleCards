@@ -16,6 +16,15 @@ logger = logging.getLogger(__name__)
 
 NEXON_BASE_URL = "https://open.api.nexon.com/maplestory/v1"
 
+# 유효 스탯% 환산(app/character_profile.py)에 쓰는 추가 조회. 실패해도 진단은 계속됩니다.
+STAT_EXTRA_ENDPOINTS = {
+    "symbol": "/character/symbol-equipment",
+    "hyper_stat": "/character/hyper-stat",
+    "union_raider": "/user/union-raider",
+    "ability": "/character/ability",
+    "link_skill": "/character/link-skill",
+}
+
 # Nexon Open API 오류 코드 -> (우리 HTTP 상태, 사용자 메시지, Retry-After 초).
 # 공식 표(openapi.nexon.com/ko/guide/request-api)의 코드 대부분이 HTTP 400 으로 내려오므로
 # 상태 코드가 아니라 응답 본문의 error.name 으로 구분해야 "없는 캐릭터"와 "키 오류·점검"을 가를 수 있습니다.
@@ -232,3 +241,18 @@ class NexonAPIHandler:
     async def get_character_item(self, ocid: str) -> dict[str, Any]:
         """캐릭터의 장비 아이템 정보를 가져옵니다."""
         return await self._request("/character/item-equipment", {"ocid": ocid})
+
+    async def get_stat_extras(self, ocid: str) -> tuple[dict[str, Any], dict[str, str]]:
+        """STAT_EXTRA_ENDPOINTS 를 한꺼번에 조회합니다. 실패한 항목은 결과에서 빼고 오류 코드만 돌려주어 진단이 계속되게 합니다."""
+        results = await asyncio.gather(
+            *(self._request(path, {"ocid": ocid}) for path in STAT_EXTRA_ENDPOINTS.values()), return_exceptions=True
+        )
+        extras, failures = {}, {}
+        for key, result in zip(STAT_EXTRA_ENDPOINTS, results):
+            if isinstance(result, NexonAPIError):
+                failures[key] = result.code
+            elif isinstance(result, BaseException):
+                raise result
+            else:
+                extras[key] = result
+        return extras, failures

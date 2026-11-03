@@ -58,7 +58,13 @@ class FakeNexonAPI:
         return await self._respond({"preset_no": 1, "item_equipment": [SAMPLE_ITEM]})
 
     async def get_character_stat(self, _):
-        return await self._respond({"final_stat": [{"stat_name": "전투력", "stat_value": "123"}]})
+        return await self._respond(
+            {"final_stat": [{"stat_name": "전투력", "stat_value": "123"}, {"stat_name": "INT", "stat_value": "30000"}, {"stat_name": "마력", "stat_value": "2000"}]}
+        )
+
+    async def get_stat_extras(self, _):
+        # 심볼 조회가 실패해도 진단은 계속되어야 합니다.
+        return {}, {"symbol": "NEXON_TIMEOUT"}
 
 
 def client():
@@ -77,9 +83,11 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((body["character"], body["class"], body["level"], body["combat_power"]), ("테스트", "레테", 285, "123"))
         self.assertEqual(body["results"][0]["name"], "도전자의 상의")
         self.assertEqual(body["grades"]["item_grade"][0], [360, "SSS+"])
+        self.assertEqual(body["profile"]["context"]["basis"], "estimated")  # 추가 조회 실패 → 레벨로 추정
         self.assertEqual(api.max_active, 3)  # basic · item · stat 은 동시에 조회합니다.
         event = next(record for record in logs.records if record.getMessage() == "diagnosis")
         self.assertEqual((event.request_id, event.outcome, event.http_status), ("req-1", "ok", 200))
+        self.assertEqual(event.extras_failed, {"symbol": "NEXON_TIMEOUT"})
         self.assertEqual(event.response_bytes, len(response.content))
         self.assertNotIn("테스트", json.dumps(event.__dict__, default=str, ensure_ascii=False))
 

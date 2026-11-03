@@ -27,6 +27,14 @@ str = ["DEX"]
 dex = ["STR"]
 int = ["LUK"]
 luk = ["DEX"]
+hp = ["STR"]        # 데몬어벤져
+all_stat = []       # 제논은 부스탯이 없습니다
+
+# 스탯 공식 A = stat_weight × 주스탯 + 부스탯. 일반 직업 4 × 주스탯 + 부스탯, 제논 3.5 × (STR+DEX+LUK), 데몬어벤져 4 × HP ÷ 14 + STR
+[stat_weight]
+default = 4.0
+"제논" = 3.5
+"데몬어벤져" = 0.2857
 
 [secondary_stat_overrides]
 "섀도어" = ["STR", "DEX"]

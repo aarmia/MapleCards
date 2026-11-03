@@ -4,20 +4,19 @@ import re
 from collections import Counter
 
 from app.calculator import (
-    Conversion,
     analyze_potential_score,
     analyze_weapon_potential_score,
     calculate_item_score,
     calculate_potential_score,
     calculate_weapon_add_option_score,
-    final_stat_float,
-    final_stat_value,
     get_advanced_add_score,
     get_main_stat,
     get_potential_options,
     get_starforce_score,
 )
-from app.scoring_config import CLASSES, GRADES, SCORING, load_guides
+from app.character_profile import build_character_profile
+from app.potential import StatContext, reference_context
+from app.scoring_config import GRADES, SCORING, load_guides
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +85,7 @@ def _log_unsupported_options(item_name, potential_type, analysis, collector=None
 
 
 def get_best_preset(
-    item_data: dict, class_name: str, char_level: int, main_stat: str | None = None, conversion: Conversion | None = None
+    item_data: dict, class_name: str, char_level: int, main_stat: str | None = None, context: StatContext | None = None
 ) -> int:
     preset_scores = {1: 0.0, 2: 0.0, 3: 0.0}
 
@@ -97,10 +96,8 @@ def get_best_preset(
 
         total_score = 0.0
         for item in preset_items:
-            score = calculate_potential_score(item, "potential", class_name, char_level, main_stat=main_stat, conversion=conversion)
-            add_score = calculate_potential_score(
-                item, "additional_potential", class_name, char_level, main_stat=main_stat, conversion=conversion
-            )
+            score = calculate_potential_score(item, "potential", class_name, char_level, main_stat=main_stat, context=context)
+            add_score = calculate_potential_score(item, "additional_potential", class_name, char_level, main_stat=main_stat, context=context)
 
             if score > 0: total_score += score
             if add_score > 0: total_score += add_score
@@ -191,90 +188,6 @@ def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_
     return select_guide(GUIDES.rule, context, GUIDES.names.raw, item_name)
 
 
-_PCT_LINE = re.compile(r"^(STR|DEX|INT|LUK|올스탯) \+(\d+)%$")
-
-
-def build_character_profile(char_class, main_stat, equipped_items, stat_data) -> dict:
-    """캐릭터별 기준을 한 번에 정합니다.
-
-    - tier / add_target_multiplier: 전투력으로 자본대를 나눠 추옵 목표 급수에 곱할 배율 (scoring.toml add_option.tiers)
-    - conversion: 고정 주스탯·공/마 옵션을 주스탯 % 로 바꾸는 계수. 스탯 공식 (4 × 주스탯 + 부스탯) × 공격력 에서 유도합니다.
-      주스탯% 합(b)은 착용 장비의 잠재 줄을 더한 뒤 baseline 을 보태 추정하고, 결과는 min/max 로 제한합니다.
-    """
-    tiers = SCORING.add_option.tiers.bands
-    combat_power = final_stat_value(stat_data, "전투력")
-    tier_name, multiplier = tiers[-1][1], tiers[-1][2]
-    for min_power, name, factor in tiers:
-        if combat_power >= min_power:
-            tier_name, multiplier = name, factor
-            break
-    profile = {
-        "main_stat": main_stat.upper(),
-        "combat_power": combat_power,
-        "tier": tier_name,
-        "add_target_multiplier": multiplier,
-        "conversion": None,
-        "stat_pct_total": None,
-        "attack_total": None,
-        "main_stat_total": None,
-    }
-
-    conversion_config = SCORING.potential.conversion
-    if not conversion_config.enabled or main_stat not in ("str", "dex", "int", "luk"):
-        return profile
-    main_total = final_stat_value(stat_data, main_stat.upper())
-    attack_total = final_stat_value(stat_data, "마력" if main_stat == "int" else "공격력")
-    if main_total <= 0 or attack_total <= 0:
-        return profile
-
-    class_key = (char_class or "").replace(" ", "")
-    secondary_names = CLASSES.secondary_stat_overrides.raw.get(class_key) or CLASSES.secondary_stat.raw.get(main_stat, [])
-    secondary_total = sum(final_stat_value(stat_data, name) for name in secondary_names)
-    pct_total = 0
-    for item in equipped_items or []:
-        for potential_type in ("potential", "additional_potential"):
-            for line in get_potential_options(item, potential_type):
-                match = _PCT_LINE.match(line)
-                if match and match.group(1) in (main_stat.upper(), "올스탯"):
-                    pct_total += int(match.group(2))
-
-    stat_pct = 1 + (pct_total + conversion_config.baseline_stat_pct) / 100
-    stat_flat = conversion_config.stat_flat_scale * 100 * stat_pct**2 / main_total
-    attack_flat = conversion_config.attack_flat_scale * 25 * stat_pct * (4 * main_total + secondary_total) / (main_total * attack_total)
-    crit_total = final_stat_float(stat_data, "크리티컬 데미지")
-    crit_damage = None
-    if crit_total is not None:
-        raw_crit = stat_pct / (conversion_config.crit_base + crit_total / 100)
-        crit_damage = round(min(conversion_config.crit_max, max(conversion_config.crit_min, raw_crit)), 4)
-
-    # 크리티컬 확률: 100% 까지 채우는 1% 의 가치는 b × (0.35 + 크뎀) ÷ (1 + 크확 × (0.35 + 크뎀)). 기준 이상이면 0.
-    # 궁수는 크리티컬 리인포스로 100% 초과분도 ratio × uptime 만큼의 크뎀 가치를 가집니다.
-    crit_rate_config = SCORING.potential.crit_rate
-    crit_rate_total = final_stat_float(stat_data, "크리티컬 확률")
-    crit_rate_value = crit_excess_value = 0.0
-    if crit_rate_total is not None and crit_total is not None:
-        crit_bonus = conversion_config.crit_base - 1 + crit_total / 100
-        if crit_rate_total < crit_rate_config.zero_threshold:
-            crit_rate_value = round(stat_pct * crit_bonus / (1 + (crit_rate_total / 100) * crit_bonus), 4)
-        if class_key in CLASSES.archer_classes and crit_damage:
-            crit_excess_value = round(crit_rate_config.reinforce_ratio * crit_rate_config.reinforce_uptime * crit_damage, 4)
-
-    profile.update(
-        conversion=Conversion(
-            stat_flat=round(min(conversion_config.stat_flat_max, max(conversion_config.stat_flat_min, stat_flat)), 4),
-            attack_flat=round(min(conversion_config.attack_flat_max, max(conversion_config.attack_flat_min, attack_flat)), 4),
-            crit_damage=crit_damage,
-            crit_rate_total=crit_rate_total,
-            crit_rate_value=crit_rate_value,
-            crit_excess_value=crit_excess_value,
-        ),
-        stat_pct_total=pct_total,
-        attack_total=attack_total,
-        main_stat_total=main_total,
-    )
-    return profile
-
-
 def evaluate_equipment(items, char_class, char_level, unsupported=None, main_stat=None, profile=None):
     evaluate_list = []
     special_items = SCORING.special_items
@@ -283,7 +196,8 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
     special_rings = special_items.excluded_rings
     # 주스탯은 호출자(build_report)가 스탯 응답까지 보고 정해 넘깁니다. 없으면 직업명으로 정합니다.
     main_stat = main_stat or get_main_stat(char_class)
-    conversion = profile["conversion"] if profile else None
+    # 잠재 환산 기준. build_report 가 캐릭터 스탯으로 만든 것이 없으면 기준 캐릭터(potential.toml reference)를 씁니다.
+    context = profile["context"] if profile else reference_context(char_class, main_stat)
     target_multiplier = profile["add_target_multiplier"] if profile else 1.0
 
     def weight_notes(item_req_level):
@@ -295,14 +209,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         ]
         if profile:
             notes.append(f"추옵 목표 급수 × {target_multiplier:g} ({profile['tier']})")
-        if conversion:
-            notes.append(f"고정 옵션 환산 · 공/마 1 = 주스탯 {conversion.attack_flat:.3g}%, 고정 스탯 1 = {conversion.stat_flat:.3g}%")
-        if conversion and conversion.crit_damage:
-            notes.append(f"크리티컬 데미지 1% = 주스탯 {conversion.crit_damage:.3g}%")
-        if conversion and conversion.crit_rate_total is not None:
-            notes.append(
-                f"크리티컬 확률 (현재 {conversion.crit_rate_total:g}%) · 1% = {conversion.crit_rate_value:.3g}%, 100% 초과 1% = {conversion.crit_excess_value:.3g}%"
-            )
+        notes.extend(context.notes())
         return notes
 
     for item in items:
@@ -414,12 +321,10 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class, main_stat=main_stat)
             add_raw_score = actual_add_급수
             add_score = get_advanced_add_score(actual_add_급수, item_req_level, part, char_class, target_multiplier=target_multiplier)
-            pot_analysis = analyze_potential_score(item, "potential", char_class, char_level, main_stat=main_stat, conversion=conversion)
+            pot_analysis = analyze_potential_score(item, "potential", char_class, char_level, main_stat=main_stat, context=context)
             pot_val = pot_analysis["score"]
             pot_score = (pot_val * weights.potential) if pot_val > 0 else 0
-            eddy_analysis = analyze_potential_score(
-                item, "additional_potential", char_class, char_level, main_stat=main_stat, conversion=conversion
-            )
+            eddy_analysis = analyze_potential_score(item, "additional_potential", char_class, char_level, main_stat=main_stat, context=context)
             eddy_val = eddy_analysis["score"]
             eddy_score = (eddy_val * weights.additional) if eddy_val > 0 else 0
 
@@ -518,21 +423,22 @@ def select_preset_items(item_data, preset_idx):
     return items or item_data.get("item_equipment", [])
 
 
-def build_report(character_name, basic_info, item_data, stat_data, unsupported=None):
+def build_report(character_name, basic_info, item_data, stat_data, unsupported=None, extras=None):
     """기본정보·장비·스탯 응답으로 진단 결과 전체를 만듭니다.
 
     /check-items 응답이 이 함수를 그대로 사용합니다.
     unsupported 에 Counter 를 주면 점수에 반영하지 못한 옵션을 (종류, 옵션)별로 세어 넣습니다.
+    extras 는 심볼·하이퍼스탯·유니온·어빌리티·링크 응답(scraper.STAT_EXTRA_ENDPOINTS 의 키)입니다. 없으면 레벨로 추정합니다.
     """
     char_class = basic_info.get("character_class")
     char_level = int(basic_info.get("character_level") or 0)
     char_image = basic_info.get("character_image", "")
     # 주스탯은 여기서 한 번만 정합니다. 바이퍼·캐논마스터·캡틴은 스탯 응답의 STR/DEX 비교로 전환 세팅을 반영합니다.
     main_stat = get_main_stat(char_class, stat_data)
-    # 자본대(전투력)와 고정 옵션 환산 계수는 현재 착용 장비와 스탯 응답으로 한 번만 정합니다.
-    profile = build_character_profile(char_class, main_stat, item_data.get("item_equipment", []), stat_data)
+    # 자본대(전투력)와 잠재 환산 기준(StatContext)은 현재 착용 장비·스탯 응답·추가 조회로 한 번만 정합니다.
+    profile = build_character_profile(char_class, main_stat, char_level, item_data.get("item_equipment", []), stat_data, extras)
 
-    best_preset_idx = get_best_preset(item_data, char_class, char_level, main_stat=main_stat, conversion=profile["conversion"])
+    best_preset_idx = get_best_preset(item_data, char_class, char_level, main_stat=main_stat, context=profile["context"])
     items = select_preset_items(item_data, best_preset_idx)
 
     evaluate_list = evaluate_equipment(items, char_class, char_level, unsupported=unsupported, main_stat=main_stat, profile=profile)
@@ -545,21 +451,7 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
         "character_image": char_image,
         "combat_power": extract_combat_power(stat_data),
         "best_preset": best_preset_idx,
-        "profile": {
-            **{key: value for key, value in profile.items() if key != "conversion"},
-            "conversion": (
-                {
-                    "stat_flat": profile["conversion"].stat_flat,
-                    "attack_flat": profile["conversion"].attack_flat,
-                    "crit_damage": profile["conversion"].crit_damage,
-                    "crit_rate_total": profile["conversion"].crit_rate_total,
-                    "crit_rate_value": profile["conversion"].crit_rate_value,
-                    "crit_excess_value": profile["conversion"].crit_excess_value,
-                }
-                if profile["conversion"]
-                else None
-            ),
-        },
+        "profile": {**{key: value for key, value in profile.items() if key != "context"}, "context": profile["context"].as_dict()},
         "overall": overall_review,
         "results": all_sorted_results,
     }

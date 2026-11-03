@@ -7,6 +7,7 @@ from app.scoring_config import (
     check_bands,
     load_classes,
     load_grades,
+    load_potential,
     load_scoring,
     load_toml,
     validate,
@@ -15,9 +16,10 @@ from app.scoring_config import (
 
 class ScoringConfigTests(unittest.TestCase):
     def test_shipped_files_load_and_missing_key_is_reported_with_path(self):
-        classes, scoring, grades = load_classes(), load_scoring(), load_grades()
+        classes, scoring, grades, potential = load_classes(), load_scoring(), load_grades(), load_potential()
 
         self.assertIn("히어로", classes.main_stat.str)
+        self.assertEqual(potential.reference.base_stat * potential.bounds.pct_per_flat[0], 60)  # 범위는 [최소, 최대] 쌍으로 읽힙니다
         targets = scoring.add_option.targets.default
         self.assertTrue(targets[160] < targets[200] < targets[250])  # 레벨 키가 정수로 바뀌고 값은 밸런스 수치라 순서만 확인
         self.assertEqual(scoring.weights.potential, 3.3)
@@ -29,10 +31,10 @@ class ScoringConfigTests(unittest.TestCase):
             check_bands([[300, "a"], [350, "b"]], "x", 2)  # 첫 일치 규칙이라 내림차순이 아니면 거부
 
         broken = load_toml(DATA_DIR / "scoring.toml")
-        del broken["potential"]["crit_damage"]["multi"]
+        del broken["add_option"]["curve"]["chunk"]
         with self.assertRaises(ConfigError) as context:
-            validate(broken, {"potential": {"crit_damage": {"multi": (int, float)}}}, "scoring.toml")
-        self.assertIn("scoring.toml.potential.crit_damage: 'multi'", str(context.exception))
+            validate(broken, {"add_option": {"curve": {"chunk": (int, float)}}}, "scoring.toml")
+        self.assertIn("scoring.toml.add_option.curve: 'chunk'", str(context.exception))
 
         with self.assertRaises(ConfigError):
             _ = Section({"a": 1}, "x").missing

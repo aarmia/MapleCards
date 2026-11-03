@@ -81,7 +81,7 @@ def _int_keyed(table: dict, source: str) -> dict:
 _FALLBACK = {"min_level": NUMBER, "slope": NUMBER, "offset": NUMBER}
 _CLASSES_SPEC = {
     "main_stat": dict, "special": dict, "switchable": dict, "default": str,
-    "secondary_stat": dict, "secondary_stat_overrides": dict, "archer_classes": list,
+    "secondary_stat": dict, "secondary_stat_overrides": dict, "archer_classes": list, "stat_weight": dict,
 }
 _SCORING_SPEC = {
     "add_option": {
@@ -95,20 +95,7 @@ _SCORING_SPEC = {
         "curve": {"chunk": NUMBER, "above": {"mult": NUMBER, "decay": NUMBER}, "below": {"mult": NUMBER, "decay": NUMBER, "cap": NUMBER}},
         "tiers": {"bands": list},
     },
-    "potential": {
-        "excluded_slots": list, "cooldown_per_second": NUMBER, "all_stat_pct": NUMBER, "all_stat_pct_boost": NUMBER,
-        "all_stat_pct_boost_classes": list, "level_stat_fallback": NUMBER, "level_stat_interval_default": NUMBER,
-        "attack_flat": NUMBER, "stat_flat": NUMBER,
-        "conversion": {
-            "enabled": bool, "baseline_stat_pct": NUMBER, "stat_flat_scale": NUMBER, "attack_flat_scale": NUMBER,
-            "stat_flat_min": NUMBER, "stat_flat_max": NUMBER,
-            "attack_flat_min": NUMBER, "attack_flat_max": NUMBER, "crit_base": NUMBER, "crit_min": NUMBER, "crit_max": NUMBER,
-        },
-        "demon_avenger_additional": NUMBER, "ignored_keywords": list, "stat_keywords": list, "relevant_keywords": dict,
-        "crit_damage": {"single": NUMBER, "multi": NUMBER, "additional": NUMBER},
-        "xenon": {k: NUMBER for k in ("level_stat_divisor", "stat_pct_divisor", "attack_flat", "stat_flat", "multiplier")},
-        "crit_rate": {"zero_threshold": NUMBER, "reinforce_ratio": NUMBER, "reinforce_uptime": NUMBER},
-    },
+    "potential": {"excluded_slots": list, "ignored_keywords": list, "stat_keywords": list, "relevant_keywords": dict},
     "weapon": {
         "add": {k: NUMBER for k in ("boss_damage", "damage", "all_stat", "main_stat")},
         "potential": {k: NUMBER for k in ("damage", "ignore_defense", "all_stat_pct", "main_stat_pct")},
@@ -132,6 +119,8 @@ def load_classes(path: Path = DATA_DIR / "classes.toml") -> Section:
     for name, rule in data["switchable"].items():
         if not isinstance(rule, dict) or not {"base", "alternative"} <= set(rule):
             raise ConfigError(f"{path.name}: switchable.{name} 에는 base 와 alternative 가 필요합니다")
+    if not isinstance(data["stat_weight"].get("default"), NUMBER):
+        raise ConfigError(f"{path.name}: stat_weight.default 가 필요합니다")
     return Section(data, path.name)
 
 
@@ -255,6 +244,33 @@ def load_guides(path: Path = DATA_DIR / "guides.toml", rule_fields: set | None =
     return Section(data, path.name)
 
 
+_POTENTIAL_SPEC = {
+    "sub_stat_ratio": NUMBER, "cooldown_per_second": NUMBER, "crit_base": NUMBER,
+    "bounds": {"pct_per_flat": list, "pct_per_attack": list, "pct_per_crit_damage": list},
+    "reference": {k: NUMBER for k in ("level", "base_stat", "stat_pct", "attack", "crit_damage", "crit_rate")},
+    "exempt_estimate": {"bands": list},
+    "hyper_stat": {"main_stat_per_level": NUMBER},
+    "crit_rate": {"zero_threshold": NUMBER, "reinforce_ratio": NUMBER, "reinforce_uptime": NUMBER},
+}
+
+
+def load_potential(path: Path = DATA_DIR / "potential.toml") -> Section:
+    data = load_toml(path)
+    validate(data, _POTENTIAL_SPEC, path.name)
+    for name, bounds in data["bounds"].items():
+        if not (isinstance(bounds, list) and len(bounds) == 2 and all(isinstance(v, NUMBER) for v in bounds) and bounds[0] <= bounds[1]):
+            raise ConfigError(f"{path.name}: bounds.{name} 은 [최소, 최대] 여야 합니다")
+    previous = None
+    for band in data["exempt_estimate"]["bands"]:
+        if not (isinstance(band, list) and len(band) == 2 and all(isinstance(v, NUMBER) for v in band)):
+            raise ConfigError(f"{path.name}: exempt_estimate.bands 항목은 [레벨 이하, 추정치] 여야 합니다")
+        if previous is not None and band[0] < previous:
+            raise ConfigError(f"{path.name}: exempt_estimate.bands 는 레벨 오름차순이어야 합니다")
+        previous = band[0]
+    return Section(data, path.name)
+
+
 CLASSES = load_classes()
 SCORING = load_scoring()
+POTENTIAL = load_potential()
 GRADES = load_grades()

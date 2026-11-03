@@ -162,7 +162,7 @@ async def client_disconnected(request: Request) -> bool:
     """슬롯을 받은 시점에 브라우저가 이미 떠났는지 확인합니다.
 
     Starlette 는 연결이 끊겨도 핸들러를 취소하지 않으므로, 대기 중 탭을 닫은 요청이
-    Nexon API 호출 4건을 그대로 쓰는 것을 여기서 막습니다.
+    Nexon API 호출 9건을 그대로 쓰는 것을 여기서 막습니다.
     """
     try:
         # GET 의 빈 본문 메시지를 먼저 소비해야 그 뒤의 disconnect 메시지를 읽을 수 있습니다.
@@ -213,12 +213,16 @@ async def check_items(
             ocid = await nexon_api.get_ocid(character_name)
             await request_tracker.set_stage(tracked_request_id, "equipment")
 
-            basic_info, item_data, stat_data = await asyncio.gather(
+            basic_info, item_data, stat_data, (extras, extras_failed) = await asyncio.gather(
                 nexon_api.get_character_basic(ocid),
                 nexon_api.get_character_item(ocid),
                 nexon_api.get_character_stat(ocid),
+                nexon_api.get_stat_extras(ocid),
             )
             event["nexon_ms"] = _elapsed_ms(nexon_started)
+            if extras_failed:
+                # 심볼·하이퍼스탯 등 추가 조회 실패. 진단은 계속되고 잠재 환산은 추정값을 씁니다.
+                event["extras_failed"] = extras_failed
 
             if not basic_info or not item_data:
                 raise NexonAPIError("캐릭터 장비 데이터가 비어 있습니다.", status_code=502, code="NEXON_EMPTY_DATA")
@@ -227,7 +231,7 @@ async def check_items(
             analysis_started = time.perf_counter()
             unsupported: Counter = Counter()
             # 분석 로직은 analyzer.build_report 에 모여 있어 골든 테스트와 같은 경로를 탑니다.
-            report = build_report(character_name, basic_info, item_data, stat_data, unsupported=unsupported)
+            report = build_report(character_name, basic_info, item_data, stat_data, unsupported=unsupported, extras=extras)
             report["grades"] = GRADES.raw
             # dict 를 그대로 돌려주면 FastAPI 가 jsonable_encoder 로 한 번 더 훑습니다(1건당 약 3ms). 직접 직렬화합니다.
             # FastAPI JSONResponse 와 같은 옵션(공백 없는 구분자, NaN 금지)으로 바이트 단위까지 동일하게 유지합니다.

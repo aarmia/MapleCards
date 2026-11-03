@@ -1,20 +1,8 @@
 import math
 import re
-from dataclasses import dataclass
 
+from app.potential import StatContext, analyze_lines, reference_context, score_detail
 from app.scoring_config import CLASSES, SCORING
-
-
-@dataclass(frozen=True)
-class Conversion:
-    """고정 수치 옵션을 주스탯 % 로 바꾸는 캐릭터별 계수. None 이면 scoring.toml 의 기본값을 씁니다."""
-
-    stat_flat: float  # 고정 주스탯 1 당 %
-    attack_flat: float  # 공격력·마력 1 당 %
-    crit_damage: float | None = None  # 크리티컬 데미지 1% 당 %. None 이면 고정 계수
-    crit_rate_total: float | None = None  # 캐릭터의 현재 크리티컬 확률(%). None 이면 크확 옵션은 미지원으로 남김
-    crit_rate_value: float = 0.0  # 100% 까지 채우는 크확 1% 당 %. 캐릭터 크확이 기준 이상이면 0
-    crit_excess_value: float = 0.0  # 100% 를 넘는 크확 1% 당 %. 궁수만 0 보다 큼
 
 
 def get_potential_options(item_data: dict, potential_type: str) -> list[str]:
@@ -37,33 +25,6 @@ def get_potential_options(item_data: dict, potential_type: str) -> list[str]:
     indexed_options.sort(key=lambda option: option[0])
     return [value for _, value in indexed_options]
 
-
-def classify_unrecognized(options: list[str], recognized: list[dict], main_stat: str) -> tuple[list[dict], list[str]]:
-    """점수에 반영되지 않은 옵션을 나눕니다.
-
-    - ignored: 점수에 넣지 않기로 한 옵션 (scoring.toml potential.ignored_keywords)
-    - other_stat: 다른 직업의 스탯을 올리는 옵션 (relevant_keywords 에 없는 스탯)
-    - unsupported: 어디에도 속하지 않는, 엔진이 모르는 옵션. 로그 집계 대상은 이것뿐입니다.
-    """
-    config = SCORING.potential
-    recognized_text = {entry["option"] for entry in recognized}
-    relevant = config.relevant_keywords.raw.get(main_stat, [])
-    ignored, unsupported = [], []
-    for option in options:
-        if option in recognized_text:
-            continue
-        if any(keyword in option for keyword in config.ignored_keywords):
-            ignored.append({"option": option, "reason": "ignored"})
-        elif any(keyword in option for keyword in config.stat_keywords) and not any(keyword in option for keyword in relevant):
-            ignored.append({"option": option, "reason": "other_stat"})
-        else:
-            unsupported.append(option)
-    return ignored, unsupported
-
-
-def _score_detail(score: float, recognized: list[dict], options: list[str], main_stat: str = "") -> dict:
-    ignored, unsupported = classify_unrecognized(options, recognized, main_stat)
-    return {"score": round(score, 2), "recognized": recognized, "ignored": ignored, "unsupported": unsupported}
 
 def final_stat_float(stat_data: dict, stat_name: str) -> float | None:
     """스탯 응답(final_stat)에서 stat_name 값을 실수로 꺼냅니다. 항목이 없거나 숫자가 아니면 None 입니다."""
@@ -185,162 +146,21 @@ def analyze_potential_score(
     class_name: str,
     char_level: int,
     main_stat: str | None = None,
-    conversion: Conversion | None = None,
+    context: StatContext | None = None,
 ) -> dict:
+    """무기류를 제외한 잠재·에디셔널을 유효 스탯% 로 환산합니다. 규칙은 app/potential.py, 상수는 app/data/potential.toml
+
+    context 는 build_report 가 캐릭터 스탯으로 만든 StatContext 입니다. 없으면 potential.toml 의 기준 캐릭터로 환산합니다.
+    """
     slot = item_data.get("item_equipment_slot", "")
     part = item_data.get("item_equipment_part", "")
-    config = SCORING.potential
-    # 고정 수치 옵션의 환산 계수. 캐릭터 스탯으로 만든 conversion 이 있으면 그것을, 없으면 기본값을 씁니다.
-    stat_flat = conversion.stat_flat if conversion else config.stat_flat
-    attack_flat = conversion.attack_flat if conversion else config.attack_flat
-
-    is_excluded = any(k in slot for k in config.excluded_slots) or any(k in part for k in config.excluded_slots)
-    main_stat = (main_stat or get_main_stat(class_name)).upper()
+    excluded = SCORING.potential.excluded_slots
+    main_stat = main_stat or get_main_stat(class_name)
     options = get_potential_options(item_data, potential_type)
-
-    if is_excluded:
-        return _score_detail(-1, [], options, main_stat)
-
-    total_stat_score = 0.0
-    total_special_score = 0.0
-
-    crit_count = 0
-    crit_val_sum = 0
-    crit_options = []
-    recognized = []
-
-    def add_option(option, points, rule):
-        nonlocal total_stat_score
-        total_stat_score += points
-        recognized.append({"option": option, "value": round(points, 2), "rule": rule})
-
-    for opt in options:
-        if not opt: continue
-
-        if "크리티컬 데미지" in opt:
-            val_match = re.search(r'\+(\d+)%', opt)
-            if val_match:
-                crit_count += 1
-                crit_val_sum += int(val_match.group(1))
-                crit_options.append(opt)
-            continue
-
-        if "스킬 재사용 대기시간" in opt:
-            val_match = re.search(r'(\d+)초', opt)
-            if val_match:
-                points = int(val_match.group(1)) * config.cooldown_per_second
-                total_special_score += points
-                recognized.append({"option": opt, "value": round(points, 2), "rule": f"초당 {config.cooldown_per_second:g}"})
-            continue
-
-        if "크리티컬 확률" in opt:
-            val_match = re.search(r'\+(\d+)%', opt)
-            # 캐릭터의 현재 크확을 알 때만 평가합니다. 모르면 미지원으로 남겨 로그에 집계됩니다.
-            if val_match and conversion is not None and conversion.crit_rate_total is not None:
-                val = int(val_match.group(1))
-                current = conversion.crit_rate_total
-                useful = max(0.0, min(val, 100 - current))  # 100% 까지 채우는 부분
-                excess = max(0.0, min(val, current + val - 100))  # 100% 를 넘는 부분. 궁수의 크리티컬 리인포스만 가치가 있음
-                points = useful * conversion.crit_rate_value + excess * conversion.crit_excess_value
-                parts = []
-                if useful:
-                    parts.append(f"크확 {useful:g}% × {conversion.crit_rate_value:.3g}")
-                if excess:
-                    parts.append(f"초과 {excess:g}% × {conversion.crit_excess_value:.3g}")
-                rule = " + ".join(parts) if parts else "크확 100% 달성"
-                total_special_score += points
-                recognized.append({"option": opt, "value": round(points, 2), "rule": rule})
-            continue
-
-        if main_stat == "ALL_STAT":
-            xenon = config.xenon
-            if "올스탯" in opt and "%" in opt:
-                val_match = re.search(r'\+(\d+)%', opt)
-                if val_match:
-                    add_option(opt, int(val_match.group(1)), "올스탯%")
-            elif "레벨" in opt:
-                val_match = re.search(r'\+(\d+)', opt)
-                if val_match:
-                    val = int(val_match.group(1))
-                    if any(stat in opt for stat in ["STR", "DEX", "LUK"]):
-                        add_option(opt, val / xenon.level_stat_divisor, f"제논 레벨당 스탯 ÷ {xenon.level_stat_divisor:g}")
-            elif any(stat in opt for stat in ["STR", "DEX", "LUK"]) and "%" in opt:
-                val_match = re.search(r'\+(\d+)%', opt)
-                if val_match:
-                    add_option(opt, int(val_match.group(1)) / xenon.stat_pct_divisor, f"제논 개별 스탯% ÷ {xenon.stat_pct_divisor:g}")
-            elif "공격력" in opt and "%" not in opt:
-                val_match = re.search(r'\+(\d+)', opt)
-                if val_match:
-                    add_option(opt, int(val_match.group(1)) * xenon.attack_flat, f"공격력 × {xenon.attack_flat:g}")
-            elif any(stat in opt for stat in ["STR", "DEX", "LUK"]) and "%" not in opt:
-                val_match = re.search(r'\+(\d+)', opt)
-                if val_match:
-                    add_option(
-                        opt,
-                        (int(val_match.group(1)) / xenon.stat_pct_divisor) * xenon.stat_flat,
-                        f"제논 고정 스탯 ÷ {xenon.stat_pct_divisor:g} × {xenon.stat_flat:g}",
-                    )
-        else:
-            if "올스탯" in opt and "%" in opt:
-                val_match = re.search(r'\+(\d+)%', opt)
-                if val_match:
-                    val = int(val_match.group(1))
-                    weight = config.all_stat_pct_boost if class_name in config.all_stat_pct_boost_classes else config.all_stat_pct
-                    add_option(opt, val * weight, f"올스탯% × {weight:g}")
-            elif "레벨" in opt and main_stat in opt:
-                val_match = re.search(r'\+(\d+)', opt)
-                if val_match:
-                    val = int(val_match.group(1))
-                    interval_match = re.search(r'(\d+)레벨', opt)
-                    interval = int(interval_match.group(1)) if interval_match else config.level_stat_interval_default
-                    if char_level > 0 and interval > 0:
-                        # 캐릭터 레벨에 비례합니다. 9레벨당 +1 은 Lv.285 에서 고정 주스탯 +31 과 같습니다.
-                        flat_total = val * (char_level // interval)
-                        add_option(opt, flat_total * stat_flat, f"{interval}레벨당 {val} → 고정 {flat_total} × {stat_flat:.3g}")
-                    else:
-                        add_option(opt, val * config.level_stat_fallback, f"레벨당 주스탯 × {config.level_stat_fallback:g}")
-            elif main_stat in opt and "%" in opt and "회복" not in opt:
-                val_match = re.search(r'\+(\d+)%', opt)
-                if val_match:
-                    add_option(opt, int(val_match.group(1)), "주스탯%")
-            elif ("공격력" in opt or "마력" in opt) and "%" not in opt:
-                atk_key = "마력" if main_stat == "INT" else "공격력"
-                if atk_key in opt:
-                    val_match = re.search(r'\+(\d+)', opt)
-                    if val_match:
-                        add_option(opt, int(val_match.group(1)) * attack_flat, f"{atk_key} × {attack_flat:.3g}")
-            elif main_stat in opt and "%" not in opt and "회복" not in opt:
-                val_match = re.search(r'\+(\d+)', opt)
-                if val_match:
-                    add_option(opt, int(val_match.group(1)) * stat_flat, f"고정 주스탯 × {stat_flat:.3g}")
-
-    cd_points = 0
-    crit = config.crit_damage
-    crit_rule = "크리티컬 데미지 환산"
-    if conversion and conversion.crit_damage:
-        # 캐릭터의 크뎀 총합에 따른 체감 감소를 반영한 계수. 줄 수나 윗잠·에디 구분 없이 1% 당 같은 가치입니다.
-        cd_points = crit_val_sum * conversion.crit_damage
-        crit_rule = f"크리티컬 데미지 × {conversion.crit_damage:.3g}"
-    elif potential_type == "potential":
-        if crit_count == 1:
-            cd_points = crit_val_sum * crit.single
-        elif crit_count >= 2:
-            cd_points = crit_val_sum * crit.multi
-    elif potential_type == "additional_potential":
-        cd_points = crit_val_sum * crit.additional
-
-    total_special_score += cd_points
-    if cd_points:
-        for option in crit_options:
-            recognized.append({"option": option, "value": round(cd_points / len(crit_options), 2), "rule": crit_rule})
-
-    if main_stat == "ALL_STAT":
-        total_stat_score *= config.xenon.multiplier
-
-    if class_name == "데몬어벤져" and potential_type == "additional_potential":
-        total_stat_score *= config.demon_avenger_additional
-
-    return _score_detail(total_stat_score + total_special_score, recognized, options, main_stat)
+    if any(k in slot for k in excluded) or any(k in part for k in excluded):
+        return score_detail(-1, [], options, main_stat.upper())
+    context = context or reference_context(class_name, main_stat)
+    return analyze_lines(options, context, char_level)
 
 
 def calculate_potential_score(
@@ -349,11 +169,10 @@ def calculate_potential_score(
     class_name: str,
     char_level: int,
     main_stat: str | None = None,
-    conversion: Conversion | None = None,
+    context: StatContext | None = None,
 ) -> float:
-    return analyze_potential_score(
-        item_data, potential_type, class_name, char_level, main_stat=main_stat, conversion=conversion
-    )["score"]
+    return analyze_potential_score(item_data, potential_type, class_name, char_level, main_stat=main_stat, context=context)["score"]
+
 
 def calculate_weapon_add_option_score(item_data: dict, class_name: str, main_stat: str | None = None) -> float:
     add_option = item_data.get("item_add_option", {})
@@ -392,7 +211,7 @@ def analyze_weapon_potential_score(
     target_stat = main_stat.upper()
     options = get_potential_options(item_data, potential_type)
     if not is_wse:
-        return _score_detail(0, [], options, target_stat)
+        return score_detail(0, [], options, target_stat)
 
     weights = SCORING.weapon.potential
 
@@ -425,7 +244,7 @@ def analyze_weapon_potential_score(
             continue
         recognized.append({"option": opt, "value": round(points, 2), "rule": rule})
 
-    return _score_detail(total_stat_score + total_special_score, recognized, options, target_stat)
+    return score_detail(total_stat_score + total_special_score, recognized, options, target_stat)
 
 
 def calculate_weapon_potential_score(

@@ -1,8 +1,8 @@
 import unittest
 from collections import Counter
+from dataclasses import replace
 
 from app.analyzer import (
-    build_character_profile,
     build_report,
     evaluate_equipment,
     get_dynamic_guide,
@@ -10,12 +10,9 @@ from app.analyzer import (
     split_guide,
     unsupported_registry,
 )
-from app.calculator import (
-    analyze_potential_score,
-    calculate_potential_score,
-    get_main_stat,
-    get_potential_options,
-)
+from app.calculator import calculate_potential_score, get_main_stat, get_potential_options
+from app.character_profile import build_character_profile, build_stat_context
+from app.potential import convert_line, reference_context
 
 
 class PotentialOptionTests(unittest.TestCase):
@@ -53,24 +50,9 @@ class PotentialOptionTests(unittest.TestCase):
         )
 
     def test_two_line_potential_is_scored(self):
-        self.assertEqual(
-            calculate_potential_score(
-                self.challenger_top,
-                "potential",
-                "레테",
-                285,
-            ),
-            15.0,
-        )
-        self.assertEqual(
-            calculate_potential_score(
-                self.challenger_top,
-                "additional_potential",
-                "레테",
-                285,
-            ),
-            7.0,
-        )
+        # 스탯 응답이 없으면 기준 캐릭터(potential.toml reference)로 환산합니다. 마력 1 = 0.12%
+        self.assertEqual(calculate_potential_score(self.challenger_top, "potential", "레테", 285), 15.0)
+        self.assertEqual(calculate_potential_score(self.challenger_top, "additional_potential", "레테", 285), 5.2)
 
     def test_analyzer_keeps_two_line_scores_and_raw_options(self):
         result = evaluate_equipment(
@@ -80,7 +62,7 @@ class PotentialOptionTests(unittest.TestCase):
         )[0]
 
         self.assertEqual(result["detail"]["pot"], 49.5)
-        self.assertEqual(result["detail"]["pot_additional"], 17.5)
+        self.assertEqual(result["detail"]["pot_additional"], 13.0)
         self.assertEqual(
             result["raw_options"]["potential_options"],
             ["INT +9%", "INT +6%"],
@@ -92,11 +74,11 @@ class PotentialOptionTests(unittest.TestCase):
         )
         self.assertEqual(
             [entry["weighted_value"] for entry in result["scoring_basis"]["recognized_options"]],
-            [29.7, 19.8, 10.0, 7.5],
+            [29.7, 19.8, 10.0, 3.0],
         )
         self.assertEqual(
             [entry["weighted_score"] for entry in result["scoring_basis"]["breakdown"]],
-            [0, 49.5, 17.5, 100.0],
+            [0, 49.5, 13.0, 100.0],
         )
         self.assertEqual(result["scoring_basis"]["star_score"], 100.0)
 
@@ -133,7 +115,7 @@ class PotentialOptionTests(unittest.TestCase):
         item = dict(self.challenger_top)
         item["potential_option_3"] = "DEX +9%"                       # 레테(INT)에게는 다른 직업 스탯
         item["additional_potential_option_3"] = "방어력 +7%"          # 점수에 넣지 않기로 한 옵션
-        item["potential_option_2"] = "크리티컬 확률 +9%"               # 엔진이 모르는 옵션
+        item["potential_option_2"] = "몬스터 방어율 무시 +30%"          # 엔진이 모르는 옵션
         unsupported_registry.reset()
         collector = Counter()
 
@@ -144,13 +126,13 @@ class PotentialOptionTests(unittest.TestCase):
             result["scoring_basis"]["unrecognized_options"],
             [
                 {"category": "윗잠재", "option": "DEX +9%", "reason": "other_stat"},
-                {"category": "윗잠재", "option": "크리티컬 확률 +9%", "reason": "unsupported"},
+                {"category": "윗잠재", "option": "몬스터 방어율 무시 +30%", "reason": "unsupported"},
                 {"category": "에디셔널", "option": "방어력 +7%", "reason": "ignored"},
             ],
         )
         # 로그와 집계에는 엔진이 모르는 옵션만 올라갑니다.
         self.assertEqual(len(captured.records), 1)
-        self.assertEqual(list(collector), [("potential", "크리티컬 확률 +9%")])
+        self.assertEqual(list(collector), [("potential", "몬스터 방어율 무시 +30%")])
 
     def test_switchable_classes_follow_the_higher_stat(self):
         stats = {
@@ -170,68 +152,98 @@ class PotentialOptionTests(unittest.TestCase):
         report = build_report("x", basic, {"item_equipment": [self.challenger_top]}, stats)
         self.assertEqual(report["results"][0]["scoring_basis"]["main_stat"], "DEX")
 
-    def test_character_profile_sets_tier_and_conversion(self):
+    def test_stat_context_derives_base_stat_from_extras(self):
         stats = {
             "final_stat": [
-                {"stat_name": "INT", "stat_value": "20000"},
+                {"stat_name": "INT", "stat_value": "40000"},
                 {"stat_name": "LUK", "stat_value": "4000"},
-                {"stat_name": "마력", "stat_value": "1200"},
+                {"stat_name": "마력", "stat_value": "2000"},
                 {"stat_name": "크리티컬 데미지", "stat_value": "85.00"},
+                {"stat_name": "크리티컬 확률", "stat_value": "100.00"},
                 {"stat_name": "전투력", "stat_value": "50000000"},
             ]
         }
         item = dict(self.challenger_top)
-        item["potential_option_3"] = "올스탯 +9%"  # INT 9% + 6% + 올스탯 9% + 에디 INT 4% = 28%
+        item["potential_option_3"] = "올스탯 +9%"  # 장비 주스탯% = 9 + 6 + 9 + 에디 4 = 28
+        extras = {
+            "symbol": {"symbol": [{"symbol_int": "2200", "symbol_str": "0"}, {"symbol_int": "1800"}]},
+            "hyper_stat": {
+                "use_preset_no": "2",
+                "hyper_stat_preset_2": [
+                    {"stat_type": "INT", "stat_level": 10, "stat_increase": "지력 300 증가"},
+                    {"stat_type": "HP", "stat_level": 3, "stat_increase": "최대 HP 6% 증가"},
+                ],
+            },
+            "union_raider": {"union_raider_stat": ["INT 80 증가", "STR, DEX, LUK 40 증가"], "union_occupied_stat": ["INT 25 증가", "최대 HP 500 증가"]},
+            "ability": {"ability_info": [{"ability_value": "INT 20 증가"}]},
+            "link_skill": {"character_link_skill": [{"skill_effect": "모든 능력치 10% 증가"}, {"skill_effect": "HP 15% 증가"}]},
+        }
 
-        profile = build_character_profile("레테", "int", [item], stats)
+        profile = build_character_profile("레테", "int", 285, [item], stats, extras)
+        context = profile["context"]
 
         self.assertEqual((profile["tier"], profile["add_target_multiplier"]), ("중자본", 0.87))
-        self.assertEqual(profile["stat_pct_total"], 28)
-        # b = 1.48 → 고정 스탯 1 = 100 × 1.48² ÷ 20000, 마력 1 = 25 × 1.48 × (80000 + 4000) ÷ (20000 × 1200)
-        self.assertAlmostEqual(profile["conversion"].stat_flat, 3.0 * 0.01095, places=3)  # × stat_flat_scale
-        self.assertAlmostEqual(profile["conversion"].attack_flat, 2.0 * 0.1295, places=3)  # × attack_flat_scale
-        self.assertAlmostEqual(profile["conversion"].crit_damage, 1.48 / 2.20, places=3)  # b ÷ (1.35 + 0.85)
-        self.assertIsNone(build_character_profile("제논", "all_stat", [item], stats)["conversion"])
+        self.assertEqual((context.basis, context.exempt_stat), ("stat", 4425.0))  # c = 심볼 4000 + 하이퍼 300 + 유니온 105 + 어빌리티 20
+        self.assertAlmostEqual(context.stat_pct, 1.38, places=9)  # b = 1 + (장비 28 + 링크 10) ÷ 100
+        self.assertAlmostEqual(context.base_stat, (40000 - 4425) / 1.38, places=6)  # a = (S − c) ÷ b
+        self.assertAlmostEqual(context.pct_per_flat, 100 * 1.38 / context.base_stat, places=9)
+        self.assertAlmostEqual(context.pct_per_attack, 100 * (4 * 40000 + 4000) / (4 * context.base_stat * 2000), places=9)
+        self.assertAlmostEqual(context.pct_per_crit_damage, (4 * 40000 + 4000) / (2.20 * 4 * context.base_stat), places=9)
+
+        estimated = build_stat_context("레테", "int", 285, [item], stats, {"hyper_stat": extras["hyper_stat"]})
+        self.assertEqual((estimated.basis, estimated.exempt_stat), ("estimated", 24000.0))  # 심볼이 없으면 레벨로 추정 (potential.toml exempt_estimate)
+        self.assertEqual(reference_context("레테", "int").basis, "reference")
+
+    def test_lines_convert_to_effective_stat_pct(self):
+        # 기준 캐릭터: a = 12000, b = 3 → 고정 스탯 1 = 0.025%, 공/마 1 = 0.12%, 크뎀 1% = 1.333%
+        cases = [
+            ("히어로", "str", "STR +12%", 12.0),
+            ("히어로", "str", "올스탯 +9%", 9.9),  # 주스탯 1 + 부스탯 1 × 0.1
+            ("듀얼블레이더", "luk", "올스탯 +9%", 10.8),  # 부스탯 STR·DEX
+            ("히어로", "str", "DEX +9%", 0.9),
+            ("히어로", "str", "STR +40", 1.0),
+            ("히어로", "str", "DEX +40", 0.1),
+            ("히어로", "str", "공격력 +12", 1.44),
+            ("히어로", "str", "마력 +12", None),
+            ("히어로", "str", "크리티컬 데미지 +8%", 10.67),
+            ("히어로", "str", "모든 스킬의 재사용 대기시간 -2초(10초 이하는 10%감소, 5초 미만으로 감소 불가)", 14.0),
+            ("제논", "all_stat", "STR +9%", 3.0),
+            ("제논", "all_stat", "INT +9%", None),
+            ("제논", "all_stat", "올스탯 +9%", 9.0),
+            ("제논", "all_stat", "LUK +40", 1.0),
+            ("데몬어벤져", "hp", "최대 HP +12%", 12.0),
+            ("데몬어벤져", "hp", "STR +12%", 1.2),
+            ("데몬어벤져", "hp", "올스탯 +9%", 0.9),
+            ("데몬어벤져", "hp", "공격력 +12", 1.44),
+        ]
+        for class_name, main_stat, option, expected in cases:
+            with self.subTest(option=f"{class_name} {option}"):
+                converted = convert_line(option, reference_context(class_name, main_stat), 285)
+                self.assertEqual(None if converted is None else round(converted[0], 2), expected)
 
     def test_crit_rate_lines_follow_current_crit_rate_and_archer_bonus(self):
-        def stats(crit_rate):
-            return {
-                "final_stat": [
-                    {"stat_name": "DEX", "stat_value": "20000"},
-                    {"stat_name": "STR", "stat_value": "4000"},
-                    {"stat_name": "공격력", "stat_value": "1200"},
-                    {"stat_name": "크리티컬 데미지", "stat_value": "85.00"},
-                    {"stat_name": "크리티컬 확률", "stat_value": crit_rate},
-                    {"stat_name": "전투력", "stat_value": "50000000"},
-                ]
-            }
-
-        item = dict(self.challenger_top)
-        item["potential_option_1"] = "크리티컬 확률 +9%"
-        item["potential_option_2"] = None
-
         def points(class_name, crit_rate):
-            profile = build_character_profile(class_name, "dex", [item], stats(crit_rate))
-            analysis = analyze_potential_score(item, "potential", class_name, 285, main_stat="dex", conversion=profile["conversion"])
-            return next(entry["value"] for entry in analysis["recognized"] if "크리티컬 확률" in entry["option"]), profile
+            context = replace(reference_context(class_name, "dex"), crit_rate=crit_rate)
+            return convert_line("크리티컬 확률 +9%", context, 285)[0], context
 
-        capped, _ = points("캡틴", "95.00")  # 90% 이상이면 0 이지만 미지원으로 남지 않음
-        self.assertEqual(capped, 0)
-        below, profile = points("캡틴", "80.00")  # 100% 까지 20% 여유 → 9% 전부 유효
-        self.assertAlmostEqual(below, round(9 * profile["conversion"].crit_rate_value, 2), places=2)
-        archer, profile = points("보우마스터", "100.00")  # 궁수는 초과분 9% 가 크리티컬 리인포스 가치
-        self.assertAlmostEqual(archer, round(9 * 0.5 * 0.25 * profile["conversion"].crit_damage, 2), places=2)
-        self.assertEqual(points("캡틴", "100.00")[1]["conversion"].crit_excess_value, 0.0)
+        self.assertEqual(points("캡틴", 95.0)[0], 0.0)  # 90% 이상이면 0 이지만 미지원으로 남지 않음
+        below, context = points("캡틴", 80.0)  # 100% 까지 20% 여유 → 9% 전부 유효
+        self.assertAlmostEqual(below, 9 * context.pct_per_crit_rate, places=9)
+        # A × (0.35 + 크뎀) ÷ (w × a × (1 + 크확 × (0.35 + 크뎀)))
+        self.assertAlmostEqual(context.pct_per_crit_rate, 144000 * 1.25 / (48000 * (1 + 0.8 * 1.25)), places=9)
+        archer, context = points("보우마스터", 100.0)  # 궁수는 초과분 9% 가 크리티컬 리인포스 가치
+        self.assertAlmostEqual(archer, 9 * 0.5 * 0.25 * context.pct_per_crit_damage, places=9)
+        self.assertEqual(points("캡틴", 100.0)[0], 0.0)
 
     def test_level_stat_line_scales_with_character_level(self):
         item = dict(self.challenger_top)
         item["potential_option_2"] = "캐릭터 기준 9레벨 당 INT +2"
 
-        by_level = calculate_potential_score(item, "potential", "레테", 285)  # INT 9% + 2 × 31 × 0.09
-        unknown_level = calculate_potential_score(item, "potential", "레테", 0)  # 레벨을 모르면 기본값 3.5
+        by_level = calculate_potential_score(item, "potential", "레테", 285)  # INT 9% + 2 × 31 × 0.025
+        unknown_level = calculate_potential_score(item, "potential", "레테", 0)  # 레벨을 모르면 기준 레벨 275
 
-        self.assertAlmostEqual(by_level, 9 + 62 * 0.09, places=2)
-        self.assertAlmostEqual(unknown_level, 9 + 2 * 3.5, places=2)
+        self.assertAlmostEqual(by_level, 9 + 62 * 0.025, places=2)
+        self.assertAlmostEqual(unknown_level, 9 + 60 * 0.025, places=2)
 
     def test_guide_rules_match_in_order_and_fill_fields(self):
         rules = [
