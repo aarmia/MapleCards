@@ -22,6 +22,18 @@ def _read(name, default, cast, minimum):
     return value
 
 
+def _read_choice(name, default, choices):
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    by_lower = {choice.lower(): choice for choice in choices}
+    chosen = by_lower.get(raw.strip().lower())
+    if chosen is None:
+        logger.warning("Ignoring invalid %s=%r, using default %r", name, raw, default)
+        return default
+    return chosen
+
+
 @dataclass(frozen=True)
 class Settings:
     # 동시에 Nexon API 를 호출하는 진단 수. 서비스 단계 키 기준 8 까지는 여유가 있습니다.
@@ -32,14 +44,25 @@ class Settings:
     queue_wait_timeout: float = 8.0
     nexon_connect_timeout: float = 3.0
     nexon_read_timeout: float = 6.0
+    # json 이면 한 줄 JSON, text 면 사람이 읽는 형식. Render(RENDER 환경 변수 존재)에서는 기본 json.
+    log_format: str = "json"
+    log_level: str = "INFO"
+    # 미지원 옵션 집계 요약(unsupported_options_summary)을 남기는 주기(초).
+    unsupported_summary_interval: float = 3600.0
 
     @classmethod
     def from_env(cls) -> "Settings":
         defaults = cls()
+        default_log_format = "json" if os.getenv("RENDER") else "text"
         return cls(
             diagnosis_concurrency=_read("DIAGNOSIS_CONCURRENCY", defaults.diagnosis_concurrency, int, 1),
             queue_max_waiting=_read("QUEUE_MAX_WAITING", defaults.queue_max_waiting, int, 0),
             queue_wait_timeout=_read("QUEUE_WAIT_TIMEOUT", defaults.queue_wait_timeout, float, 0.5),
             nexon_connect_timeout=_read("NEXON_CONNECT_TIMEOUT", defaults.nexon_connect_timeout, float, 0.5),
             nexon_read_timeout=_read("NEXON_READ_TIMEOUT", defaults.nexon_read_timeout, float, 0.5),
+            log_format=_read_choice("LOG_FORMAT", default_log_format, ("json", "text")),
+            log_level=_read_choice("LOG_LEVEL", defaults.log_level, ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")),
+            unsupported_summary_interval=_read(
+                "UNSUPPORTED_SUMMARY_INTERVAL", defaults.unsupported_summary_interval, float, 10.0
+            ),
         )

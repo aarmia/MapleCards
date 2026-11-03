@@ -1,7 +1,11 @@
 import asyncio
 import hashlib
+import json
+import logging
 import os
-from contextlib import asynccontextmanager
+import time
+from collections import Counter
+from contextlib import asynccontextmanager, suppress
 from typing import Annotated
 
 import httpx
@@ -11,13 +15,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import ClientDisconnect
 
-from app.analyzer import build_report
+from app.analyzer import build_report, unsupported_registry
 from app.errors import AppError
+from app.logging_setup import configure_logging
 from app.request_tracker import DiagnosticRequestTracker
 from app.scraper import NexonAPIError, NexonAPIHandler
 from app.settings import Settings
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+logger = logging.getLogger(__name__)
 
 settings = Settings.from_env()
 
@@ -31,12 +38,34 @@ nexon_api = NexonAPIHandler(
 )
 
 
+async def unsupported_summary_loop(interval_seconds: float):
+    """미지원 옵션 집계를 주기적으로 한 줄로 남깁니다. 처음 본 옵션은 analyzer 가 그 자리에서 WARNING 으로 알립니다."""
+    while True:
+        await asyncio.sleep(interval_seconds)
+        summary = unsupported_registry.summary(top=20)
+        if summary["total"]:
+            logger.info("unsupported_options_summary", extra=summary)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    configure_logging(settings.log_format, settings.log_level)
+    logger.info(
+        "startup",
+        extra={
+            "concurrency": settings.diagnosis_concurrency,
+            "queue_max_waiting": settings.queue_max_waiting,
+            "queue_wait_timeout": settings.queue_wait_timeout,
+        },
+    )
     await nexon_api.start()
+    summary_task = asyncio.create_task(unsupported_summary_loop(settings.unsupported_summary_interval))
     try:
         yield
     finally:
+        summary_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await summary_task
         await nexon_api.close()
 
 
@@ -134,30 +163,74 @@ async def client_disconnected(request: Request) -> bool:
     return await request.is_disconnected()
 
 
+def _elapsed_ms(since: float) -> int:
+    return round((time.perf_counter() - since) * 1000)
+
+
+# 사용자 과실이 아니라 서버 혼잡을 뜻하는 코드. 운영 로그에서 바로 보이도록 WARNING 으로 남깁니다.
+_CONGESTION_CODES = {"QUEUE_FULL", "QUEUE_TIMEOUT", "RATE_LIMITED"}
+
+
 @app.get("/check-items/{character_name}")
 async def check_items(
     request: Request,
     character_name: str,
     request_id: Annotated[str | None, Query()] = None,
 ):
-    async with request_tracker.track(request_id) as tracked_request_id:
-        if await client_disconnected(request):
-            # 떠난 클라이언트에게 보낼 응답은 없습니다. 499 는 로그 구분용 상태입니다.
-            return Response(status_code=499)
+    started = time.perf_counter()
+    # 진단 1건당 'diagnosis' 이벤트 한 줄. 캐릭터 이름은 남기지 않습니다.
+    event: dict = {"request_id": request_id, "outcome": "crash", "http_status": 500, "code": "INTERNAL_ERROR"}
+    try:
+        async with request_tracker.track(request_id) as tracked_request_id:
+            event["queue_wait_ms"] = _elapsed_ms(started)
+            if await client_disconnected(request):
+                # 떠난 클라이언트에게 보낼 응답은 없습니다. 499 는 로그 구분용 상태입니다.
+                event.update(outcome="client_disconnected", http_status=499, code=None)
+                return Response(status_code=499)
 
-        ocid = await nexon_api.get_ocid(character_name)
-        await request_tracker.set_stage(tracked_request_id, "equipment")
+            nexon_started = time.perf_counter()
+            ocid = await nexon_api.get_ocid(character_name)
+            await request_tracker.set_stage(tracked_request_id, "equipment")
 
-        basic_info, item_data, stat_data = await asyncio.gather(
-            nexon_api.get_character_basic(ocid),
-            nexon_api.get_character_item(ocid),
-            nexon_api.get_character_stat(ocid),
-        )
+            basic_info, item_data, stat_data = await asyncio.gather(
+                nexon_api.get_character_basic(ocid),
+                nexon_api.get_character_item(ocid),
+                nexon_api.get_character_stat(ocid),
+            )
+            event["nexon_ms"] = _elapsed_ms(nexon_started)
 
-        if not basic_info or not item_data:
-            raise NexonAPIError("캐릭터 장비 데이터가 비어 있습니다.", status_code=502, code="NEXON_EMPTY_DATA")
+            if not basic_info or not item_data:
+                raise NexonAPIError("캐릭터 장비 데이터가 비어 있습니다.", status_code=502, code="NEXON_EMPTY_DATA")
 
-        await request_tracker.set_stage(tracked_request_id, "analysis")
-
-        # 분석 로직은 analyzer.build_report 에 모여 있어 골든 테스트와 같은 경로를 탑니다.
-        return build_report(character_name, basic_info, item_data, stat_data)
+            await request_tracker.set_stage(tracked_request_id, "analysis")
+            analysis_started = time.perf_counter()
+            unsupported: Counter = Counter()
+            # 분석 로직은 analyzer.build_report 에 모여 있어 골든 테스트와 같은 경로를 탑니다.
+            report = build_report(character_name, basic_info, item_data, stat_data, unsupported=unsupported)
+            # dict 를 그대로 돌려주면 FastAPI 가 jsonable_encoder 로 한 번 더 훑습니다(1건당 약 3ms). 직접 직렬화합니다.
+            body = json.dumps(report, ensure_ascii=False).encode("utf-8")
+            event.update(
+                outcome="ok",
+                http_status=200,
+                code=None,
+                analysis_ms=_elapsed_ms(analysis_started),
+                character_class=report["class"],
+                character_level=report["level"],
+                item_count=len(report["results"]),
+                response_bytes=len(body),
+                unsupported_count=sum(unsupported.values()),
+                unsupported_top=[
+                    {"type": potential_type, "option": option, "count": count}
+                    for (potential_type, option), count in unsupported.most_common(5)
+                ],
+            )
+            return Response(content=body, media_type="application/json")
+    except AppError as exc:
+        event.update(outcome="error", http_status=exc.status_code, code=exc.code)
+        raise
+    finally:
+        event["total_ms"] = _elapsed_ms(started)
+        event.update(request_tracker.snapshot())
+        congested = event["code"] in _CONGESTION_CODES
+        level = logging.WARNING if congested or event["http_status"] >= 500 else logging.INFO
+        logger.log(level, "diagnosis", extra=event)

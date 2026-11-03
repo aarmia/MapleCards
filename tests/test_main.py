@@ -270,6 +270,39 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn("[", item["guide_message"])
             self.assertIsInstance(item["total_score"], (int, float))
 
+    async def test_check_items_logs_one_diagnosis_event(self):
+        fixture = load_first_fixture()
+        transport = httpx.ASGITransport(app=app)
+
+        with patch("app.main.nexon_api", FixtureNexonAPI(fixture)), self.assertLogs("app.main", level="INFO") as logs:
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.get("/check-items/테스트?request_id=req-1")
+
+        events = [record for record in logs.records if record.getMessage() == "diagnosis"]
+        self.assertEqual(len(events), 1)
+        event = events[0]
+        self.assertEqual(event.levelno, logging.INFO)
+        self.assertEqual((event.request_id, event.outcome, event.http_status, event.code), ("req-1", "ok", 200, None))
+        self.assertEqual(event.response_bytes, len(response.content))
+        self.assertEqual(event.character_class, fixture["basic"]["character_class"])
+        self.assertGreater(event.item_count, 0)
+        for field in ("queue_wait_ms", "nexon_ms", "analysis_ms", "total_ms", "unsupported_count", "active", "waiting"):
+            self.assertIsInstance(getattr(event, field), (int, float), field)
+        self.assertIsInstance(event.unsupported_top, list)
+        # 캐릭터 이름은 로그에 남기지 않습니다.
+        self.assertNotIn("테스트", json.dumps(event.__dict__, default=str, ensure_ascii=False))
+
+    async def test_failed_diagnosis_is_logged_with_its_code(self):
+        transport = httpx.ASGITransport(app=app)
+
+        with patch("app.main.nexon_api", ErroringNexonAPI()), self.assertLogs("app.main", level="INFO") as logs:
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                await client.get("/check-items/test")
+
+        event = next(record for record in logs.records if record.getMessage() == "diagnosis")
+        self.assertEqual((event.outcome, event.http_status, event.code), ("error", 404, "CHARACTER_NOT_FOUND"))
+        self.assertEqual(event.levelno, logging.INFO)
+
 
 if __name__ == "__main__":
     unittest.main()

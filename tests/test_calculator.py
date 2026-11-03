@@ -1,6 +1,7 @@
 import unittest
+from collections import Counter
 
-from app.analyzer import evaluate_equipment, get_dynamic_guide, split_guide
+from app.analyzer import evaluate_equipment, get_dynamic_guide, split_guide, unsupported_registry
 from app.calculator import (
     calculate_potential_score,
     get_main_stat,
@@ -103,17 +104,22 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertNotIn("추가옵션", guide)
         self.assertIn("종결", guide)
 
-    def test_unsupported_option_is_collected_in_server_log(self):
+    def test_unsupported_option_is_warned_once_and_counted(self):
         item = dict(self.challenger_top)
         item["potential_option_2"] = "보스 몬스터 공격 시 데미지 +30%"
+        unsupported_registry.reset()
+        collector = Counter()
 
         with self.assertLogs("app.analyzer", level="WARNING") as captured:
-            evaluate_equipment([item], "레테", 285)
+            evaluate_equipment([item], "레테", 285, unsupported=collector)
+            evaluate_equipment([item], "레테", 285, unsupported=collector)
 
-        log_text = "\n".join(captured.output)
-        self.assertIn("Unsupported equipment option", log_text)
-        self.assertIn("potential", log_text)
-
+        # 처음 본 옵션만 경고 1줄, 두 번째 진단부터는 집계만 됩니다.
+        self.assertEqual(len(captured.records), 1)
+        record = captured.records[0]
+        self.assertEqual(record.getMessage(), "unsupported_option_first_seen")
+        self.assertEqual((record.potential_type, record.option), ("potential", "보스 몬스터 공격 시 데미지 +30%"))
+        self.assertEqual(collector[("potential", "보스 몬스터 공격 시 데미지 +30%")], 2)
     def test_split_guide_separates_tag_and_message(self):
         self.assertEqual(
             split_guide("👑 [종결] 완벽한 장비입니다. 23성 도전 외엔 투자가 무의미합니다."),

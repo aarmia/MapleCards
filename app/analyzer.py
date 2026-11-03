@@ -1,6 +1,6 @@
-import json
 import logging
 import re
+from collections import Counter
 
 from app.calculator import (
     analyze_potential_score,
@@ -34,15 +34,50 @@ def split_guide(guide_text: str) -> tuple[str, str]:
     return tag, message
 
 
-def _log_unsupported_options(item_name, potential_type, analysis):
+class UnsupportedOptionRegistry:
+    """점수에 반영하지 못한 옵션 문자열을 프로세스 단위로 모읍니다.
+
+    처음 보는 옵션만 WARNING 한 줄로 알리고, 나머지는 집계해 두었다가 주기 요약(main.unsupported_summary_loop)으로 남깁니다.
+    요청마다 수십 줄씩 찍히던 경고를 없애면서도 새 옵션은 놓치지 않기 위한 구조입니다.
+    """
+
+    def __init__(self):
+        self.counter: Counter = Counter()
+        self._seen: set[tuple[str, str]] = set()
+
+    def record(self, item_name, potential_type, option, collector: Counter | None = None):
+        key = (potential_type, option)
+        self.counter[key] += 1
+        if collector is not None:
+            collector[key] += 1
+        if key not in self._seen:
+            self._seen.add(key)
+            logger.warning(
+                "unsupported_option_first_seen",
+                extra={"item": item_name, "potential_type": potential_type, "option": option},
+            )
+
+    def summary(self, top: int = 20) -> dict:
+        return {
+            "total": sum(self.counter.values()),
+            "distinct": len(self.counter),
+            "top": [
+                {"type": potential_type, "option": option, "count": count}
+                for (potential_type, option), count in self.counter.most_common(top)
+            ],
+        }
+
+    def reset(self):
+        self.counter.clear()
+        self._seen.clear()
+
+
+unsupported_registry = UnsupportedOptionRegistry()
+
+
+def _log_unsupported_options(item_name, potential_type, analysis, collector=None):
     for option in analysis.get("unsupported", []):
-        logger.warning(
-            "Unsupported equipment option: %s",
-            json.dumps(
-                {"item": item_name, "type": potential_type, "option": option},
-                ensure_ascii=True,
-            ),
-        )
+        unsupported_registry.record(item_name, potential_type, option, collector)
 
 
 def get_best_preset(item_data: dict, class_name: str, char_level: int) -> int:
@@ -204,7 +239,7 @@ def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_
         return "🚨 [교체 시급] 현재 세팅에서 가장 효율이 떨어지는 부위입니다. 상위 아이템으로 교체를 추천합니다."
 
 
-def evaluate_equipment(items, char_class, char_level):
+def evaluate_equipment(items, char_class, char_level, unsupported=None):
     evaluate_list = []
     special_rings = ["리스트레인트", "컨티뉴어스", "웨폰퍼프"]
 
@@ -321,8 +356,8 @@ def evaluate_equipment(items, char_class, char_level):
             eddy_val = eddy_analysis["score"]
             eddy_score = (eddy_val * 2.5) if eddy_val > 0 else 0
 
-        _log_unsupported_options(name, "potential", pot_analysis)
-        _log_unsupported_options(name, "additional_potential", eddy_analysis)
+        _log_unsupported_options(name, "potential", pot_analysis, unsupported)
+        _log_unsupported_options(name, "additional_potential", eddy_analysis, unsupported)
         def with_weighted_values(analysis, category, weighted_total):
             raw_total = sum(entry["value"] for entry in analysis["recognized"])
             effective_weight = (weighted_total / raw_total) if raw_total else 0
@@ -425,10 +460,11 @@ def select_preset_items(item_data, preset_idx):
     return items or item_data.get("item_equipment", [])
 
 
-def build_report(character_name, basic_info, item_data, stat_data):
+def build_report(character_name, basic_info, item_data, stat_data, unsupported=None):
     """기본정보·장비·스탯 응답으로 진단 결과 전체를 만듭니다.
 
     /check-items 응답과 골든 테스트(tests/test_golden.py)가 같은 함수를 사용합니다.
+    unsupported 에 Counter 를 주면 점수에 반영하지 못한 옵션을 (종류, 옵션)별로 세어 넣습니다.
     """
     char_class = basic_info.get("character_class")
     char_level = int(basic_info.get("character_level") or 0)
@@ -437,7 +473,7 @@ def build_report(character_name, basic_info, item_data, stat_data):
     best_preset_idx = get_best_preset(item_data, char_class, char_level)
     items = select_preset_items(item_data, best_preset_idx)
 
-    evaluate_list = evaluate_equipment(items, char_class, char_level)
+    evaluate_list = evaluate_equipment(items, char_class, char_level, unsupported=unsupported)
     overall_review, all_sorted_results = generate_overall_review(evaluate_list)
 
     return {

@@ -65,6 +65,7 @@ app/
 ├── scraper.py              # Nexon Open API 클라이언트, 오류 코드(OPENAPI000xx) 변환
 ├── errors.py               # 사용자 응답용 예외 AppError (상태 · 메시지 · 코드 · Retry-After)
 ├── settings.py             # 환경 변수 운영 설정
+├── logging_setup.py        # JSON 한 줄 로그 설정, 액세스 로그 끄기
 ├── analyzer.py             # 장비 평가, 가이드 문구, 총평, 최적 프리셋 선택, 진단 결과 조립(build_report)
 ├── calculator.py           # 점수 공식 (추가옵션, 잠재능력, 스타포스, 무기)
 ├── request_tracker.py      # 동시 진단 제한, 대기열 상한 · 타임아웃, 진행 상태 추적
@@ -137,6 +138,19 @@ gunicorn -w 1 -k uvicorn.workers.UvicornWorker app.main:app --timeout 120 --grac
 | `QUEUE_MAX_WAITING` | `40` | 대기열 상한. 넘치면 503 `QUEUE_FULL` |
 | `QUEUE_WAIT_TIMEOUT` | `8` | 대기열 최대 대기 초. 넘으면 503 `QUEUE_TIMEOUT` |
 | `NEXON_CONNECT_TIMEOUT` / `NEXON_READ_TIMEOUT` | `3` / `6` | Nexon API 연결 · 읽기 타임아웃(초) |
+| `LOG_FORMAT` | Render에서 `json`, 그 외 `text` | `json`은 한 줄 JSON, `text`는 사람이 읽는 형식 |
+| `LOG_LEVEL` | `INFO` | DEBUG / INFO / WARNING / ERROR / CRITICAL |
+| `UNSUPPORTED_SUMMARY_INTERVAL` | `3600` | 미지원 옵션 집계 요약을 남기는 주기(초) |
+
+### 로그
+서버 기동 시 루트 로거를 JSON 한 줄 형식으로 통일하고, 진행 상태 폴링까지 전부 찍던 uvicorn 액세스 로그는 끕니다. 대신 이벤트 단위로 남깁니다.
+
+| 이벤트 | 레벨 | 내용 |
+|---|---|---|
+| `diagnosis` | INFO (5xx · 혼잡은 WARNING) | 진단 1건당 1줄. `request_id`, `outcome`, `http_status`, `code`, `queue_wait_ms`, `nexon_ms`, `analysis_ms`, `total_ms`, `character_class`, `character_level`, `item_count`, `response_bytes`, `unsupported_count`, `unsupported_top`, 대기열 상태(`active`, `waiting`, `service_time_ema`). 캐릭터 이름은 남기지 않습니다 |
+| `unsupported_option_first_seen` | WARNING | 점수에 반영하지 못한 옵션 문자열을 프로세스에서 처음 봤을 때 1회 |
+| `unsupported_options_summary` | INFO | 주기마다 미지원 옵션 상위 20개와 누적 건수 |
+| `Nexon API rejected ...` | CRITICAL | 키 오류 · 권한 없음 · 잘못된 경로. 1분에 1회로 제한 |
 
 ### 오류 응답
 사용자 오류는 모두 `{"error": 메시지, "code": 코드, "retry_after": 초}` 형태이며 `retry_after`가 있으면 `Retry-After` 헤더도 함께 갑니다.
