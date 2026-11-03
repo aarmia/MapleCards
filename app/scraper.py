@@ -24,6 +24,8 @@ STAT_EXTRA_ENDPOINTS = {
     "union_artifact": "/user/union-artifact",
     "ability": "/character/ability",
     "link_skill": "/character/link-skill",
+    "hexa_stat": "/character/hexamatrix-stat",
+    "set_effect": "/character/set-effect",
 }
 
 # Nexon Open API 오류 코드 -> (우리 HTTP 상태, 사용자 메시지, Retry-After 초).

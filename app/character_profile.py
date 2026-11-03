@@ -11,7 +11,26 @@ from app.calculator import final_stat_float, final_stat_value, get_potential_opt
 from app.potential import StatContext, is_archer, main_names, reference_context, secondary_names, stat_weight
 from app.scoring_config import POTENTIAL, SCORING
 
-EXTRA_KEYS = ("symbol", "hyper_stat", "union_raider", "union_artifact", "ability", "link_skill")
+EXTRA_KEYS = ("symbol", "hyper_stat", "union_raider", "union_artifact", "ability", "link_skill", "hexa_stat")
+
+
+def _hexa_main_stat(data, main_stat):
+    # 활성 코어만 합산합니다. preset_hexa_stat_core*는 저장 슬롯이므로 중복 합산하지 않습니다.
+    main_values = (0, 100, 200, 300, 400, 600, 800, 1000, 1300, 1600, 2000)
+    total = 0
+    for key in ("character_hexa_stat_core", "character_hexa_stat_core_2", "character_hexa_stat_core_3"):
+        for core in (data or {}).get(key) or []:
+            for name_key, level_key, primary in (
+                ("main_stat_name", "main_stat_level", True),
+                ("sub_stat_name_1", "sub_stat_level_1", False),
+                ("sub_stat_name_2", "sub_stat_level_2", False),
+            ):
+                if core.get(name_key) != "주력 스탯 증가":
+                    continue
+                level = max(0, min(10, int(core.get(level_key) or 0)))
+                total += main_values[level] if primary else level * 100
+    # 특수 직업 환산은 여기서 일반 직업 수치로 추정하지 않습니다.
+    return total if main_stat not in ("hp", "all_stat") else 0
 
 # 유니온 "STR, DEX, LUK 40 증가" · 하이퍼스탯 "민첩성 90 증가" · 어빌리티 "최대 HP 5% 증가" · 링크 "모든 능력치 10% 증가", "힘 15 민첩 15 ... 증가" 같은 효과 문구.
 # 스탯 이름 바로 뒤에 숫자가 와야 하므로 "HP가 30%인 몬스터" 나 "룬의 힘 지속시간" 은 읽지 않습니다.
@@ -70,7 +89,9 @@ def _hyper_stat(data, names) -> tuple[float, float]:
 
 def _union_texts(data) -> list:
     data = data or {}
-    return list(data.get("union_raider_stat") or []) + list(data.get("union_occupied_stat") or [])
+    # New API separates the saved stat board from the legacy occupied grid.
+    board = data.get("union_state_stat") if "union_state_stat" in data else data.get("union_occupied_stat")
+    return list(data.get("union_raider_stat") or []) + list(board or [])
 
 
 def _artifact_texts(data) -> list:
@@ -93,6 +114,8 @@ def _gear_pct(equipped_items, main_stat: str, names) -> float:
     """착용 장비 잠재·에디의 주스탯% 합. 제논은 개별 스탯% 를 1/3 로 넣고, 데몬어벤져는 최대 HP% 만 셉니다."""
     total = 0.0
     for item in equipped_items or []:
+        if main_stat != "hp":
+            total += _number((item.get("item_add_option") or {}).get("all_stat"))
         for potential_type in ("potential", "additional_potential"):
             for line in get_potential_options(item, potential_type):
                 match = _PCT_LINE.match(line)
@@ -106,6 +129,24 @@ def _gear_pct(equipped_items, main_stat: str, names) -> float:
                 elif stat in names:
                     total += value / 3 if main_stat == "all_stat" else value
     return total
+
+
+def _gear_attack_pct_sources(items, main_stat):
+    label = "마력" if main_stat == "int" else "공격력"
+    pattern = re.compile(rf"^{label} \+(\d+)%$")
+    totals = dict.fromkeys(("potential", "additional_potential", "soul_potential", "soul_option"), 0.0)
+    for item in items or []:
+        for kind in totals:
+            lines = [item.get("soul_option") or ""] if kind == "soul_option" else get_potential_options(item, kind)
+            for line in lines:
+                if match := pattern.fullmatch(line.strip()):
+                    totals[kind] += float(match.group(1))
+    # soul_pad / soul_mad are flat values, not attack/magic percentages.
+    return totals
+
+
+def _gear_attack_pct(items, main_stat):
+    return sum(_gear_attack_pct_sources(items, main_stat).values())
 
 
 def _estimated_exempt(char_level: int) -> float:
@@ -124,6 +165,8 @@ def build_stat_context(char_class, main_stat: str, char_level: int, equipped_ite
     missing = [key for key in EXTRA_KEYS if not extras.get(key)]
     gear_pct = _gear_pct(equipped_items, main_stat, names)
     sources: dict = {"gear_pct": gear_pct}
+    sources["gear_attack_pct_breakdown"] = _gear_attack_pct_sources(equipped_items, main_stat)
+    sources["gear_attack_pct"] = sum(sources["gear_attack_pct_breakdown"].values())
     if "symbol" in missing:
         exempt, other_pct = _estimated_exempt(char_level), 0.0
         sources["estimated_exempt"] = exempt
@@ -134,13 +177,18 @@ def build_stat_context(char_class, main_stat: str, char_level: int, equipped_ite
         artifact_flat, artifact_pct = _effect_stats(_artifact_texts(extras.get("union_artifact")), names)
         ability_flat, ability_pct = _effect_stats(_ability_texts(extras.get("ability")), names)
         link_flat, link_pct = _effect_stats(_link_texts(extras.get("link_skill")), names)
-        exempt = symbol + hyper_flat + union_flat + artifact_flat + ability_flat + link_flat
+        hexa = _hexa_main_stat(extras.get("hexa_stat"), main_stat)
+        exempt = symbol + hyper_flat + union_flat + hexa
         other_pct = hyper_pct + union_pct + artifact_pct + ability_pct + link_pct
         sources.update(
-            symbol=symbol, hyper=hyper_flat, union=union_flat, artifact=artifact_flat, ability=ability_flat, link=link_flat, other_pct=other_pct
+            symbol=symbol, hyper=hyper_flat, union=union_flat, hexa=hexa,
+            artifact_applied=artifact_flat, ability_applied=ability_flat, link_applied=link_flat, other_pct=other_pct
         )
     if missing:
         sources["missing"] = missing
+    sources["attack_pct_basis"] = "equipment_only"
+    if main_stat in ("hp", "all_stat"):
+        sources["hexa_special_stat_unmodeled"] = True
 
     stat_pct = 1 + (gear_pct + other_pct) / 100
     base_stat = (final_main - exempt) / stat_pct
@@ -149,6 +197,21 @@ def build_stat_context(char_class, main_stat: str, char_level: int, equipped_ite
         exempt, base_stat = 0.0, final_main / stat_pct
         sources["exempt_dropped"] = True
     crit_damage = final_stat_float(stat_data, "크리티컬 데미지")
+    sub_pct_ratio = sub_flat_ratio = None
+    if len(names) == 1 and len(subs) == 1 and main_stat != "hp":
+        sub_hyper, sub_hyper_pct = _hyper_stat(extras.get("hyper_stat"), subs)
+        sub_union, sub_union_pct = _effect_stats(_union_texts(extras.get("union_raider")), subs)
+        sub_other_pct = sum(_effect_stats(texts, subs)[1] for texts in (
+            _artifact_texts(extras.get("union_artifact")), _ability_texts(extras.get("ability")),
+            _link_texts(extras.get("link_skill")))) + sub_hyper_pct + sub_union_pct
+        sub_multiplier = 1 + (_gear_pct(equipped_items, subs[0].lower(), subs) + sub_other_pct) / 100
+        sub_exempt = _symbol_stat(extras.get("symbol"), subs) + sub_hyper + sub_union
+        sub_base = max(0, final_stat_value(stat_data, subs[0]) - sub_exempt) / sub_multiplier
+        sub_pct_ratio = sub_base / (stat_weight(char_class) * base_stat)
+        sub_flat_ratio = sub_multiplier / (stat_weight(char_class) * stat_pct)
+        sources["sub_multiplier"] = sub_multiplier
+        sources["sub_base_estimate"] = sub_base
+        sources["sub_exempt"] = sub_exempt
     return StatContext(
         main_stat=main_stat,
         main_names=names,
@@ -163,8 +226,11 @@ def build_stat_context(char_class, main_stat: str, char_level: int, equipped_ite
         crit_damage=crit_damage if crit_damage is not None else float(POTENTIAL.reference.crit_damage),
         crit_rate=final_stat_float(stat_data, "크리티컬 확률"),
         is_archer=is_archer(char_class),
-        basis="estimated" if missing else "stat",
+        basis="estimated" if missing or main_stat in ("hp", "all_stat") else "stat",
         sources=sources,
+        attack_multiplier=1 + sources["gear_attack_pct"] / 100,
+        sub_pct_ratio=sub_pct_ratio,
+        sub_flat_ratio=sub_flat_ratio,
     )
 
 

@@ -1,0 +1,18 @@
+<template x-if="report?.profile?.optimization">
+    <section class="mb-5 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-700">
+        <h3 class="font-bold mb-2">환산 기준 프리셋</h3>
+        <template x-if="report.profile.optimization.selected">
+            <div>
+                <div class="flex flex-wrap gap-2">
+                    <template x-for="[key, label] in Object.entries({equipment:'장비', hyper_stat:'하이퍼스탯', union:'유니온', link:'링크', ability:'어빌리티'})" :key="key">
+                        <span class="rounded-lg bg-slate-100 px-3 py-1" x-text="label + ' · ' + (report.profile.optimization.selected[key] === 'current' || report.profile.optimization.selected[key] == null ? '현재' : report.profile.optimization.selected[key] + '번')"></span>
+                    </template>
+                </div>
+                <p class="mt-2 text-xs text-slate-500" x-text="report.profile.optimization.combinations_evaluated + '개 조합 비교 · 보스 방어율 ' + report.profile.optimization.boss_defense_percent + '% 가정 · 실제 DPS가 아닌 스탯 비교 지수'"></p>
+            </div>
+        </template>
+        <template x-for="note in report.profile.optimization.limitations || []" :key="note">
+            <p class="mt-1 text-xs text-slate-500" x-text="note"></p>
+        </template>
+    </section>
+</template>

@@ -1,6 +1,7 @@
 import logging
 import operator
 import re
+from dataclasses import replace
 from collections import Counter
 
 from app.calculator import (
@@ -15,6 +16,8 @@ from app.calculator import (
     get_starforce_score,
 )
 from app.character_profile import build_character_profile
+from app.preset_projection import project_context, active_items
+from app.preset_optimizer import optimize_presets
 from app.potential import StatContext, reference_context
 from app.scoring_config import GRADES, SCORING, load_guides
 
@@ -423,6 +426,20 @@ def select_preset_items(item_data, preset_idx):
     return items or item_data.get("item_equipment", [])
 
 
+def _preset_main_flat_delta(equipped, selected, main_stat):
+    """API 장비 합계의 고정 주스탯 차이만 투영합니다. 특수 직업은 기존 추정을 유지합니다."""
+    if not equipped or not selected or main_stat not in ("str", "dex", "int", "luk"):
+        return 0.0
+    def total(items):
+        return sum(float((item.get("item_total_option") or {}).get(main_stat) or 0)
+                   for item in items)
+    # 한쪽 응답에 합계가 없으면 누락을 스탯 감소로 오인하지 않습니다.
+    if not all(main_stat in (item.get("item_total_option") or {})
+               for item in [*equipped, *selected]):
+        return 0.0
+    return total(selected) - total(equipped)
+
+
 def build_report(character_name, basic_info, item_data, stat_data, unsupported=None, extras=None):
     """기본정보·장비·스탯 응답으로 진단 결과 전체를 만듭니다.
 
@@ -436,10 +453,35 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
     # 주스탯은 여기서 한 번만 정합니다. 바이퍼·캐논마스터·캡틴은 스탯 응답의 STR/DEX 비교로 전환 세팅을 반영합니다.
     main_stat = get_main_stat(char_class, stat_data)
     # 자본대(전투력)와 잠재 환산 기준(StatContext)은 현재 착용 장비·스탯 응답·추가 조회로 한 번만 정합니다.
-    profile = build_character_profile(char_class, main_stat, char_level, item_data.get("item_equipment", []), stat_data, extras)
+    equipped_items = active_items(item_data.get("item_equipment", []))
+    profile = build_character_profile(char_class, main_stat, char_level, equipped_items, stat_data, extras)
 
     best_preset_idx = get_best_preset(item_data, char_class, char_level, main_stat=main_stat, context=profile["context"])
     items = select_preset_items(item_data, best_preset_idx)
+
+    # 공통 기준으로 프리셋을 선택한 뒤 선택 장비로 최종 환산 기준을 재구성합니다.
+    equipped_context = profile["context"]
+    selected_profile = build_character_profile(char_class, main_stat, char_level, active_items(items), stat_data, extras)
+    selected_context = selected_profile["context"]
+    # 현재 최종 스탯을 다른 프리셋의 %로 나누면 기본 스탯이 왜곡됩니다.
+    # 선택 장비의 %뿐 아니라 API 장비 합계에 명시된 고정 주스탯 차이도 반영합니다.
+    selected_profile["context"] = project_context(equipped_context, selected_context,
+        equipped_items, items, char_level, (extras or {}).get("set_effect"),
+        same_preset=str(item_data.get("preset_no")) == str(best_preset_idx))
+    profile = selected_profile
+    profile["conversion_preset"] = best_preset_idx
+    profile["equipped_preset"] = item_data.get("preset_no")
+    optimized = optimize_presets(char_class, main_stat, char_level, item_data, stat_data,
+                                 extras, equipped_context)
+    if optimized is not None:
+        best_preset_idx, items, profile["context"], optimization = optimized
+        profile["conversion_preset"] = best_preset_idx
+        profile["optimization"] = optimization
+    else:
+        profile["optimization"] = {"method": "legacy_equipment_score_fallback",
+            "limitations": ["필수 스탯 누락 또는 특수 직업·복수 부스탯은 조합 최적화 미지원: 기존 장비 점수 기준 유지"]}
+    profile["context"].sources["equipment_basis"] = "selected_preset"
+    profile["context"].sources["final_stats_basis"] = "projected_saved_presets" if optimized else "currently_equipped"
 
     evaluate_list = evaluate_equipment(items, char_class, char_level, unsupported=unsupported, main_stat=main_stat, profile=profile)
     overall_review, all_sorted_results = generate_overall_review(evaluate_list)

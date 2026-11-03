@@ -1,8 +1,10 @@
 import unittest
+import math
 from collections import Counter
 from dataclasses import replace
 
 from app.analyzer import (
+    _preset_main_flat_delta,
     build_report,
     evaluate_equipment,
     get_dynamic_guide,
@@ -11,11 +13,142 @@ from app.analyzer import (
     unsupported_registry,
 )
 from app.calculator import calculate_potential_score, get_main_stat, get_potential_options
-from app.character_profile import build_character_profile, build_stat_context
+from app.character_profile import _gear_attack_pct, _gear_attack_pct_sources, _hexa_main_stat, build_character_profile, build_stat_context
 from app.potential import convert_line, reference_context
+from app.scoring_config import CLASSES
 
 
 class PotentialOptionTests(unittest.TestCase):
+    def test_preset_flat_delta_handles_missing_and_special_stats(self):
+        self.assertEqual(_preset_main_flat_delta([{}], [{"item_total_option": {"luk": "100"}}], "luk"), 0)
+        self.assertEqual(_preset_main_flat_delta([], [{"item_total_option": {"luk": "100"}}], "luk"), 0)
+        self.assertEqual(_preset_main_flat_delta([{"item_total_option": {"hp": "100"}}],
+                                                [{"item_total_option": {"hp": "200"}}], "hp"), 0)
+        self.assertEqual(_preset_main_flat_delta([{"item_total_option": {"luk": "200"}}],
+                                                [{"item_total_option": {"luk": "100"}}], "luk"), -100)
+
+    def test_preset_flat_main_stat_corrects_level_option_overestimate(self):
+        from unittest.mock import patch
+        equipped = {"item_total_option": {"luk": "4311"}, "potential_option_1": "LUK +557%"}
+        selected = {"item_total_option": {"luk": "5570"}, "potential_option_1": "LUK +838%"}
+        stats = {"final_stat": [{"stat_name": "LUK", "stat_value": "77589"},
+                                 {"stat_name": "DEX", "stat_value": "7862"},
+                                 {"stat_name": "공격력", "stat_value": "9032"}]}
+        extras = {"symbol": {"symbol": [{"symbol_luk": "29990"}]}}
+        current = build_stat_context("나이트워커", "luk", 298, [equipped], stats, extras)
+        old = replace(current, stat_pct=9.38)
+        with patch("app.analyzer.evaluate_equipment", return_value=[]), patch("app.analyzer.get_best_preset", return_value=1):
+            report = build_report("지아름", {"character_class": "나이트워커", "character_level": 298},
+                {"item_equipment": [equipped], "item_equipment_preset_1": [selected]}, stats, extras=extras)
+        context = report["profile"]["context"]
+        self.assertEqual(context["sources"]["preset_main_flat_delta"], 1259)
+        self.assertEqual(context["base_stat"], round(current.base_stat + 1259))
+        new = replace(current, base_stat=current.base_stat + 1259, stat_pct=9.38)
+        option = "캐릭터 기준 9레벨 당 LUK +2"
+        self.assertAlmostEqual(convert_line(option, new, 298)[0], 7.28, places=2)
+        self.assertLess(convert_line(option, new, 298)[0], convert_line(option, old, 298)[0])
+        self.assertEqual(convert_line(option, new, 298)[0], convert_line("LUK +66", new, 298)[0])
+
+    def test_common_formula_runs_for_all_configured_classes(self):
+        classes = [name for names in CLASSES.main_stat.raw.values() for name in names]
+        classes.extend(CLASSES.special.raw)
+        stats = {"final_stat": [{"stat_name": name, "stat_value": str(value)}
+                 for name, value in {"STR": 40000, "DEX": 40000, "INT": 40000,
+                                     "LUK": 40000, "HP": 500000, "공격력": 5000,
+                                     "마력": 5000, "크리티컬 데미지": 100,
+                                     "크리티컬 확률": 100}.items()]}
+        for char_class in classes:
+            with self.subTest(char_class=char_class):
+                main = get_main_stat(char_class, stats)
+                context = build_stat_context(char_class, main, 290, [], stats)
+                attack = "마력" if main == "int" else "공격력"
+                for option in (f"{attack} +14", "크리티컬 데미지 +1%", "올스탯 +6%"):
+                    value, _ = convert_line(option, context, 290)
+                    self.assertTrue(math.isfinite(value))
+                    self.assertGreaterEqual(value, 0)
+                self.assertTrue(any("공통 수식 기반 추정" in note for note in context.notes()))
+
+    def test_soul_attack_percent_counts_new_and_legacy_options(self):
+        items = [{"potential_option_1": "공격력 +185%",
+                  "soul_option": "공격력 +3%", "soul_pad": "20",
+                  "soul_potential_amplified_grade": 4,
+                  "soul_potential_option_1": "공격력 +8%",
+                  "soul_potential_option_2": "공격력 +6%",
+                  "soul_potential_option_3": "공격력 +6%"}]
+        self.assertEqual(_gear_attack_pct(items, "luk"), 208)
+        breakdown = _gear_attack_pct_sources(items, "luk")
+        self.assertEqual(breakdown["soul_potential"], 20)
+        self.assertEqual(breakdown["soul_option"], 3)
+        self.assertEqual(_gear_attack_pct(items, "int"), 0)
+
+    def test_soul_magic_and_missing_options(self):
+        items = [{"soul_option": "마력 +3%", "soul_mad": "20",
+                  "soul_potential_option_1": "마력 +8%",
+                  "soul_potential_option_2": None}, {}]
+        self.assertEqual(_gear_attack_pct(items, "int"), 11)
+        self.assertEqual(_gear_attack_pct(items, "luk"), 0)
+        self.assertEqual(_gear_attack_pct(None, "int"), 0)
+
+    def test_hexa_counts_active_cores_only(self):
+        data = {
+            "character_hexa_stat_core": [{"sub_stat_name_2": "주력 스탯 증가", "sub_stat_level_2": 5}],
+            "character_hexa_stat_core_2": [{"sub_stat_name_2": "주력 스탯 증가", "sub_stat_level_2": 3}],
+            "character_hexa_stat_core_3": [{"main_stat_name": "주력 스탯 증가", "main_stat_level": 10}],
+            "preset_hexa_stat_core": [{"main_stat_name": "주력 스탯 증가", "main_stat_level": 10}],
+        }
+        self.assertEqual(_hexa_main_stat(data, "luk"), 2800)
+        self.assertEqual(_hexa_main_stat({}, "luk"), 0)
+
+    def test_sub_stat_removes_exempt_and_includes_link_percent(self):
+        stats = {"final_stat": [{"stat_name": "LUK", "stat_value": "50000"},
+                                 {"stat_name": "DEX", "stat_value": "16185"},
+                                 {"stat_name": "공격력", "stat_value": "5000"}]}
+        extras = {"symbol": {"symbol": []},
+                  "hyper_stat": {"hyper_stat_preset_1": [{"stat_level": 3, "stat_increase": "DEX 90 증가"}]},
+                  "union_raider": {"union_raider_stat": ["DEX 530 증가"]},
+                  "link_skill": {"character_link_skill": [{"skill_effect": "모든 능력치 15% 증가"}]}}
+        context = build_stat_context("칼리", "luk", 299,
+            [{"potential_option_1": "DEX +176%"}], stats, extras)
+        self.assertEqual(context.sources["sub_exempt"], 620)
+        self.assertAlmostEqual(context.sources["sub_multiplier"], 2.91)
+        self.assertEqual(round(context.sources["sub_base_estimate"]), 5349)
+
+    def test_attack_percent_amplifies_flat_attack_conversion(self):
+        context = reference_context("히어로", "str")
+        boosted = replace(context, attack_multiplier=1.65)
+        self.assertAlmostEqual(convert_line("공격력 +14", boosted, 285)[0],
+                               convert_line("공격력 +14", context, 285)[0] * 1.65)
+
+    def test_flame_all_stat_increases_flat_and_level_stat_efficiency(self):
+        stats = {"final_stat": [{"stat_name": "STR", "stat_value": "40000"},
+                                 {"stat_name": "공격력", "stat_value": "3000"}]}
+        plain = build_stat_context("히어로", "str", 280, [], stats)
+        flame = build_stat_context("히어로", "str", 280,
+                                   [{"item_add_option": {"all_stat": "6"}}], stats)
+        self.assertAlmostEqual(flame.stat_pct - plain.stat_pct, 0.06)
+        for option in ("STR +32", "캐릭터 기준 9레벨 당 STR +2"):
+            self.assertGreater(convert_line(option, flame, 280)[0], convert_line(option, plain, 280)[0])
+
+    def test_report_uses_selected_preset_for_conversion(self):
+        equipped = {"potential_option_1": "INT +6%"}
+        selected = {"potential_option_1": "INT +12%"}
+        stats = {"final_stat": [
+            {"stat_name": "INT", "stat_value": "30000"},
+            {"stat_name": "마력", "stat_value": "2000"},
+        ]}
+        from unittest.mock import patch
+        with patch("app.analyzer.evaluate_equipment", return_value=[]):
+            result = build_report("test", {"character_class": "비숍", "character_level": 280},
+                {"item_equipment": [equipped], "item_equipment_preset_1": [equipped],
+                 "item_equipment_preset_2": [selected]}, stats)
+        self.assertEqual(result["best_preset"], 2)
+        self.assertEqual(result["profile"]["conversion_preset"], 2)
+        self.assertEqual(result["profile"]["context"]["sources"]["gear_pct"], 12)
+        expected = build_stat_context("비숍", "int", 280, [equipped], stats)
+        self.assertEqual(result["profile"]["context"]["base_stat"], round(expected.base_stat))
+        self.assertEqual(result["profile"]["context"]["final_main"],
+                         round(expected.base_stat * 1.12 + expected.exempt_stat))
+
     def setUp(self):
         self.challenger_top = {
             "item_equipment_part": "상의",
@@ -177,6 +310,7 @@ class PotentialOptionTests(unittest.TestCase):
             "union_raider": {"union_raider_stat": ["INT 80 증가", "STR, DEX, LUK 40 증가"], "union_occupied_stat": ["INT 25 증가", "최대 HP 500 증가"]},
             "union_artifact": {"union_artifact_effect": [{"name": "올스탯 150 증가", "level": 10}, {"name": "최대 HP 3750, 최대 MP 3750 증가", "level": 5}]},
             "ability": {"ability_info": [{"ability_value": "INT 20 증가"}]},
+            "hexa_stat": {"character_hexa_stat_core": []},
             "link_skill": {"character_link_skill": [{"skill_effect": "모든 능력치 10% 증가"}, {"skill_effect": "HP 15% 증가"}]},
         }
 
@@ -184,9 +318,9 @@ class PotentialOptionTests(unittest.TestCase):
         context = profile["context"]
 
         self.assertEqual((profile["tier"], profile["add_target_multiplier"]), ("중자본", 0.87))
-        self.assertEqual((context.basis, context.exempt_stat), ("stat", 4575.0))  # c = 심볼 4000 + 하이퍼 300 + 유니온 105 + 아티팩트 150 + 어빌리티 20
+        self.assertEqual((context.basis, context.exempt_stat), ("stat", 4405.0))  # 아티팩트·어빌리티 고정 스탯은 % 적용
         self.assertAlmostEqual(context.stat_pct, 1.38, places=9)  # b = 1 + (장비 28 + 링크 10) ÷ 100
-        self.assertAlmostEqual(context.base_stat, (40000 - 4575) / 1.38, places=6)  # a = (S − c) ÷ b
+        self.assertAlmostEqual(context.base_stat, (40000 - 4405) / 1.38, places=6)
         self.assertAlmostEqual(context.pct_per_flat, 100 * 1.38 / context.base_stat, places=9)
         self.assertAlmostEqual(context.pct_per_attack, 100 * (4 * 40000 + 4000) / (4 * context.base_stat * 2000), places=9)
         self.assertAlmostEqual(context.pct_per_crit_damage, (4 * 40000 + 4000) / (2.20 * 4 * context.base_stat), places=9)

@@ -72,6 +72,9 @@ class StatContext:
     is_archer: bool
     basis: str = "stat"
     sources: dict = field(default_factory=dict)
+    attack_multiplier: float = 1.0
+    sub_pct_ratio: float | None = None
+    sub_flat_ratio: float | None = None
 
     @property
     def main_label(self) -> str:
@@ -90,7 +93,7 @@ class StatContext:
     @property
     def pct_per_attack(self) -> float:
         """공격력·마력 1 의 유효 스탯%"""
-        value = 100 * self.stat_attack / (self.stat_weight * self.base_stat * self.attack)
+        value = 100 * self.stat_attack * self.attack_multiplier / (self.stat_weight * self.base_stat * self.attack)
         return _clamp(value, POTENTIAL.bounds.pct_per_attack)
 
     @property
@@ -123,9 +126,16 @@ class StatContext:
     def notes(self) -> list[str]:
         """상세 모달의 가중치 목록에 보여줄 환산 기준"""
         lines = [
+            "공통 수식 기반 추정 효율 · 직업별 패시브·버프 조건을 별도 보정하지 않아 실제 효율 및 외부 환산 결과와 다를 수 있습니다",
             f"잠재 유효 스탯% 환산 · 고정 스탯 1 = {self.pct_per_flat:.3g}%, 공/마 1 = {self.pct_per_attack:.3g}%, "
             f"크리티컬 데미지 1% = {self.pct_per_crit_damage:.3g}%, 쿨감 1초 = {POTENTIAL.cooldown_per_second:g}%"
         ]
+        optimization = self.sources.get("preset_optimization")
+        if optimization:
+            selected = optimization["selected"]
+            labels = {"equipment": "장비", "hyper_stat": "하이퍼", "union": "유니온", "link": "링크", "ability": "어빌리티"}
+            lines.append("저장 프리셋 조합 최적화 · " + " / ".join(f"{labels[key]} {value if value != 'current' else '현재'}" for key, value in selected.items()))
+            lines.append(f"보스 방어율 {optimization['boss_defense_percent']:g}% 가정 · 실제 DPS가 아닌 스탯 비교 지수 · 조건부 가동률·쿨감·버프 지속시간은 미보정")
         if self.crit_rate is not None:
             lines.append(
                 f"크리티컬 확률 (현재 {self.crit_rate:g}%) · 1% = {self.pct_per_crit_rate:.3g}%, "
@@ -134,7 +144,18 @@ class StatContext:
         if self.basis == "reference":
             lines.append("캐릭터 스탯을 알 수 없어 기준 캐릭터 값으로 환산")
         elif self.basis == "estimated":
-            lines.append("심볼·하이퍼스탯 등 일부 조회에 실패해 %미적용 스탯을 레벨로 추정")
+            lines.append("일부 수치 또는 프리셋 효과는 추정값을 사용합니다")
+        if self.sources.get("attack_pct_basis") == "equipment_only":
+            lines.append("공/마% 복원은 장비·소울 옵션 기준 · API 최종 스탯에 포함된 스킬 효과는 그대로 사용하며 별도로 더하거나 빼지 않습니다")
+        if self.sources.get("equipment_basis") == "selected_preset":
+            if optimization:
+                lines.append("현재 API 스탯을 기준으로 선택한 저장 프리셋의 인식 가능한 효과 차이만 반영합니다")
+            elif self.sources.get("preset_projection") == "equipped":
+                lines.append("최적 프리셋과 현재 착용 장비가 같아 실제 API 스탯을 사용합니다")
+            else:
+                lines.append("최적 프리셋 추정 환산 · 장비와 잠재의 고정 주스탯·부스탯·공/마 차이 반영 (특수 직업·복수 부스탯·스킬 효과 등은 일부 미보정)")
+        if self.sources.get("set_projection_status") == "unresolved":
+            lines.append("세트 효과 차이 미보정 · 선택 프리셋을 실제 착용한 뒤 API 갱신 후 다시 조회하면 추정 오차를 줄일 수 있습니다")
         return lines
 
     def as_dict(self) -> dict:
@@ -147,6 +168,12 @@ class StatContext:
             "final_main": round(self.final_main),
             "final_sub": round(self.final_sub),
             "attack": round(self.attack),
+            "attack_multiplier": self.attack_multiplier,
+            "base_attack_estimate": round(self.attack / self.attack_multiplier),
+            "main_stat_percent": round((self.stat_pct - 1) * 100, 3),
+            "sub_stat_percent": round((self.sources["sub_multiplier"] - 1) * 100, 3) if "sub_multiplier" in self.sources else None,
+            "sub_base_estimate": round(self.sources["sub_base_estimate"]) if "sub_base_estimate" in self.sources else None,
+            "sub_exempt": self.sources.get("sub_exempt"),
             "crit_damage": self.crit_damage,
             "crit_rate": self.crit_rate,
             "pct_per_flat": round(self.pct_per_flat, 4),
@@ -182,7 +209,8 @@ def reference_context(char_class, main_stat: str) -> StatContext:
 def _all_stat_factor(context: StatContext) -> float:
     """올스탯 N 의 배율: 주스탯 1 + 부스탯 수 × sub_stat_ratio. 데몬어벤져의 HP 는 올스탯에 들지 않습니다."""
     main_share = 0.0 if context.main_stat == "hp" else 1.0
-    return main_share + POTENTIAL.sub_stat_ratio * len(context.sub_names)
+    ratio = context.sub_pct_ratio if context.sub_pct_ratio is not None else POTENTIAL.sub_stat_ratio
+    return main_share + ratio * len(context.sub_names)
 
 
 def _stat_role(stat: str, context: StatContext) -> str | None:
@@ -197,6 +225,8 @@ def _stat_role(stat: str, context: StatContext) -> str | None:
 def convert_line(option: str, context: StatContext, char_level: int) -> tuple[float, str] | None:
     """한 줄을 (유효 스탯%, 환산 근거) 로 바꿉니다. 규칙이 없는 줄은 None 입니다."""
     ratio = POTENTIAL.sub_stat_ratio
+    pct_ratio = context.sub_pct_ratio if context.sub_pct_ratio is not None else ratio
+    flat_ratio = context.sub_flat_ratio if context.sub_flat_ratio is not None else ratio
 
     match = _PCT_STAT.match(option)
     if match:
@@ -212,7 +242,7 @@ def convert_line(option: str, context: StatContext, char_level: int) -> tuple[fl
         if role == "xenon":
             return value / 3, "제논 개별 스탯% ÷ 3"
         if role == "sub":
-            return value * ratio, f"부스탯% × {ratio:g}"
+            return value * pct_ratio, f"부스탯% × {pct_ratio:.4g}"
         return None
 
     match = _FLAT_STAT.match(option)
@@ -226,7 +256,7 @@ def convert_line(option: str, context: StatContext, char_level: int) -> tuple[fl
             return (value * per_flat, f"고정 HP × {per_flat:.3g}") if context.main_stat == "hp" else None
         role = _stat_role(stat, context)
         if role == "sub":
-            return value * ratio * per_flat, f"고정 부스탯 × {ratio:g} × {per_flat:.3g}"
+            return value * flat_ratio * per_flat, f"고정 부스탯 × {flat_ratio:.4g} × {per_flat:.3g}"
         if role is None:
             return None
         # 제논의 고정 개별 스탯은 세 스탯 합에 그대로 더해지므로 나누지 않습니다.
@@ -242,7 +272,7 @@ def convert_line(option: str, context: StatContext, char_level: int) -> tuple[fl
         flat_total = value * (level // interval)
         per_flat = context.pct_per_flat
         if role == "sub":
-            return flat_total * ratio * per_flat, f"{interval}레벨당 {value:g} → 고정 부스탯 {flat_total:g} × {ratio:g} × {per_flat:.3g}"
+            return flat_total * flat_ratio * per_flat, f"{interval}레벨당 {value:g} → 고정 부스탯 {flat_total:g} × {flat_ratio:.4g} × {per_flat:.3g}"
         return flat_total * per_flat, f"{interval}레벨당 {value:g} → 고정 {flat_total:g} × {per_flat:.3g}"
 
     match = _FLAT_ATTACK.match(option)
