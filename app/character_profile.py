@@ -1,4 +1,4 @@
-"""캐릭터 스탯 응답과 추가 조회(심볼·하이퍼스탯·유니온·어빌리티·링크)로 유효 스탯% 환산의 기준(StatContext)과 자본대 프로필을 만듭니다.
+"""캐릭터 스탯 응답과 추가 조회(심볼·하이퍼스탯·유니온·유니온 아티팩트·어빌리티·링크)로 유효 스탯% 환산의 기준(StatContext)과 자본대 프로필을 만듭니다.
 
 스탯 응답의 최종 주스탯 S 에는 %가 적용되지 않는 스탯 c 가 섞여 있으므로, 추가 조회에서 c 와 주스탯% 소스를 모아
 깡스탯 a = (S − c) ÷ b 로 되돌립니다. 심볼 조회가 없으면 레벨로 c 를 추정하고(basis = estimated), 스탯 응답 자체가 없으면
@@ -11,7 +11,7 @@ from app.calculator import final_stat_float, final_stat_value, get_potential_opt
 from app.potential import StatContext, is_archer, main_names, reference_context, secondary_names, stat_weight
 from app.scoring_config import POTENTIAL, SCORING
 
-EXTRA_KEYS = ("symbol", "hyper_stat", "union_raider", "ability", "link_skill")
+EXTRA_KEYS = ("symbol", "hyper_stat", "union_raider", "union_artifact", "ability", "link_skill")
 
 # 유니온 "STR, DEX, LUK 40 증가" · 하이퍼스탯 "민첩성 90 증가" · 어빌리티 "최대 HP 5% 증가" · 링크 "모든 능력치 10% 증가", "힘 15 민첩 15 ... 증가" 같은 효과 문구.
 # 스탯 이름 바로 뒤에 숫자가 와야 하므로 "HP가 30%인 몬스터" 나 "룬의 힘 지속시간" 은 읽지 않습니다.
@@ -73,6 +73,11 @@ def _union_texts(data) -> list:
     return list(data.get("union_raider_stat") or []) + list(data.get("union_occupied_stat") or [])
 
 
+def _artifact_texts(data) -> list:
+    """적용 중인 아티팩트 효과 합계("올스탯 150 증가", "최대 HP 3750, 최대 MP 3750 증가"). 만료된 크리스탈은 여기에 없습니다."""
+    return [entry.get("name") for entry in (data or {}).get("union_artifact_effect") or []]
+
+
 def _ability_texts(data) -> list:
     return [entry.get("ability_value") for entry in (data or {}).get("ability_info") or []]
 
@@ -126,11 +131,14 @@ def build_stat_context(char_class, main_stat: str, char_level: int, equipped_ite
         symbol = _symbol_stat(extras["symbol"], names)
         hyper_flat, hyper_pct = _hyper_stat(extras.get("hyper_stat"), names)
         union_flat, union_pct = _effect_stats(_union_texts(extras.get("union_raider")), names)
+        artifact_flat, artifact_pct = _effect_stats(_artifact_texts(extras.get("union_artifact")), names)
         ability_flat, ability_pct = _effect_stats(_ability_texts(extras.get("ability")), names)
         link_flat, link_pct = _effect_stats(_link_texts(extras.get("link_skill")), names)
-        exempt = symbol + hyper_flat + union_flat + ability_flat + link_flat
-        other_pct = hyper_pct + union_pct + ability_pct + link_pct
-        sources.update(symbol=symbol, hyper=hyper_flat, union=union_flat, ability=ability_flat, link=link_flat, other_pct=other_pct)
+        exempt = symbol + hyper_flat + union_flat + artifact_flat + ability_flat + link_flat
+        other_pct = hyper_pct + union_pct + artifact_pct + ability_pct + link_pct
+        sources.update(
+            symbol=symbol, hyper=hyper_flat, union=union_flat, artifact=artifact_flat, ability=ability_flat, link=link_flat, other_pct=other_pct
+        )
     if missing:
         sources["missing"] = missing
 

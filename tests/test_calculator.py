@@ -175,6 +175,7 @@ class PotentialOptionTests(unittest.TestCase):
                 ],
             },
             "union_raider": {"union_raider_stat": ["INT 80 증가", "STR, DEX, LUK 40 증가"], "union_occupied_stat": ["INT 25 증가", "최대 HP 500 증가"]},
+            "union_artifact": {"union_artifact_effect": [{"name": "올스탯 150 증가", "level": 10}, {"name": "최대 HP 3750, 최대 MP 3750 증가", "level": 5}]},
             "ability": {"ability_info": [{"ability_value": "INT 20 증가"}]},
             "link_skill": {"character_link_skill": [{"skill_effect": "모든 능력치 10% 증가"}, {"skill_effect": "HP 15% 증가"}]},
         }
@@ -183,9 +184,9 @@ class PotentialOptionTests(unittest.TestCase):
         context = profile["context"]
 
         self.assertEqual((profile["tier"], profile["add_target_multiplier"]), ("중자본", 0.87))
-        self.assertEqual((context.basis, context.exempt_stat), ("stat", 4425.0))  # c = 심볼 4000 + 하이퍼 300 + 유니온 105 + 어빌리티 20
+        self.assertEqual((context.basis, context.exempt_stat), ("stat", 4575.0))  # c = 심볼 4000 + 하이퍼 300 + 유니온 105 + 아티팩트 150 + 어빌리티 20
         self.assertAlmostEqual(context.stat_pct, 1.38, places=9)  # b = 1 + (장비 28 + 링크 10) ÷ 100
-        self.assertAlmostEqual(context.base_stat, (40000 - 4425) / 1.38, places=6)  # a = (S − c) ÷ b
+        self.assertAlmostEqual(context.base_stat, (40000 - 4575) / 1.38, places=6)  # a = (S − c) ÷ b
         self.assertAlmostEqual(context.pct_per_flat, 100 * 1.38 / context.base_stat, places=9)
         self.assertAlmostEqual(context.pct_per_attack, 100 * (4 * 40000 + 4000) / (4 * context.base_stat * 2000), places=9)
         self.assertAlmostEqual(context.pct_per_crit_damage, (4 * 40000 + 4000) / (2.20 * 4 * context.base_stat), places=9)

@@ -21,6 +21,7 @@ STAT_EXTRA_ENDPOINTS = {
     "symbol": "/character/symbol-equipment",
     "hyper_stat": "/character/hyper-stat",
     "union_raider": "/user/union-raider",
+    "union_artifact": "/user/union-artifact",
     "ability": "/character/ability",
     "link_skill": "/character/link-skill",
 }
