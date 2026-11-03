@@ -3,6 +3,7 @@ import re
 from dataclasses import replace
 
 from app.calculator import get_potential_options
+from app.set_projection import analyze_sets, apply_sets
 
 
 def active_items(items):
@@ -39,6 +40,7 @@ def project_context(current, selected, equipped_items, selected_items, level, se
     equipped_items, selected_items = active_items(equipped_items), active_items(selected_items)
     # Identical equipment must retain actual API values, rather than manufacture a projection.
     same = same_preset or equipped_items == selected_items
+    set_report = analyze_sets(equipped_items, equipped_items if same else selected_items, set_data)
     names = lambda items: sorted((item.get("item_equipment_slot", ""), item.get("item_name", "")) for item in items)
     set_status = "unchanged" if same or names(equipped_items) == names(selected_items) else "unresolved"
     sources = {**selected.sources, "set_projection_status": set_status,
@@ -46,7 +48,7 @@ def project_context(current, selected, equipped_items, selected_items, level, se
                "preset_projection": "equipped" if same else "equipment_and_potential",
                "equipped_gear_pct": current.sources.get("gear_pct")}
     if same:
-        return replace(current, sources={**sources, **current.sources})
+        return apply_sets(replace(current, sources={**sources, **current.sources}), set_report)
     if current.main_stat not in ("str", "dex", "int", "luk"):
         return replace(current, basis="estimated", sources={**sources, "preset_projection": "unsupported_special_class"})
     main = flat_delta(equipped_items, selected_items, current.main_stat, current.main_label, level)
@@ -75,6 +77,7 @@ def project_context(current, selected, equipped_items, selected_items, level, se
         sources["sub_projection_unmodeled"] = True
     sources.update(preset_main_flat_delta=main["total"], preset_main_flat_breakdown=main,
                    preset_attack_flat_delta=attack_delta)
-    return replace(selected, base_stat=base, final_main=base * selected.stat_pct + current.exempt_stat,
+    projected = replace(selected, base_stat=base, final_main=base * selected.stat_pct + current.exempt_stat,
                    exempt_stat=current.exempt_stat, final_sub=final_sub, attack=attack,
                    sub_pct_ratio=sub_ratio, basis="estimated", sources=sources)
+    return apply_sets(projected, set_report)

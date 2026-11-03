@@ -135,7 +135,7 @@ def optimize_presets(char_class, main_stat, level, item_data, stat_data, extras,
             unavailable.append(key)
         dimensions.append((key, options))
     current_no = item_data.get("preset_no")
-    equipment_options = [(current_no, equipped, current)]
+    equipment_options = [(current_no, equipped, project_context(current, current, equipped, equipped, level, extras.get("set_effect"), same_preset=True))]
     for n in range(1, 4):
         items = active_items(item_data.get(f"item_equipment_preset_{n}") or [])
         if not items or str(n) == str(current_no):
@@ -148,6 +148,7 @@ def optimize_presets(char_class, main_stat, level, item_data, stat_data, extras,
     best, count = None, 0
     for equipment_no, items, equipment_context in equipment_options:
         equipment = equipment_effects(items, current)
+        set_delta = equipment_context.sources.get("set_projection", {}).get("delta", {})
         for combination in itertools.product(*(options for _, options in dimensions)):
             count += 1
             delta = {key: sum(option[1][key] - old[key] for option, old in zip(combination, current_effects)) for key in FIELDS}
@@ -161,8 +162,8 @@ def optimize_presets(char_class, main_stat, level, item_data, stat_data, extras,
             sub_exempt = equipment_context.sources.get("sub_exempt", 0) + delta["sub_exempt"]
             if min(base, mult, attack_mult, attack, sub_mult) <= 0:
                 continue
-            crit = current.crit_damage + equipment["crit"] - equip_current["crit"] + delta["crit"]
-            rate = current.crit_rate + equipment["rate"] - equip_current["rate"] + delta["rate"]
+            crit = equipment_context.crit_damage + equipment["crit"] - equip_current["crit"] + delta["crit"]
+            rate = equipment_context.crit_rate + equipment["rate"] - equip_current["rate"] + delta["rate"]
             candidate = replace(equipment_context, base_stat=base, stat_pct=mult, exempt_stat=exempt,
                 final_main=base * mult + exempt, final_sub=max(0, sub_base * sub_mult + sub_exempt),
                 attack=attack, attack_multiplier=attack_mult, crit_damage=crit, crit_rate=rate,
@@ -170,9 +171,9 @@ def optimize_presets(char_class, main_stat, level, item_data, stat_data, extras,
                 sources={**equipment_context.sources, "sub_base_estimate": sub_base, "sub_multiplier": sub_mult, "sub_exempt": sub_exempt})
             old_ied = math.prod([equip_current["ied"], *(old["ied"] for old in current_effects)])
             new_ied = math.prod([equipment["ied"], *(option[1]["ied"] for option in combination)])
-            remaining = min(1, max(0, baseline_remaining * new_ied / old_ied)) if old_ied > 0 else baseline_remaining
-            new_damage = damage + equipment["damage"] - equip_current["damage"] + delta["damage"]
-            new_boss = boss + equipment["boss"] - equip_current["boss"] + delta["boss"]
+            remaining = min(1, max(0, baseline_remaining * new_ied / old_ied * set_delta.get("ied_ratio", 1))) if old_ied > 0 else baseline_remaining
+            new_damage = damage + equipment["damage"] - equip_current["damage"] + delta["damage"] + set_delta.get("damage", 0)
+            new_boss = boss + equipment["boss"] - equip_current["boss"] + delta["boss"] + set_delta.get("boss", 0)
             score = boss_index(candidate, new_damage, new_boss, remaining)
             if not math.isfinite(score) or best and score <= best[0] * (1 + 1e-12):
                 continue
@@ -187,7 +188,7 @@ def optimize_presets(char_class, main_stat, level, item_data, stat_data, extras,
         "selected": ids, "combinations_evaluated": count, "unavailable": unavailable,
         "relative_index": round(score / baseline_score, 6) if baseline_score > 0 else None,
         "damage": new_damage, "boss_damage": new_boss, "ignore_defense": (1 - remaining) * 100,
-        "unmodeled_effects": ignored,
-        "limitations": ["지원 스탯 기준 최적 조합이며 실제 DPS 최적을 보장하지 않습니다", "조건부 효과 가동률·쿨감·버프 지속시간 미보정", "장비 변경 시 세트 효과 차이 미보정", "아티팩트·헥사·직업 스킬은 현재 상태 유지"]}
+        "unmodeled_effects": ignored, "set_projection": context.sources.get("set_projection"),
+        "limitations": ["지원 스탯 기준 최적 조합이며 실제 DPS 최적을 보장하지 않습니다", "조건부 효과 가동률·쿨감·버프 지속시간 미보정", "검증된 세트만 보정하며 미등록·불일치 규칙은 미보정", "아티팩트·헥사·직업 스킬은 현재 상태 유지"]}
     context = replace(context, basis="estimated", sources={**context.sources, "preset_optimization": metadata})
     return equipment_no, items, context, metadata

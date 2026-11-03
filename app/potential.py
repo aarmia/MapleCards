@@ -155,7 +155,13 @@ class StatContext:
             else:
                 lines.append("최적 프리셋 추정 환산 · 장비와 잠재의 고정 주스탯·부스탯·공/마 차이 반영 (특수 직업·복수 부스탯·스킬 효과 등은 일부 미보정)")
         if self.sources.get("set_projection_status") == "unresolved":
-            lines.append("세트 효과 차이 미보정 · 선택 프리셋을 실제 착용한 뒤 API 갱신 후 다시 조회하면 추정 오차를 줄일 수 있습니다")
+            reasons = self.sources.get("set_projection", {}).get("reasons", [])
+            lines.append("세트 효과 차이 미보정 · " + (" / ".join(reasons) if reasons else "선택 프리셋을 실제 착용한 뒤 다시 조회해 주세요"))
+        elif self.sources.get("set_projection_status") == "applied":
+            report = self.sources["set_projection"]
+            lines.append("API 대조 통과 후 세트 보정 · " + " / ".join(f"{x['set']} {x['before']}→{x['after']}" for x in report["changes"]))
+        elif self.sources.get("set_projection_status") == "verified_unchanged":
+            lines.append("현재 장비 세트 수·활성 효과 API 대조 통과 · 추가 세트 가산 없음")
         return lines
 
     def as_dict(self) -> dict:
