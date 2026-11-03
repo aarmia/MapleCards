@@ -79,7 +79,10 @@ def _int_keyed(table: dict, source: str) -> dict:
 
 
 _FALLBACK = {"min_level": NUMBER, "slope": NUMBER, "offset": NUMBER}
-_CLASSES_SPEC = {"main_stat": dict, "special": dict, "switchable": dict, "default": str, "secondary_stat": dict, "secondary_stat_overrides": dict}
+_CLASSES_SPEC = {
+    "main_stat": dict, "special": dict, "switchable": dict, "default": str,
+    "secondary_stat": dict, "secondary_stat_overrides": dict, "archer_classes": list,
+}
 _SCORING_SPEC = {
     "add_option": {
         "grade": {k: NUMBER for k in ("all_stat_pct_default", "all_stat_pct_all_stat", "attack_default", "attack_all_stat", "attack_hp", "magic_int")},
@@ -98,11 +101,12 @@ _SCORING_SPEC = {
         "attack_flat": NUMBER, "stat_flat": NUMBER,
         "conversion": {
             "enabled": bool, "baseline_stat_pct": NUMBER, "stat_flat_min": NUMBER, "stat_flat_max": NUMBER,
-            "attack_flat_min": NUMBER, "attack_flat_max": NUMBER,
+            "attack_flat_min": NUMBER, "attack_flat_max": NUMBER, "crit_base": NUMBER, "crit_min": NUMBER, "crit_max": NUMBER,
         },
         "demon_avenger_additional": NUMBER, "ignored_keywords": list, "stat_keywords": list, "relevant_keywords": dict,
         "crit_damage": {"single": NUMBER, "multi": NUMBER, "additional": NUMBER},
         "xenon": {k: NUMBER for k in ("level_stat_divisor", "stat_pct_divisor", "attack_flat", "stat_flat", "multiplier")},
+        "crit_rate": {"zero_threshold": NUMBER, "reinforce_ratio": NUMBER, "reinforce_uptime": NUMBER},
     },
     "weapon": {
         "add": {k: NUMBER for k in ("boss_damage", "damage", "all_stat", "main_stat")},

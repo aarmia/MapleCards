@@ -18,7 +18,8 @@ class ScoringConfigTests(unittest.TestCase):
         classes, scoring, grades = load_classes(), load_scoring(), load_grades()
 
         self.assertIn("히어로", classes.main_stat.str)
-        self.assertEqual(scoring.add_option.targets.default[250], 186)
+        targets = scoring.add_option.targets.default
+        self.assertTrue(targets[160] < targets[200] < targets[250])  # 레벨 키가 정수로 바뀌고 값은 밸런스 수치라 순서만 확인
         self.assertEqual(scoring.weights.potential, 3.3)
         self.assertEqual(grades.item_grade[0], [360, "SSS+"])
         mins = [entry["min"] for entry in grades.overall]

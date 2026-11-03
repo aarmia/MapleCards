@@ -11,6 +11,7 @@ from app.analyzer import (
     unsupported_registry,
 )
 from app.calculator import (
+    analyze_potential_score,
     calculate_potential_score,
     get_main_stat,
     get_potential_options,
@@ -175,6 +176,7 @@ class PotentialOptionTests(unittest.TestCase):
                 {"stat_name": "INT", "stat_value": "20000"},
                 {"stat_name": "LUK", "stat_value": "4000"},
                 {"stat_name": "마력", "stat_value": "1200"},
+                {"stat_name": "크리티컬 데미지", "stat_value": "85.00"},
                 {"stat_name": "전투력", "stat_value": "50000000"},
             ]
         }
@@ -188,7 +190,38 @@ class PotentialOptionTests(unittest.TestCase):
         # b = 1.48 → 고정 스탯 1 = 100 × 1.48² ÷ 20000, 마력 1 = 25 × 1.48 × (80000 + 4000) ÷ (20000 × 1200)
         self.assertAlmostEqual(profile["conversion"].stat_flat, 0.0110, places=3)
         self.assertAlmostEqual(profile["conversion"].attack_flat, 0.1295, places=3)
+        self.assertAlmostEqual(profile["conversion"].crit_damage, 1.48 / 2.20, places=3)  # b ÷ (1.35 + 0.85)
         self.assertIsNone(build_character_profile("제논", "all_stat", [item], stats)["conversion"])
+
+    def test_crit_rate_lines_follow_current_crit_rate_and_archer_bonus(self):
+        def stats(crit_rate):
+            return {
+                "final_stat": [
+                    {"stat_name": "DEX", "stat_value": "20000"},
+                    {"stat_name": "STR", "stat_value": "4000"},
+                    {"stat_name": "공격력", "stat_value": "1200"},
+                    {"stat_name": "크리티컬 데미지", "stat_value": "85.00"},
+                    {"stat_name": "크리티컬 확률", "stat_value": crit_rate},
+                    {"stat_name": "전투력", "stat_value": "50000000"},
+                ]
+            }
+
+        item = dict(self.challenger_top)
+        item["potential_option_1"] = "크리티컬 확률 +9%"
+        item["potential_option_2"] = None
+
+        def points(class_name, crit_rate):
+            profile = build_character_profile(class_name, "dex", [item], stats(crit_rate))
+            analysis = analyze_potential_score(item, "potential", class_name, 285, main_stat="dex", conversion=profile["conversion"])
+            return next(entry["value"] for entry in analysis["recognized"] if "크리티컬 확률" in entry["option"]), profile
+
+        capped, _ = points("캡틴", "95.00")  # 90% 이상이면 0 이지만 미지원으로 남지 않음
+        self.assertEqual(capped, 0)
+        below, profile = points("캡틴", "80.00")  # 100% 까지 20% 여유 → 9% 전부 유효
+        self.assertAlmostEqual(below, round(9 * profile["conversion"].crit_rate_value, 2), places=2)
+        archer, profile = points("보우마스터", "100.00")  # 궁수는 초과분 9% 가 크리티컬 리인포스 가치
+        self.assertAlmostEqual(archer, round(9 * 0.5 * 0.25 * profile["conversion"].crit_damage, 2), places=2)
+        self.assertEqual(points("캡틴", "100.00")[1]["conversion"].crit_excess_value, 0.0)
 
     def test_level_stat_line_scales_with_character_level(self):
         item = dict(self.challenger_top)

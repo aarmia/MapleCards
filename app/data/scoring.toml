@@ -11,8 +11,9 @@ attack_hp = 15                # 데몬어벤져 (최대 HP + 공격력 × 15)
 magic_int = 3                 # INT 직업은 마력 × 3
 
 [add_option.targets]          # 아이템 레벨별 목표 급수. 표에 없는 레벨은 fallback 식(level × slope + offset)을 쓰고, min_level 미만이면 100점 처리
-default = { 250 = 186, 200 = 162, 160 = 144, 150 = 132, 140 = 126, 135 = 123, 130 = 120 }
-default_fallback = { min_level = 100, slope = 0.6, offset = 42 }
+# 기준 자본대(고자본 3~5억)의 목표. 다른 자본대는 add_option.tiers 의 배율을 곱합니다.
+default = { 250 = 180, 200 = 165, 160 = 150, 150 = 138, 140 = 131, 135 = 128, 130 = 125 }
+default_fallback = { min_level = 100, slope = 0.375, offset = 90 }
 xenon = { 250 = 300, 200 = 265, 160 = 240, 150 = 220 }
 xenon_fallback = { min_level = 100, slope = 1.2, offset = 40 }
 demon_avenger = { 250 = 4200, 200 = 3600, 160 = 2880, 150 = 2700 }
@@ -27,7 +28,7 @@ above = { mult = 0.5, decay = 0.9 }
 below = { mult = 1.2, decay = 1.05, cap = 3.0 }
 
 [add_option.tiers]            # 캐릭터별 기준: 전투력으로 자본대를 나눠 목표 급수에 배율을 곱합니다. [전투력 하한, 이름, 배율], 하한 내림차순 첫 일치
-bands = [[300000000, "초고자본", 1.0], [100000000, "고자본", 0.94], [30000000, "중자본", 0.87], [0, "저자본", 0.80]]
+bands = [[1000000000, "랭커", 1.10], [500000000, "초고자본", 1.05], [300000000, "고자본", 1.0], [100000000, "중고자본", 0.93], [30000000, "중자본", 0.87], [0, "저자본", 0.80]]
 
 # ── 잠재능력 (방어구·장신구) ──────────────────────────────
 [potential]
@@ -66,6 +67,16 @@ stat_flat_min = 0.01           # 최상위 스펙(주스탯 10만, 주스탯% 30
 stat_flat_max = 0.15
 attack_flat_min = 0.02         # 최상위 스펙(공격력 1.5만)에서 약 0.03
 attack_flat_max = 0.60
+# 크리티컬 데미지 1% 의 가치 = b ÷ (crit_base + 캐릭터 크뎀 총합 ÷ 100). 크뎀이 높을수록 1% 의 가치가 줄어듭니다. 스탯 응답에 크뎀이 없으면 crit_damage 고정값
+crit_base = 1.35
+crit_min = 0.5
+crit_max = 3.0
+
+[potential.crit_rate]         # 크리티컬 확률 옵션. 캐릭터 크확이 zero_threshold(%) 이상이면 100% 까지 채우는 부분의 가치는 0 으로 봅니다.
+zero_threshold = 90
+# 궁수 공용 5차 크리티컬 리인포스: 30초 동안 크확 전체의 (20 + 레벨)% 만큼 크뎀 증가(30레벨 50%), 재사용 120초. 100% 초과분 1% = ratio × uptime 만큼의 크뎀
+reinforce_ratio = 0.5
+reinforce_uptime = 0.25
 
 [potential.relevant_keywords]  # 주스탯별로 점수와 관련 있는 스탯 키워드
 STR = ["STR", "공격력"]

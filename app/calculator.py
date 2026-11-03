@@ -11,6 +11,10 @@ class Conversion:
 
     stat_flat: float  # 고정 주스탯 1 당 %
     attack_flat: float  # 공격력·마력 1 당 %
+    crit_damage: float | None = None  # 크리티컬 데미지 1% 당 %. None 이면 고정 계수
+    crit_rate_total: float | None = None  # 캐릭터의 현재 크리티컬 확률(%). None 이면 크확 옵션은 미지원으로 남김
+    crit_rate_value: float = 0.0  # 100% 까지 채우는 크확 1% 당 %. 캐릭터 크확이 기준 이상이면 0
+    crit_excess_value: float = 0.0  # 100% 를 넘는 크확 1% 당 %. 궁수만 0 보다 큼
 
 
 def get_potential_options(item_data: dict, potential_type: str) -> list[str]:
@@ -61,15 +65,21 @@ def _score_detail(score: float, recognized: list[dict], options: list[str], main
     ignored, unsupported = classify_unrecognized(options, recognized, main_stat)
     return {"score": round(score, 2), "recognized": recognized, "ignored": ignored, "unsupported": unsupported}
 
-def final_stat_value(stat_data: dict, stat_name: str) -> int:
-    """스탯 응답(final_stat)에서 stat_name 값을 정수로 꺼냅니다. 없거나 숫자가 아니면 0 입니다."""
+def final_stat_float(stat_data: dict, stat_name: str) -> float | None:
+    """스탯 응답(final_stat)에서 stat_name 값을 실수로 꺼냅니다. 항목이 없거나 숫자가 아니면 None 입니다."""
     for stat in (stat_data or {}).get("final_stat") or []:
         if stat.get("stat_name") == stat_name:
             try:
-                return int(float(str(stat.get("stat_value", "0")).replace(",", "")))
+                return float(str(stat.get("stat_value", "0")).replace(",", ""))
             except (TypeError, ValueError):
-                return 0
-    return 0
+                return None
+    return None
+
+
+def final_stat_value(stat_data: dict, stat_name: str) -> int:
+    """스탯 응답(final_stat)에서 stat_name 값을 정수로 꺼냅니다. 없거나 숫자가 아니면 0 입니다."""
+    value = final_stat_float(stat_data, stat_name)
+    return int(value) if value is not None else 0
 
 
 def get_main_stat(class_name: str, stat_data: dict = None) -> str:
@@ -223,6 +233,25 @@ def analyze_potential_score(
                 recognized.append({"option": opt, "value": round(points, 2), "rule": f"초당 {config.cooldown_per_second:g}"})
             continue
 
+        if "크리티컬 확률" in opt:
+            val_match = re.search(r'\+(\d+)%', opt)
+            # 캐릭터의 현재 크확을 알 때만 평가합니다. 모르면 미지원으로 남겨 로그에 집계됩니다.
+            if val_match and conversion is not None and conversion.crit_rate_total is not None:
+                val = int(val_match.group(1))
+                current = conversion.crit_rate_total
+                useful = max(0.0, min(val, 100 - current))  # 100% 까지 채우는 부분
+                excess = max(0.0, min(val, current + val - 100))  # 100% 를 넘는 부분. 궁수의 크리티컬 리인포스만 가치가 있음
+                points = useful * conversion.crit_rate_value + excess * conversion.crit_excess_value
+                parts = []
+                if useful:
+                    parts.append(f"크확 {useful:g}% × {conversion.crit_rate_value:.3g}")
+                if excess:
+                    parts.append(f"초과 {excess:g}% × {conversion.crit_excess_value:.3g}")
+                rule = " + ".join(parts) if parts else "크확 100% 달성"
+                total_special_score += points
+                recognized.append({"option": opt, "value": round(points, 2), "rule": rule})
+            continue
+
         if main_stat == "ALL_STAT":
             xenon = config.xenon
             if "올스탯" in opt and "%" in opt:
@@ -287,7 +316,12 @@ def analyze_potential_score(
 
     cd_points = 0
     crit = config.crit_damage
-    if potential_type == "potential":
+    crit_rule = "크리티컬 데미지 환산"
+    if conversion and conversion.crit_damage:
+        # 캐릭터의 크뎀 총합에 따른 체감 감소를 반영한 계수. 줄 수나 윗잠·에디 구분 없이 1% 당 같은 가치입니다.
+        cd_points = crit_val_sum * conversion.crit_damage
+        crit_rule = f"크리티컬 데미지 × {conversion.crit_damage:.3g}"
+    elif potential_type == "potential":
         if crit_count == 1:
             cd_points = crit_val_sum * crit.single
         elif crit_count >= 2:
@@ -298,7 +332,7 @@ def analyze_potential_score(
     total_special_score += cd_points
     if cd_points:
         for option in crit_options:
-            recognized.append({"option": option, "value": round(cd_points / len(crit_options), 2), "rule": "크리티컬 데미지 환산"})
+            recognized.append({"option": option, "value": round(cd_points / len(crit_options), 2), "rule": crit_rule})
 
     if main_stat == "ALL_STAT":
         total_stat_score *= config.xenon.multiplier

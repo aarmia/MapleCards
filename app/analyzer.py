@@ -10,6 +10,7 @@ from app.calculator import (
     calculate_item_score,
     calculate_potential_score,
     calculate_weapon_add_option_score,
+    final_stat_float,
     final_stat_value,
     get_advanced_add_score,
     get_main_stat,
@@ -240,10 +241,32 @@ def build_character_profile(char_class, main_stat, equipped_items, stat_data) ->
     stat_pct = 1 + (pct_total + conversion_config.baseline_stat_pct) / 100
     stat_flat = 100 * stat_pct**2 / main_total
     attack_flat = 25 * stat_pct * (4 * main_total + secondary_total) / (main_total * attack_total)
+    crit_total = final_stat_float(stat_data, "크리티컬 데미지")
+    crit_damage = None
+    if crit_total is not None:
+        raw_crit = stat_pct / (conversion_config.crit_base + crit_total / 100)
+        crit_damage = round(min(conversion_config.crit_max, max(conversion_config.crit_min, raw_crit)), 4)
+
+    # 크리티컬 확률: 100% 까지 채우는 1% 의 가치는 b × (0.35 + 크뎀) ÷ (1 + 크확 × (0.35 + 크뎀)). 기준 이상이면 0.
+    # 궁수는 크리티컬 리인포스로 100% 초과분도 ratio × uptime 만큼의 크뎀 가치를 가집니다.
+    crit_rate_config = SCORING.potential.crit_rate
+    crit_rate_total = final_stat_float(stat_data, "크리티컬 확률")
+    crit_rate_value = crit_excess_value = 0.0
+    if crit_rate_total is not None and crit_total is not None:
+        crit_bonus = conversion_config.crit_base - 1 + crit_total / 100
+        if crit_rate_total < crit_rate_config.zero_threshold:
+            crit_rate_value = round(stat_pct * crit_bonus / (1 + (crit_rate_total / 100) * crit_bonus), 4)
+        if class_key in CLASSES.archer_classes and crit_damage:
+            crit_excess_value = round(crit_rate_config.reinforce_ratio * crit_rate_config.reinforce_uptime * crit_damage, 4)
+
     profile.update(
         conversion=Conversion(
             stat_flat=round(min(conversion_config.stat_flat_max, max(conversion_config.stat_flat_min, stat_flat)), 4),
             attack_flat=round(min(conversion_config.attack_flat_max, max(conversion_config.attack_flat_min, attack_flat)), 4),
+            crit_damage=crit_damage,
+            crit_rate_total=crit_rate_total,
+            crit_rate_value=crit_rate_value,
+            crit_excess_value=crit_excess_value,
         ),
         stat_pct_total=pct_total,
         attack_total=attack_total,
@@ -274,6 +297,12 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             notes.append(f"추옵 목표 급수 × {target_multiplier:g} ({profile['tier']})")
         if conversion:
             notes.append(f"고정 옵션 환산 · 공/마 1 = 주스탯 {conversion.attack_flat:.3g}%, 고정 스탯 1 = {conversion.stat_flat:.3g}%")
+        if conversion and conversion.crit_damage:
+            notes.append(f"크리티컬 데미지 1% = 주스탯 {conversion.crit_damage:.3g}%")
+        if conversion and conversion.crit_rate_total is not None:
+            notes.append(
+                f"크리티컬 확률 (현재 {conversion.crit_rate_total:g}%) · 1% = {conversion.crit_rate_value:.3g}%, 100% 초과 1% = {conversion.crit_excess_value:.3g}%"
+            )
         return notes
 
     for item in items:
@@ -519,7 +548,14 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
         "profile": {
             **{key: value for key, value in profile.items() if key != "conversion"},
             "conversion": (
-                {"stat_flat": profile["conversion"].stat_flat, "attack_flat": profile["conversion"].attack_flat}
+                {
+                    "stat_flat": profile["conversion"].stat_flat,
+                    "attack_flat": profile["conversion"].attack_flat,
+                    "crit_damage": profile["conversion"].crit_damage,
+                    "crit_rate_total": profile["conversion"].crit_rate_total,
+                    "crit_rate_value": profile["conversion"].crit_rate_value,
+                    "crit_excess_value": profile["conversion"].crit_excess_value,
+                }
                 if profile["conversion"]
                 else None
             ),
