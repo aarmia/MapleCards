@@ -114,7 +114,10 @@ _SCORING_SPEC = {
     },
     "starforce": {
         **{k: NUMBER for k in ("reference_level", "level_weight_divisor", "base_star", "over_star_log_weight")},
-        "gains": {"stat_per_star_1_5": NUMBER, "stat_per_star_6_15": NUMBER, "stat_per_star_16_22": dict, "attack_16_22": dict},
+        "gains": {
+            "stat_per_star_1_5": NUMBER, "stat_per_star_6_15": NUMBER, "stat_per_star_16_22": dict, "attack_16_22": dict,
+            "over_22_attack_step": NUMBER, "max_star": NUMBER,
+        },
     },
     "weights": {k: NUMBER for k in ("potential", "additional", "superior_star", "weapon_add", "fixed_secondary_emblem")},
     "noljang": {k: NUMBER for k in ("star_min", "star_max", "max_level", "etc_stat_strong", "etc_attack_strong", "etc_stat_weak", "etc_attack_weak")},
