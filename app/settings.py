@@ -49,6 +49,11 @@ class Settings:
     log_level: str = "INFO"
     # 미지원 옵션 집계 요약(unsupported_options_summary)을 남기는 주기(초).
     unsupported_summary_interval: float = 3600.0
+    # IP 당 /check-items 허용 건수. 사람은 닿지 않고 스크립트만 막는 수치. 0 이면 그 창은 끕니다.
+    rate_limit_per_10min: int = 150
+    rate_limit_per_hour: int = 600
+    # X-Forwarded-For 에서 클라이언트 IP 로 쓸 위치. 프록시가 뒤에 붙이므로 기본 last.
+    client_ip_xff_position: str = "last"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -65,4 +70,7 @@ class Settings:
             unsupported_summary_interval=_read(
                 "UNSUPPORTED_SUMMARY_INTERVAL", defaults.unsupported_summary_interval, float, 10.0
             ),
+            rate_limit_per_10min=_read("RATE_LIMIT_PER_10MIN", defaults.rate_limit_per_10min, int, 0),
+            rate_limit_per_hour=_read("RATE_LIMIT_PER_HOUR", defaults.rate_limit_per_hour, int, 0),
+            client_ip_xff_position=_read_choice("CLIENT_IP_XFF_POSITION", defaults.client_ip_xff_position, ("last", "first")),
         )

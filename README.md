@@ -29,6 +29,7 @@
 ### 4. 서버 안정성 및 배포 최적화
 * **동시 진단 제한과 대기열**: 동시에 처리하는 진단 수를 제한(asyncio Semaphore)하고, 초과 요청은 대기열에서 순서를 기다립니다. 대기열 상한과 대기 타임아웃을 넘으면 503과 Retry-After로 안내하고 화면이 한 번 자동으로 다시 시도합니다. 대기 중 탭을 닫은 요청은 Nexon API를 호출하지 않습니다.
 * **진행 상태 조회**: `/request-status/{request_id}`로 대기 순번과 처리 단계(캐릭터 확인 → 장비 조회 → 결과 생성)를 폴링하여 화면에 표시합니다.
+* **IP 레이트리밋**: IP당 진단 요청을 10분 150건, 1시간 600건으로 제한합니다. 사람은 닿지 않는 수치이며 스크립트 남용만 막습니다.
 * **오류 매핑**: 넥슨 API 오류 코드(OPENAPI000xx)를 본문에서 읽어 없는 캐릭터 / 키 오류 / 점검 / 호출량 초과를 구분하고, `{"error", "code", "retry_after"}` JSON과 HTTP 상태로 변환합니다. 화면은 메시지와 코드별 힌트를 보여줍니다.
 
 ---
@@ -66,6 +67,7 @@ app/
 ├── errors.py               # 사용자 응답용 예외 AppError (상태 · 메시지 · 코드 · Retry-After)
 ├── settings.py             # 환경 변수 운영 설정
 ├── logging_setup.py        # JSON 한 줄 로그 설정, 액세스 로그 끄기
+├── rate_limit.py           # IP 단위 슬라이딩 윈도우 제한, 클라이언트 IP 판별
 ├── analyzer.py             # 장비 평가, 가이드 문구, 총평, 최적 프리셋 선택, 진단 결과 조립(build_report)
 ├── calculator.py           # 점수 공식 (추가옵션, 잠재능력, 스타포스, 무기)
 ├── request_tracker.py      # 동시 진단 제한, 대기열 상한 · 타임아웃, 진행 상태 추적
@@ -141,6 +143,13 @@ gunicorn -w 1 -k uvicorn.workers.UvicornWorker app.main:app --timeout 120 --grac
 | `LOG_FORMAT` | Render에서 `json`, 그 외 `text` | `json`은 한 줄 JSON, `text`는 사람이 읽는 형식 |
 | `LOG_LEVEL` | `INFO` | DEBUG / INFO / WARNING / ERROR / CRITICAL |
 | `UNSUPPORTED_SUMMARY_INTERVAL` | `3600` | 미지원 옵션 집계 요약을 남기는 주기(초) |
+| `RATE_LIMIT_PER_10MIN` / `RATE_LIMIT_PER_HOUR` | `150` / `600` | IP당 `/check-items` 허용 건수. `0`이면 그 창은 끕니다 |
+| `CLIENT_IP_XFF_POSITION` | `last` | X-Forwarded-For에서 클라이언트 IP로 쓸 위치 (`last` / `first`) |
+
+### IP 레이트리밋
+`/check-items`에만 적용되고 진행 상태 폴링과 정적 파일은 세지 않습니다. 기본값은 사람이 닿을 수 없는 수치로, 스크립트만 막습니다. 국내 통신사 CGNAT처럼 한 IP를 여러 사람이 공유하는 경우를 고려해 메시지에 "같은 네트워크"를 명시하고 429와 `Retry-After`로 안내합니다. 제한에 걸린 요청은 세지 않으므로 기다리면 풀립니다.
+
+클라이언트 IP는 `CF-Connecting-IP`, `True-Client-IP`가 있으면 그 값을, 없으면 `X-Forwarded-For`의 **맨 오른쪽** 값을 씁니다. 맨 왼쪽 값은 클라이언트가 위조할 수 있기 때문입니다. 배포 환경에서 어느 헤더가 쓰였는지는 `diagnosis` 로그의 `ip_source`로 확인할 수 있고, `client_ip_hash`는 IP의 SHA-256 앞 12자리라 본인 IP를 같은 방식으로 해시해 비교하면 판별이 맞는지 검증할 수 있습니다.
 
 ### 로그
 서버 기동 시 루트 로거를 JSON 한 줄 형식으로 통일하고, 진행 상태 폴링까지 전부 찍던 uvicorn 액세스 로그는 끕니다. 대신 이벤트 단위로 남깁니다.
@@ -163,6 +172,7 @@ gunicorn -w 1 -k uvicorn.workers.UvicornWorker app.main:app --timeout 120 --grac
 | `OPENAPI00009` / `OPENAPI00010` / `OPENAPI00011` | 503 | 데이터 준비 중 · 게임 점검 · API 점검 |
 | `NEXON_TIMEOUT` / `NEXON_UNREACHABLE` | 504 / 502 | Nexon 응답 지연 · 연결 실패 |
 | `QUEUE_FULL` / `QUEUE_TIMEOUT` | 503 | 대기열 초과 · 대기 시간 초과. 화면이 Retry-After 뒤 1회 자동 재시도 |
+| `RATE_LIMITED` | 429 | 같은 IP에서 짧은 시간에 너무 많은 진단 요청 |
 
 ---
 

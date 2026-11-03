@@ -70,4 +70,7 @@ def configure_logging(log_format: str = "json", level: str = "INFO", stream=None
         access_logger.handlers.clear()
         access_logger.propagate = False
         access_logger.disabled = True
+    # httpx 는 요청마다 INFO 로 URL 전체(캐릭터 이름 포함)를 찍습니다. 진단 1건당 4줄의 소음이자 이름 노출이라 WARNING 부터만 남깁니다.
+    for name in ("httpx", "httpcore"):
+        logging.getLogger(name).setLevel(logging.WARNING)
     return handler

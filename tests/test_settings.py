@@ -16,6 +16,15 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual((settings.nexon_connect_timeout, settings.nexon_read_timeout), (3.0, 6.0))
         self.assertEqual((settings.log_format, settings.log_level), ("text", "INFO"))
         self.assertEqual(settings.unsupported_summary_interval, 3600.0)
+        self.assertEqual((settings.rate_limit_per_10min, settings.rate_limit_per_hour), (150, 600))
+        self.assertEqual(settings.client_ip_xff_position, "last")
+
+    def test_rate_limit_can_be_disabled_and_xff_position_chosen(self):
+        env = {"RATE_LIMIT_PER_10MIN": "0", "RATE_LIMIT_PER_HOUR": "0", "CLIENT_IP_XFF_POSITION": "FIRST"}
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings.from_env()
+        self.assertEqual((settings.rate_limit_per_10min, settings.rate_limit_per_hour), (0, 0))
+        self.assertEqual(settings.client_ip_xff_position, "first")
 
     def test_log_format_defaults_to_json_on_render(self):
         with patch.dict(os.environ, {"RENDER": "true"}, clear=True):

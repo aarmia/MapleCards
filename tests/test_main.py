@@ -8,6 +8,7 @@ from unittest.mock import patch
 import httpx
 
 from app.main import APP_JS_VERSION, SITE_URL, app
+from app.rate_limit import SlidingWindowRateLimiter
 from app.request_tracker import DiagnosticRequestTracker
 from app.scraper import NexonAPIError
 
@@ -211,6 +212,32 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body["code"], "QUEUE_FULL")
         self.assertGreaterEqual(body["retry_after"], 2)
         self.assertEqual(response.headers["retry-after"], str(body["retry_after"]))
+
+    async def test_rate_limited_ip_gets_429_without_touching_nexon(self):
+        fake_api = ConcurrentNexonAPI()
+        limiter = SlidingWindowRateLimiter([(1, 600.0)])
+        transport = httpx.ASGITransport(app=app)
+
+        with patch("app.main.nexon_api", fake_api), patch("app.main.rate_limiter", limiter):
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                first = await client.get("/check-items/테스트", headers={"X-Forwarded-For": "198.51.100.7, 203.0.113.9"})
+                with self.assertLogs("app.main", level="WARNING") as logs:
+                    second = await client.get("/check-items/테스트", headers={"X-Forwarded-For": "203.0.113.9"})
+                # 다른 IP 는 영향을 받지 않습니다.
+                other = await client.get("/check-items/테스트", headers={"X-Forwarded-For": "203.0.113.10"})
+
+        self.assertEqual((first.status_code, other.status_code), (200, 200))
+        self.assertEqual(second.status_code, 429)
+        body = second.json()
+        self.assertEqual(body["code"], "RATE_LIMITED")
+        self.assertEqual(response_retry := int(second.headers["retry-after"]), body["retry_after"])
+        self.assertGreaterEqual(response_retry, 1)
+        self.assertEqual(fake_api.ocid_calls, 2)
+
+        event = next(record for record in logs.records if record.getMessage() == "diagnosis")
+        self.assertEqual((event.outcome, event.code, event.levelno), ("error", "RATE_LIMITED", logging.WARNING))
+        self.assertEqual(event.ip_source, "x-forwarded-for[last]")
+        self.assertNotIn("203.0.113.9", json.dumps(event.__dict__, default=str))
 
     async def test_disconnected_client_does_not_consume_nexon_calls(self):
         fake_api = ConcurrentNexonAPI()

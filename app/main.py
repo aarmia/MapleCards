@@ -18,6 +18,7 @@ from starlette.requests import ClientDisconnect
 from app.analyzer import build_report, unsupported_registry
 from app.errors import AppError
 from app.logging_setup import configure_logging
+from app.rate_limit import RateLimitedError, SlidingWindowRateLimiter, client_ip, hash_ip
 from app.request_tracker import DiagnosticRequestTracker
 from app.scraper import NexonAPIError, NexonAPIHandler
 from app.settings import Settings
@@ -76,6 +77,11 @@ request_tracker = DiagnosticRequestTracker(
     concurrency=settings.diagnosis_concurrency,
     max_waiting=settings.queue_max_waiting,
     wait_timeout=settings.queue_wait_timeout,
+)
+
+# IP 당 진단 요청 제한. /check-items 에만 적용하고 진행 상태 폴링과 정적 파일은 세지 않습니다.
+rate_limiter = SlidingWindowRateLimiter(
+    [(settings.rate_limit_per_10min, 600.0), (settings.rate_limit_per_hour, 3600.0)],
 )
 
 # 경로 설정
@@ -178,9 +184,21 @@ async def check_items(
     request_id: Annotated[str | None, Query()] = None,
 ):
     started = time.perf_counter()
-    # 진단 1건당 'diagnosis' 이벤트 한 줄. 캐릭터 이름은 남기지 않습니다.
-    event: dict = {"request_id": request_id, "outcome": "crash", "http_status": 500, "code": "INTERNAL_ERROR"}
+    ip, ip_source = client_ip(request.headers, request.client.host if request.client else None, settings.client_ip_xff_position)
+    # 진단 1건당 'diagnosis' 이벤트 한 줄. 캐릭터 이름과 원본 IP 는 남기지 않습니다.
+    event: dict = {
+        "request_id": request_id,
+        "outcome": "crash",
+        "http_status": 500,
+        "code": "INTERNAL_ERROR",
+        "client_ip_hash": hash_ip(ip),
+        "ip_source": ip_source,
+    }
     try:
+        retry_after = rate_limiter.check(ip)
+        if retry_after is not None:
+            raise RateLimitedError(retry_after)
+
         async with request_tracker.track(request_id) as tracked_request_id:
             event["queue_wait_ms"] = _elapsed_ms(started)
             if await client_disconnected(request):

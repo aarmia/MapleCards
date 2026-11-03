@@ -56,6 +56,7 @@ class ConfigureLoggingTests(unittest.TestCase):
         self._saved = (list(root.handlers), root.level)
         self._access = logging.getLogger("uvicorn.access")
         self._access_saved = (self._access.disabled, self._access.propagate)
+        self._httpx_level = logging.getLogger("httpx").level
 
     def tearDown(self):
         root = logging.getLogger()
@@ -65,6 +66,7 @@ class ConfigureLoggingTests(unittest.TestCase):
             root.addHandler(handler)
         root.setLevel(self._saved[1])
         self._access.disabled, self._access.propagate = self._access_saved
+        logging.getLogger("httpx").setLevel(self._httpx_level)
 
     def test_root_gets_single_json_handler_and_access_log_is_disabled(self):
         stream = io.StringIO()
@@ -78,6 +80,9 @@ class ConfigureLoggingTests(unittest.TestCase):
         self.assertEqual(len(lines), 1)
         self.assertEqual(json.loads(lines[0])["request_id"], "r2")
         self.assertTrue(logging.getLogger("uvicorn.access").disabled)
+        # httpx 의 요청 로그(URL 에 캐릭터 이름 포함)는 INFO 에서 찍히지 않아야 합니다.
+        logging.getLogger("httpx").info("HTTP Request: GET https://open.api.nexon.com/maplestory/v1/id?character_name=x")
+        self.assertEqual(len([line for line in stream.getvalue().splitlines() if line]), 1)
 
     def test_text_format_is_available_for_local_development(self):
         stream = io.StringIO()
