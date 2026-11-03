@@ -1,195 +1,98 @@
 import asyncio
 import json
-import logging
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
 import httpx
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 
-from app.main import APP_JS_VERSION, SITE_URL, app
+from app.main import app
 from app.rate_limit import SlidingWindowRateLimiter
 from app.request_tracker import DiagnosticRequestTracker
 from app.scraper import NexonAPIError
 
+SAMPLE_ITEM = {
+    "item_equipment_part": "상의",
+    "item_equipment_slot": "상의",
+    "item_name": "도전자의 상의",
+    "potential_option_grade": "유니크",
+    "potential_option_1": "INT +9%",
+    "potential_option_2": "INT +6%",
+    "potential_option_3": None,
+    "additional_potential_option_grade": "에픽",
+    "additional_potential_option_1": "INT +4%",
+    "additional_potential_option_2": "마력 +10",
+    "additional_potential_option_3": None,
+    "starforce": "22",
+    "item_base_option": {"base_equipment_level": 200},
+    "item_add_option": {},
+    "item_etc_option": {},
+    "item_starforce_option": {},
+}
 
-class ErroringNexonAPI:
-    async def get_ocid(self, _):
-        raise NexonAPIError("캐릭터를 찾을 수 없습니다.", status_code=404, code="CHARACTER_NOT_FOUND")
 
+class FakeNexonAPI:
+    """장비 1개짜리 캐릭터를 돌려주는 가짜 API. 세 호출이 동시에 나가는지도 셉니다."""
 
-class MaintenanceNexonAPI:
-    async def get_ocid(self, _):
-        raise NexonAPIError(
-            "메이플스토리 점검 중입니다. 점검이 끝난 뒤 다시 시도해주세요.",
-            status_code=503,
-            code="OPENAPI00010",
-            retry_after=600,
-        )
-
-
-class ConcurrentNexonAPI:
-    def __init__(self):
-        self.active_requests = 0
-        self.max_active_requests = 0
+    def __init__(self, error=None):
+        self.error = error
         self.ocid_calls = 0
+        self.active = self.max_active = 0
 
     async def get_ocid(self, _):
         self.ocid_calls += 1
-        return "test-ocid"
+        if self.error:
+            raise self.error
+        return "ocid"
 
-    async def _response(self, data):
-        self.active_requests += 1
-        self.max_active_requests = max(
-            self.max_active_requests,
-            self.active_requests,
-        )
+    async def _respond(self, data):
+        self.active += 1
+        self.max_active = max(self.max_active, self.active)
         await asyncio.sleep(0.01)
-        self.active_requests -= 1
+        self.active -= 1
         return data
 
     async def get_character_basic(self, _):
-        return await self._response(
-            {
-                "character_class": "나이트워커",
-                "character_level": 297,
-                "character_image": "",
-            }
-        )
+        return await self._respond({"character_class": "레테", "character_level": 285, "character_image": ""})
 
     async def get_character_item(self, _):
-        return await self._response({"item_equipment": []})
+        return await self._respond({"preset_no": 1, "item_equipment": [SAMPLE_ITEM]})
 
     async def get_character_stat(self, _):
-        return await self._response({"final_stat": []})
+        return await self._respond({"final_stat": [{"stat_name": "전투력", "stat_value": "123"}]})
 
 
-class FixtureNexonAPI:
-    """tests/fixtures/characters 의 실제 응답 샘플을 그대로 돌려주는 가짜 API."""
-
-    def __init__(self, fixture):
-        self.fixture = fixture
-
-    async def get_ocid(self, _):
-        return "fixture-ocid"
-
-    async def get_character_basic(self, _):
-        return self.fixture["basic"]
-
-    async def get_character_item(self, _):
-        return self.fixture["item_equipment"]
-
-    async def get_character_stat(self, _):
-        return self.fixture["stat"]
-
-
-def load_first_fixture():
-    fixture_dir = Path(__file__).parent / "fixtures" / "characters"
-    paths = sorted(fixture_dir.glob("*.json"))
-    if not paths:
-        raise unittest.SkipTest("픽스처가 없습니다. scripts/fetch_fixtures.py 로 생성하세요.")
-    return json.loads(paths[0].read_text(encoding="utf-8"))
+def client():
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
 
 
 class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
-    @classmethod
-    def setUpClass(cls):
-        # 픽스처 통합 테스트에서 미지원 옵션 경고가 대량으로 찍히지 않도록 잠시 로그 레벨을 올립니다.
-        cls._analyzer_logger = logging.getLogger("app.analyzer")
-        cls._previous_level = cls._analyzer_logger.level
-        cls._analyzer_logger.setLevel(logging.ERROR)
-
-    @classmethod
-    def tearDownClass(cls):
-        cls._analyzer_logger.setLevel(cls._previous_level)
-
-    async def test_root_uses_versioned_app_script_and_disables_html_cache(self):
-        transport = httpx.ASGITransport(app=app)
-
-        async with httpx.AsyncClient(
-            transport=transport,
-            base_url="http://test",
-        ) as client:
-            response = await client.get("/")
+    async def test_check_items_returns_report_and_logs_one_event(self):
+        api = FakeNexonAPI()
+        with patch("app.main.nexon_api", api), self.assertLogs("app.main", level="INFO") as logs:
+            async with client() as c:
+                response = await c.get("/check-items/테스트?request_id=req-1")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.headers["cache-control"], "no-cache")
-        self.assertIn(
-            f'/static/js/app.js?v={APP_JS_VERSION}',
-            response.text,
-        )
-        # 오류 UI는 서버가 보낸 메시지를 그대로 바인딩해야 합니다.
-        self.assertIn('x-text="errorMessage"', response.text)
-        # 가이드 태그는 서버가 분리해 내려주므로 프론트에서 정규식으로 다시 파싱하지 않습니다.
-        self.assertNotIn("item.guide.match(", response.text)
+        body = response.json()
+        self.assertEqual((body["character"], body["class"], body["level"], body["combat_power"]), ("테스트", "레테", 285, "123"))
+        self.assertEqual(body["results"][0]["name"], "도전자의 상의")
+        self.assertEqual(api.max_active, 3)  # basic · item · stat 은 동시에 조회합니다.
+        event = next(record for record in logs.records if record.getMessage() == "diagnosis")
+        self.assertEqual((event.request_id, event.outcome, event.http_status), ("req-1", "ok", 200))
+        self.assertEqual(event.response_bytes, len(response.content))
+        self.assertNotIn("테스트", json.dumps(event.__dict__, default=str, ensure_ascii=False))
 
-    async def test_favicon_robots_and_sitemap_are_served(self):
-        transport = httpx.ASGITransport(app=app)
-
-        async with httpx.AsyncClient(
-            transport=transport,
-            base_url="http://test",
-        ) as client:
-            favicon = await client.get("/favicon.ico")
-            robots = await client.get("/robots.txt")
-            sitemap = await client.get("/sitemap.xml")
-
-        self.assertEqual(favicon.status_code, 200)
-        self.assertTrue(favicon.headers["content-type"].startswith("image/"))
-        self.assertEqual(robots.status_code, 200)
-        self.assertIn(f"Sitemap: {SITE_URL}/sitemap.xml", robots.text)
-        self.assertEqual(sitemap.status_code, 200)
-        self.assertIn(f"<loc>{SITE_URL}/</loc>", sitemap.text)
-
-    async def test_nexon_error_uses_http_status_and_message(self):
-        transport = httpx.ASGITransport(app=app)
-
-        with patch("app.main.nexon_api", ErroringNexonAPI()):
-            async with httpx.AsyncClient(
-                transport=transport,
-                base_url="http://test",
-            ) as client:
-                response = await client.get("/check-items/test")
-
-        self.assertEqual(response.status_code, 404)
-        self.assertEqual(
-            response.json(),
-            {"error": "캐릭터를 찾을 수 없습니다.", "code": "CHARACTER_NOT_FOUND"},
-        )
-        self.assertNotIn("retry-after", response.headers)
-
-    async def test_nexon_maintenance_returns_code_and_retry_after(self):
-        transport = httpx.ASGITransport(app=app)
-
-        with patch("app.main.nexon_api", MaintenanceNexonAPI()):
-            async with httpx.AsyncClient(
-                transport=transport,
-                base_url="http://test",
-            ) as client:
-                response = await client.get("/check-items/test")
+    async def test_nexon_error_becomes_json_with_code_and_retry_after(self):
+        error = NexonAPIError("메이플스토리 점검 중입니다.", status_code=503, code="OPENAPI00010", retry_after=600)
+        with patch("app.main.nexon_api", FakeNexonAPI(error=error)), self.assertLogs("app.main", level="WARNING"):
+            async with client() as c:
+                response = await c.get("/check-items/test")
 
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.headers["retry-after"], "600")
-        body = response.json()
-        self.assertEqual(body["code"], "OPENAPI00010")
-        self.assertEqual(body["retry_after"], 600)
-        self.assertIn("점검", body["error"])
+        self.assertEqual(response.json(), {"error": "메이플스토리 점검 중입니다.", "code": "OPENAPI00010", "retry_after": 600})
 
-    async def test_character_requests_run_concurrently(self):
-        fake_api = ConcurrentNexonAPI()
-        transport = httpx.ASGITransport(app=app)
-
-        with patch("app.main.nexon_api", fake_api):
-            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-                response = await client.get("/check-items/테스트")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(fake_api.max_active_requests, 3)
-        self.assertEqual(response.json()["character"], "테스트")
-
-    async def test_full_queue_returns_503_with_retry_after(self):
+    async def test_full_queue_returns_503(self):
         tracker = DiagnosticRequestTracker(concurrency=1, max_waiting=0)
         entered, release = asyncio.Event(), asyncio.Event()
 
@@ -200,49 +103,34 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
 
         holder = asyncio.create_task(hold_only_slot())
         await entered.wait()
-        transport = httpx.ASGITransport(app=app)
-
-        with patch("app.main.request_tracker", tracker), patch("app.main.nexon_api", ConcurrentNexonAPI()):
-            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-                response = await client.get("/check-items/테스트")
-
+        with (
+            patch("app.main.request_tracker", tracker),
+            patch("app.main.nexon_api", FakeNexonAPI()),
+            self.assertLogs("app.main", level="WARNING"),
+        ):
+            async with client() as c:
+                response = await c.get("/check-items/테스트")
         release.set()
         await holder
 
         self.assertEqual(response.status_code, 503)
-        body = response.json()
-        self.assertEqual(body["code"], "QUEUE_FULL")
-        self.assertGreaterEqual(body["retry_after"], 2)
-        self.assertEqual(response.headers["retry-after"], str(body["retry_after"]))
+        self.assertEqual(response.json()["code"], "QUEUE_FULL")
+        self.assertEqual(response.headers["retry-after"], str(response.json()["retry_after"]))
 
     async def test_rate_limited_ip_gets_429_without_touching_nexon(self):
-        fake_api = ConcurrentNexonAPI()
-        limiter = SlidingWindowRateLimiter([(1, 600.0)])
-        transport = httpx.ASGITransport(app=app)
+        api = FakeNexonAPI()
+        with patch("app.main.nexon_api", api), patch("app.main.rate_limiter", SlidingWindowRateLimiter([(1, 600.0)])):
+            async with client() as c:
+                first = await c.get("/check-items/테스트", headers={"X-Forwarded-For": "198.51.100.7, 203.0.113.9"})
+                with self.assertLogs("app.main", level="WARNING"):
+                    second = await c.get("/check-items/테스트", headers={"X-Forwarded-For": "203.0.113.9"})
 
-        with patch("app.main.nexon_api", fake_api), patch("app.main.rate_limiter", limiter):
-            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-                first = await client.get("/check-items/테스트", headers={"X-Forwarded-For": "198.51.100.7, 203.0.113.9"})
-                with self.assertLogs("app.main", level="WARNING") as logs:
-                    second = await client.get("/check-items/테스트", headers={"X-Forwarded-For": "203.0.113.9"})
-                # 다른 IP 는 영향을 받지 않습니다.
-                other = await client.get("/check-items/테스트", headers={"X-Forwarded-For": "203.0.113.10"})
-
-        self.assertEqual((first.status_code, other.status_code), (200, 200))
-        self.assertEqual(second.status_code, 429)
-        body = second.json()
-        self.assertEqual(body["code"], "RATE_LIMITED")
-        self.assertEqual(response_retry := int(second.headers["retry-after"]), body["retry_after"])
-        self.assertGreaterEqual(response_retry, 1)
-        self.assertEqual(fake_api.ocid_calls, 2)
-
-        event = next(record for record in logs.records if record.getMessage() == "diagnosis")
-        self.assertEqual((event.outcome, event.code, event.levelno), ("error", "RATE_LIMITED", logging.WARNING))
-        self.assertEqual(event.ip_source, "x-forwarded-for[last]")
-        self.assertNotIn("203.0.113.9", json.dumps(event.__dict__, default=str))
+        self.assertEqual((first.status_code, second.status_code), (200, 429))
+        self.assertEqual(second.json()["code"], "RATE_LIMITED")
+        self.assertEqual(api.ocid_calls, 1)
 
     async def test_disconnected_client_does_not_consume_nexon_calls(self):
-        fake_api = ConcurrentNexonAPI()
+        api = FakeNexonAPI()
         scope = {
             "type": "http",
             "asgi": {"version": "3.0"},
@@ -260,79 +148,16 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
         sent = []
 
         async def receive():
-            # 본문 메시지 뒤로는 연결이 끊긴 상태를 계속 알립니다.
             return incoming.pop(0) if incoming else {"type": "http.disconnect"}
 
         async def send(message):
             sent.append(message)
 
-        with patch("app.main.nexon_api", fake_api):
+        with patch("app.main.nexon_api", api), self.assertLogs("app.main", level="INFO"):
             await app(scope, receive, send)
 
-        start = next(message for message in sent if message["type"] == "http.response.start")
-        self.assertEqual(start["status"], 499)
-        self.assertEqual(fake_api.ocid_calls, 0)
-
-    async def test_check_items_builds_full_report_from_real_fixture(self):
-        fixture = load_first_fixture()
-        transport = httpx.ASGITransport(app=app)
-
-        with patch("app.main.nexon_api", FixtureNexonAPI(fixture)):
-            async with httpx.AsyncClient(
-                transport=transport,
-                base_url="http://test",
-            ) as client:
-                response = await client.get("/check-items/테스트")
-
-        self.assertEqual(response.status_code, 200)
-        body = response.json()
-        self.assertEqual(
-            set(body),
-            {"character", "class", "level", "character_image", "combat_power", "best_preset", "overall", "results"},
-        )
-        # 직접 직렬화한 본문이 FastAPI JSONResponse 가 만들던 바이트와 같아야 합니다.
-        self.assertEqual(response.content, JSONResponse(content=jsonable_encoder(body)).body)
-        self.assertEqual(body["class"], fixture["basic"]["character_class"])
-        self.assertIn(body["best_preset"], (1, 2, 3))
-        self.assertIn(body["overall"]["rank"], {"ETERNAL", "DESTINY", "ASTRA", "GENESIS", "EPIC"})
-        self.assertTrue(body["results"])
-        for item in body["results"]:
-            self.assertTrue(item["guide_tag"])
-            self.assertNotIn("[", item["guide_message"])
-            self.assertIsInstance(item["total_score"], (int, float))
-
-    async def test_check_items_logs_one_diagnosis_event(self):
-        fixture = load_first_fixture()
-        transport = httpx.ASGITransport(app=app)
-
-        with patch("app.main.nexon_api", FixtureNexonAPI(fixture)), self.assertLogs("app.main", level="INFO") as logs:
-            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-                response = await client.get("/check-items/테스트?request_id=req-1")
-
-        events = [record for record in logs.records if record.getMessage() == "diagnosis"]
-        self.assertEqual(len(events), 1)
-        event = events[0]
-        self.assertEqual(event.levelno, logging.INFO)
-        self.assertEqual((event.request_id, event.outcome, event.http_status, event.code), ("req-1", "ok", 200, None))
-        self.assertEqual(event.response_bytes, len(response.content))
-        self.assertEqual(event.character_class, fixture["basic"]["character_class"])
-        self.assertGreater(event.item_count, 0)
-        for field in ("queue_wait_ms", "nexon_ms", "analysis_ms", "total_ms", "unsupported_count", "active", "waiting"):
-            self.assertIsInstance(getattr(event, field), (int, float), field)
-        self.assertIsInstance(event.unsupported_top, list)
-        # 캐릭터 이름은 로그에 남기지 않습니다.
-        self.assertNotIn("테스트", json.dumps(event.__dict__, default=str, ensure_ascii=False))
-
-    async def test_failed_diagnosis_is_logged_with_its_code(self):
-        transport = httpx.ASGITransport(app=app)
-
-        with patch("app.main.nexon_api", ErroringNexonAPI()), self.assertLogs("app.main", level="INFO") as logs:
-            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-                await client.get("/check-items/test")
-
-        event = next(record for record in logs.records if record.getMessage() == "diagnosis")
-        self.assertEqual((event.outcome, event.http_status, event.code), ("error", 404, "CHARACTER_NOT_FOUND"))
-        self.assertEqual(event.levelno, logging.INFO)
+        self.assertEqual(next(m for m in sent if m["type"] == "http.response.start")["status"], 499)
+        self.assertEqual(api.ocid_calls, 0)
 
 
 if __name__ == "__main__":

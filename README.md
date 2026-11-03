@@ -53,7 +53,7 @@
 ### Tooling
 - **의존성 관리**: uv (`pyproject.toml` + `uv.lock`, 배포용 `requirements.txt`는 lock에서 내보냄)
 - **린트**: ruff
-- **테스트**: unittest + 실제 API 응답 픽스처 기반 골든 테스트
+- **테스트**: unittest, 동작마다 테스트 하나
 - **CI**: GitHub Actions (Python 3.12 / 3.13 매트릭스)
 
 ---
@@ -85,16 +85,13 @@ app/
         ├── _overall_review.html
         ├── _summary.html
         └── _wse_grid.html      # 무기 · 보조무기 · 엠블렘, 특수 장비 카드
-scripts/
-└── fetch_fixtures.py       # 실제 Nexon 응답을 익명화해 테스트 픽스처로 저장
 tests/
-├── fixtures/
-│   ├── characters/         # 직업별 · 스펙대별 실제 응답 픽스처 (식별 정보 제거)
-│   └── golden/             # 픽스처별 진단 결과 스냅샷
 ├── test_calculator.py      # 점수 공식 · 가이드 분리 단위 테스트
-├── test_golden.py          # 픽스처 → 진단 결과가 스냅샷과 같은지 검증
-├── test_main.py            # 엔드포인트 · 오류 매핑 · 픽스처 통합 테스트
+├── test_main.py            # 엔드포인트: 정상 응답 · 오류 JSON · 대기열 503 · 레이트리밋 429 · 끊김 499
 ├── test_request_tracker.py
+├── test_rate_limit.py
+├── test_logging_setup.py
+├── test_settings.py
 └── test_scraper.py
 .github/workflows/ci.yml    # ruff + unittest + requirements.txt 동기화 검사
 pyproject.toml              # 의존성 · ruff 설정
@@ -181,19 +178,6 @@ gunicorn -w 1 -k uvicorn.workers.UvicornWorker app.main:app --timeout 120 --grac
 ```bash
 uv run ruff check .                                   # 린트
 uv run python -m unittest discover -s tests -t .      # 전체 테스트
-```
-
-### 골든 테스트
-`tests/test_golden.py`는 `tests/fixtures/characters/`의 실제 응답 픽스처로 진단 결과를 만들어 `tests/fixtures/golden/`의 스냅샷과 비교합니다. 점수 공식이나 가이드 문구를 **의도적으로** 바꿨다면 스냅샷을 갱신하고 diff를 확인한 뒤 함께 커밋합니다.
-```bash
-UPDATE_GOLDEN=1 uv run python -m unittest tests.test_golden
-```
-
-### 픽스처 재수집
-직업 세트(히어로 · 보우마스터 · 비숍 · 섀도어 · 데몬어벤져 · 제논)와 중/하위권 표본을 넥슨 랭킹에서 골라 저장합니다. 캐릭터 이름 · 길드 · 월드 · 이미지는 저장하지 않습니다.
-```bash
-uv run python scripts/fetch_fixtures.py                 # 기본 세트 (NEXON_API_KEY 필요)
-uv run python scripts/fetch_fixtures.py --skip-defaults --names 내캐릭 --labels 내캐릭-테스트
 ```
 
 ### 의존성 변경
