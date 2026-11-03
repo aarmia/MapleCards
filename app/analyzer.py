@@ -13,6 +13,7 @@ from app.calculator import (
     get_potential_options,
     get_starforce_score,
 )
+from app.scoring_config import SCORING
 
 logger = logging.getLogger(__name__)
 
@@ -241,7 +242,10 @@ def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_
 
 def evaluate_equipment(items, char_class, char_level, unsupported=None):
     evaluate_list = []
-    special_rings = ["리스트레인트", "컨티뉴어스", "웨폰퍼프"]
+    special_items = SCORING.special_items
+    weights = SCORING.weights
+    noljang = SCORING.noljang
+    special_rings = special_items.excluded_rings
 
     for item in items:
         add_score, pot_score, eddy_score, adv_star_score = 0.0, 0.0, 0.0, 0.0
@@ -255,8 +259,8 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None):
         star = int(item.get("starforce", 0))
         item_req_level = int(item.get("item_base_option", {}).get("base_equipment_level", 0))
 
-        is_weapon = any(k in slot for k in ["무기", "보조무기", "엠블렘"])
-        is_special = any(k in part for k in ["훈장", "뱃지", "포켓 아이템", "칭호"])
+        is_weapon = any(k in slot for k in special_items.wse_slots)
+        is_special = any(k in part for k in special_items.special_parts)
         main_stat = get_main_stat(char_class).upper()
 
         raw_options_dict = {
@@ -277,11 +281,13 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None):
             if "포켓" in part:
                 total_item_score = actual_add_급수
                 if char_class == "데몬어벤져" and total_item_score > 0:
-                    total_item_score = total_item_score / 11
-            elif any(k in name for k in ["창세"]): total_item_score = 280.0
-            elif any(k in name for k in ["칠요"]): total_item_score = 250.0
-            elif any(k in name for k in ["불멸"]): total_item_score = 320.0
-            else: total_item_score = 180.0
+                    total_item_score = total_item_score / special_items.pocket_demon_avenger_divisor
+            else:
+                # 이름에 포함된 키워드 순서대로 첫 일치. 표는 scoring.toml 의 special_items.fixed
+                total_item_score = next(
+                    (score for keyword, score in special_items.fixed if keyword in name),
+                    special_items.default,
+                )
 
             special_guide = get_special_part_guide(total_item_score, part, name)
             special_guide_tag, special_guide_message = split_guide(special_guide)
@@ -319,42 +325,42 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None):
         etc_atk_max = max(safe_int(etc_ops.get("attack_power")), safe_int(etc_ops.get("magic_power")))
         star_stats_max = max(safe_int(star_ops.get(s)) for s in ["str", "dex", "int", "luk"])
 
-        is_superior = "타일런트" in name
+        is_superior = special_items.superior_keyword in name
 
-        if 8 <= star <= 15 and not is_superior and item_req_level <= 150:
-            if etc_stats_max > 50 and etc_atk_max > 10:
+        if noljang.star_min <= star <= noljang.star_max and not is_superior and item_req_level <= noljang.max_level:
+            if etc_stats_max > noljang.etc_stat_strong and etc_atk_max > noljang.etc_attack_strong:
                 is_noljang = True
-            elif star_stats_max == 0 and (etc_stats_max > 30 or etc_atk_max > 15):
+            elif star_stats_max == 0 and (etc_stats_max > noljang.etc_stat_weak or etc_atk_max > noljang.etc_attack_weak):
                 is_noljang = True
 
-        if is_noljang: adv_star_score = get_starforce_score(22, item_req_level)
-        elif is_superior: adv_star_score = get_starforce_score(star, item_req_level) * 3.0
+        if is_noljang: adv_star_score = get_starforce_score(SCORING.starforce.base_star, item_req_level)
+        elif is_superior: adv_star_score = get_starforce_score(star, item_req_level) * weights.superior_star
         else: adv_star_score = get_starforce_score(star, item_req_level)
 
         if is_weapon:
-            if any(k in slot for k in ["보조무기", "엠블렘"]):
-                add_score = 100.0
-                add_raw_score = 100.0
-                adv_star_score = 100.0
+            if any(k in slot for k in special_items.secondary_slots):
+                add_score = weights.fixed_secondary_emblem
+                add_raw_score = weights.fixed_secondary_emblem
+                adv_star_score = weights.fixed_secondary_emblem
             else:
                 add_raw_score = calculate_weapon_add_option_score(item, char_class)
-                add_score = add_raw_score * 2.0
+                add_score = add_raw_score * weights.weapon_add
             pot_analysis = analyze_weapon_potential_score(item, "potential", char_class)
             pot_val = pot_analysis["score"]
-            pot_score = (pot_val * 3.3) if pot_val > 0 else 0
+            pot_score = (pot_val * weights.potential) if pot_val > 0 else 0
             eddy_analysis = analyze_weapon_potential_score(item, "additional_potential", char_class)
             eddy_val = eddy_analysis["score"]
-            eddy_score = (eddy_val * 2.5) if eddy_val > 0 else 0
+            eddy_score = (eddy_val * weights.additional) if eddy_val > 0 else 0
         else:
             actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class)
             add_raw_score = actual_add_급수
             add_score = get_advanced_add_score(actual_add_급수, item_req_level, part, char_class)
             pot_analysis = analyze_potential_score(item, "potential", char_class, char_level)
             pot_val = pot_analysis["score"]
-            pot_score = (pot_val * 3.3) if pot_val > 0 else 0
+            pot_score = (pot_val * weights.potential) if pot_val > 0 else 0
             eddy_analysis = analyze_potential_score(item, "additional_potential", char_class, char_level)
             eddy_val = eddy_analysis["score"]
-            eddy_score = (eddy_val * 2.5) if eddy_val > 0 else 0
+            eddy_score = (eddy_val * weights.additional) if eddy_val > 0 else 0
 
         _log_unsupported_options(name, "potential", pot_analysis, unsupported)
         _log_unsupported_options(name, "additional_potential", eddy_analysis, unsupported)
@@ -393,9 +399,9 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None):
                     "main_stat": main_stat,
                     "recognized_options": recognized_options,
                     "weights": [
-                        "윗잠재 환산값 × 3.3",
-                        "에디셔널 환산값 × 2.5",
-                        f"스타포스 레벨 가중치 × {round(1.0 + (item_req_level - 200) / 600.0, 3) if item_req_level > 0 else 0}",
+                        f"윗잠재 환산값 × {weights.potential:g}",
+                        f"에디셔널 환산값 × {weights.additional:g}",
+                        f"스타포스 레벨 가중치 × {round(1.0 + (item_req_level - SCORING.starforce.reference_level) / SCORING.starforce.level_weight_divisor, 3) if item_req_level > 0 else 0}",
                     ],
                     "breakdown": [
                         {"key": "add", "label": "추가옵션", "raw_score": round(add_raw_score, 2), "weighted_score": round(add_score, 2)},
