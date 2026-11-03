@@ -5,6 +5,7 @@ document.addEventListener('alpine:init', () => {
         loading: false,
         errorMessage: '',
         errorStatus: null,
+        errorCode: null,
         activeRequestNickname: '',
         requestController: null,
         requestId: '',
@@ -39,6 +40,7 @@ document.addEventListener('alpine:init', () => {
             this.nickname = '';
             this.errorMessage = '';
             this.errorStatus = null;
+            this.errorCode = null;
             this.loading = false;
             this.activeRequestNickname = '';
             this.stopStatusPolling();
@@ -101,6 +103,7 @@ document.addEventListener('alpine:init', () => {
             this.requestId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
             this.errorMessage = '';
             this.errorStatus = null;
+            this.errorCode = null;
             this.viewMode = 'top5';
             this.startStatusPolling();
 
@@ -111,13 +114,14 @@ document.addEventListener('alpine:init', () => {
                 const data = await this.parseJsonSafely(res);
 
                 if (!res.ok) {
-                    throw this.createServerError(this.extractErrorMessage(data), res.status);
+                    throw this.createServerError(this.extractErrorMessage(data), res.status, data);
                 }
 
                 if (!data || data.error) {
                     throw this.createServerError(
                         this.extractErrorMessage(data, '서버 응답을 해석할 수 없습니다.'),
-                        res.status
+                        res.status,
+                        data
                     );
                 }
 
@@ -134,9 +138,11 @@ document.addEventListener('alpine:init', () => {
                     // 서버가 상태 코드별로 만든 메시지(404/429/503/504 등)를 그대로 보여줍니다.
                     this.errorMessage = e.message;
                     this.errorStatus = e.status;
+                    this.errorCode = e.code;
                 } else {
                     this.errorMessage = '서버에 연결할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요.';
                     this.errorStatus = null;
+                    this.errorCode = null;
                 }
             } finally {
                 if (this.requestController === controller) {
@@ -165,14 +171,28 @@ document.addEventListener('alpine:init', () => {
             return fallback;
         },
 
-        createServerError(message, status) {
+        createServerError(message, status, data = null) {
             const error = new Error(message);
             error.isServerError = true;
             error.status = status;
+            // 서버가 내려주는 기계용 코드(넥슨 OPENAPI000xx, QUEUE_FULL 등)와 재시도 권장 시간
+            error.code = typeof data?.code === 'string' ? data.code : null;
+            error.retryAfter = Number.isFinite(Number(data?.retry_after)) ? Number(data.retry_after) : null;
             return error;
         },
 
         getErrorHint() {
+            switch (this.errorCode) {
+                case 'OPENAPI00010': return '메이플스토리 점검 중에는 넥슨 API가 캐릭터 정보를 주지 않습니다. 점검이 끝난 뒤 이용해주세요.';
+                case 'OPENAPI00011': return '넥슨 Open API 점검 중입니다. 점검이 끝난 뒤 이용해주세요.';
+                case 'OPENAPI00009': return '넥슨 쪽 데이터가 아직 준비되지 않았습니다. 몇 분 뒤 다시 시도해주세요.';
+                case 'OPENAPI00007': return '넥슨 API 호출 한도에 도달했습니다. 잠시 후 다시 시도해주세요.';
+                case 'OPENAPI00002':
+                case 'OPENAPI00005':
+                case 'OPENAPI00006':
+                case 'NEXON_KEY_MISSING': return '서버 설정 문제입니다. 계속되면 운영자에게 알려주세요.';
+                default: break;
+            }
             switch (this.errorStatus) {
                 case 404: return '닉네임의 철자와 띄어쓰기를 확인한 뒤 다시 시도해주세요.';
                 case 429: return '동시에 많은 진단 요청이 들어와 넥슨 API 호출 한도에 도달했습니다.';

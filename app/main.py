@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.analyzer import build_report
+from app.errors import AppError
 from app.request_tracker import DiagnosticRequestTracker
 from app.scraper import NexonAPIError, NexonAPIHandler
 
@@ -58,14 +59,11 @@ else:
     print(f"⚠️ Warning: Static directory not found at {static_dir}")
 
 
-@app.exception_handler(NexonAPIError)
-async def nexon_api_exception_handler(_: Request, exc: NexonAPIError):
-    headers = {"Retry-After": "5"} if exc.status_code == 429 else None
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"error": exc.message},
-        headers=headers,
-    )
+@app.exception_handler(AppError)
+async def app_error_handler(_: Request, exc: AppError):
+    # Nexon 오류, 대기열 초과 등 사용자에게 보여줄 오류는 모두 같은 모양으로 내려갑니다.
+    headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after else None
+    return JSONResponse(status_code=exc.status_code, content=exc.to_payload(), headers=headers)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -122,7 +120,7 @@ async def check_items(
         )
 
         if not basic_info or not item_data:
-            raise NexonAPIError("캐릭터 장비 데이터가 비어 있습니다.", status_code=502)
+            raise NexonAPIError("캐릭터 장비 데이터가 비어 있습니다.", status_code=502, code="NEXON_EMPTY_DATA")
 
         await request_tracker.set_stage(tracked_request_id, "analysis")
 

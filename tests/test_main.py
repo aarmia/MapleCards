@@ -13,7 +13,17 @@ from app.scraper import NexonAPIError
 
 class ErroringNexonAPI:
     async def get_ocid(self, _):
-        raise NexonAPIError("캐릭터를 찾을 수 없습니다.", status_code=404)
+        raise NexonAPIError("캐릭터를 찾을 수 없습니다.", status_code=404, code="CHARACTER_NOT_FOUND")
+
+
+class MaintenanceNexonAPI:
+    async def get_ocid(self, _):
+        raise NexonAPIError(
+            "메이플스토리 점검 중입니다. 점검이 끝난 뒤 다시 시도해주세요.",
+            status_code=503,
+            code="OPENAPI00010",
+            retry_after=600,
+        )
 
 
 class ConcurrentNexonAPI:
@@ -140,8 +150,26 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(
             response.json(),
-            {"error": "캐릭터를 찾을 수 없습니다."},
+            {"error": "캐릭터를 찾을 수 없습니다.", "code": "CHARACTER_NOT_FOUND"},
         )
+        self.assertNotIn("retry-after", response.headers)
+
+    async def test_nexon_maintenance_returns_code_and_retry_after(self):
+        transport = httpx.ASGITransport(app=app)
+
+        with patch("app.main.nexon_api", MaintenanceNexonAPI()):
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="http://test",
+            ) as client:
+                response = await client.get("/check-items/test")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.headers["retry-after"], "600")
+        body = response.json()
+        self.assertEqual(body["code"], "OPENAPI00010")
+        self.assertEqual(body["retry_after"], 600)
+        self.assertIn("점검", body["error"])
 
     async def test_character_requests_run_concurrently(self):
         fake_api = ConcurrentNexonAPI()
