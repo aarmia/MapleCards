@@ -76,11 +76,20 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
         body = response.json()
         self.assertEqual((body["character"], body["class"], body["level"], body["combat_power"]), ("테스트", "레테", 285, "123"))
         self.assertEqual(body["results"][0]["name"], "도전자의 상의")
+        self.assertEqual(body["grades"]["item_grade"][0], [360, "SSS+"])
         self.assertEqual(api.max_active, 3)  # basic · item · stat 은 동시에 조회합니다.
         event = next(record for record in logs.records if record.getMessage() == "diagnosis")
         self.assertEqual((event.request_id, event.outcome, event.http_status), ("req-1", "ok", 200))
         self.assertEqual(event.response_bytes, len(response.content))
         self.assertNotIn("테스트", json.dumps(event.__dict__, default=str, ensure_ascii=False))
+
+    async def test_root_page_embeds_grade_cutoffs(self):
+        async with client() as c:
+            response = await c.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('window.MECULATOR_GRADES = {"item_grade": [[360, "SSS+"]', response.text)
+        self.assertIn("gradeCutText('SSS+')", response.text)
 
     async def test_nexon_error_becomes_json_with_code_and_retry_after(self):
         error = NexonAPIError("메이플스토리 점검 중입니다.", status_code=503, code="OPENAPI00010", retry_after=600)

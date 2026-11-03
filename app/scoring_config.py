@@ -133,5 +133,48 @@ def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
     return Section(data, path.name)
 
 
+_GRADES_SPEC = {
+    "item_grade": list, "item_grade_default": str,
+    "card_highlight": list, "card_highlight_default": str,
+    "score_color": list, "score_color_default": str,
+    "stat_bar": {"pot": list, "pot_additional": list, "star": list, "add": list, "default": str},
+    "stat_bar_max": {"add": NUMBER, "pot": NUMBER, "pot_additional": NUMBER, "star": NUMBER},
+    "overall": list,
+}
+
+
+def check_bands(bands, source: str, width: int) -> None:
+    """[기준, 티어(, 초과 여부)] 목록이 내림차순인지 확인합니다. 첫 일치 규칙이라 순서가 틀리면 조용히 잘못 매칭됩니다."""
+    previous = None
+    for band in bands:
+        if not (isinstance(band, list) and len(band) == width and isinstance(band[0], NUMBER) and isinstance(band[1], str)):
+            raise ConfigError(f"{source}: 각 항목은 [기준, 티어{', 초과 여부' if width == 3 else ''}] 이어야 합니다")
+        if width == 3 and not isinstance(band[2], bool):
+            raise ConfigError(f"{source}: 세 번째 값은 true/false 여야 합니다")
+        if previous is not None and band[0] > previous:
+            raise ConfigError(f"{source}: 기준값은 내림차순이어야 합니다")
+        previous = band[0]
+
+
+def load_grades(path: Path = DATA_DIR / "grades.toml") -> Section:
+    data = load_toml(path)
+    validate(data, _GRADES_SPEC, path.name)
+    for name in ("item_grade", "card_highlight", "score_color"):
+        check_bands(data[name], f"{path.name}: {name}", 2)
+    for name in ("pot", "pot_additional", "star", "add"):
+        check_bands(data["stat_bar"][name], f"{path.name}: stat_bar.{name}", 3)
+    previous = None
+    for entry in data["overall"]:
+        if not isinstance(entry, dict) or not {"min", "rank", "comment"} <= set(entry):
+            raise ConfigError(f"{path.name}: overall 항목에는 min, rank, comment 가 필요합니다")
+        if ("weapon_keyword" in entry) != ("with_weapon" in entry):
+            raise ConfigError(f"{path.name}: overall 의 weapon_keyword 와 with_weapon 은 함께 있어야 합니다")
+        if previous is not None and entry["min"] > previous:
+            raise ConfigError(f"{path.name}: overall 의 min 은 내림차순이어야 합니다")
+        previous = entry["min"]
+    return Section(data, path.name)
+
+
 CLASSES = load_classes()
 SCORING = load_scoring()
+GRADES = load_grades()

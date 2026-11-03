@@ -1,3 +1,20 @@
+// 티어 이름 → 화면 스타일. 각 티어의 점수 기준은 서버의 app/data/grades.toml 이 정합니다.
+const STAT_BAR_CLASS = { ultimate: 'bg-ultimate', legendary: 'bg-emerald-500', unique: 'bg-yellow-400', epic: 'bg-purple-500', rare: 'bg-sky-400', poor: 'bg-red-500' };
+const CARD_CLASS = {
+    transcendent: 'border-[3px] border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.4)] bg-indigo-50/30',
+    legendary: 'border-[3px] border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.2)] bg-green-50/30',
+    unique: 'border-[3px] border-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.2)] bg-yellow-50/30',
+    epic: 'border-[3px] border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.2)] bg-purple-50/30',
+    none: 'border border-slate-200 bg-slate-50',
+};
+const SCORE_STYLE = {
+    ultimate: { class: 'bg-ultimate text-transparent bg-clip-text', style: '' },   // base.html 의 bg-ultimate 그라데이션
+    legendary: { class: '', style: 'color: #b2e52c;' },
+    unique: { class: '', style: 'color: #ffb900;' },
+    epic: { class: '', style: 'color: #a855f7;' },
+    rare: { class: '', style: 'color: #3b82f6;' },
+};
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('meculatorApp', () => ({
         nickname: '',
@@ -286,52 +303,37 @@ document.addEventListener('alpine:init', () => {
             return label.includes('%') ? total + '%' : total;
         },
 
+        getGrades() {
+            // 서버가 페이지에 심어 둔 컷오프. 진단 응답에 같은 값이 있으면 그것을 우선합니다.
+            return this.report?.grades || window.MECULATOR_GRADES || {};
+        },
+
+        pickTier(bands, value, fallback) {
+            const hit = (bands || []).find(([min, , exclusive]) => exclusive ? value > min : value >= min);
+            return hit ? hit[1] : fallback;
+        },
+
+        gradeCutText(label) {
+            const band = (this.getGrades().item_grade || []).find(([, name]) => name === label);
+            return band ? band[0] + '+ 점' : '';
+        },
+
         getStatColor(val, key) {
-            const s = parseFloat(val);
-            if (key === 'pot') {
-                if (s > 118) return 'bg-ultimate';
-                if (s >= 100) return 'bg-emerald-500';
-                if (s >= 92) return 'bg-yellow-400';
-                if (s >= 66) return 'bg-purple-500';
-                if (s >= 50) return 'bg-sky-400';
-                return 'bg-red-500';
-            } else if (key === 'pot_additional') {
-                if (s > 48) return 'bg-ultimate';
-                if (s >= 32) return 'bg-emerald-500';
-                if (s >= 25) return 'bg-yellow-400';
-                if (s >= 19) return 'bg-purple-500';
-                if (s >= 9) return 'bg-sky-400';
-                return 'bg-red-500';
-            } else if (key === 'star') {
-                if (s >= 100) return 'bg-emerald-500';
-                if (s >= 90) return 'bg-yellow-400';
-                if (s >= 75) return 'bg-purple-500';
-                if (s >= 50) return 'bg-sky-400';
-                return 'bg-red-500';
-            } else {
-                if (s > 108) return 'bg-ultimate';
-                if (s >= 105) return 'bg-emerald-500';
-                if (s >= 90) return 'bg-yellow-400';
-                if (s >= 75) return 'bg-purple-500';
-                if (s >= 50) return 'bg-sky-400';
-                return 'bg-red-500';
-            }
+            const grades = this.getGrades();
+            const bands = grades.stat_bar?.[key] || grades.stat_bar?.add;
+            const tier = this.pickTier(bands, parseFloat(val), grades.stat_bar?.default || 'poor');
+            return STAT_BAR_CLASS[tier] || STAT_BAR_CLASS.poor;
         },
 
         getStatWidth(val, key) {
-            const s = parseFloat(val);
-            let max = 110.0;
-            if (key === 'pot') max = 128.7;
-            if (key === 'pot_additional') max = 55.0;
-            return Math.min((s / max) * 100, 100);
+            const max = this.getGrades().stat_bar_max?.[key] ?? 110.0;
+            return Math.min((parseFloat(val) / max) * 100, 100);
         },
 
         getBorderColor(score) {
-            if (score >= 365) return 'border-[3px] border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.4)] bg-indigo-50/30';
-            if (score >= 350) return 'border-[3px] border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.2)] bg-green-50/30';
-            if (score >= 300) return 'border-[3px] border-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.2)] bg-yellow-50/30';
-            if (score >= 250) return 'border-[3px] border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.2)] bg-purple-50/30';
-            return 'border border-slate-200 bg-slate-50';
+            const grades = this.getGrades();
+            const tier = this.pickTier(grades.card_highlight, score, grades.card_highlight_default || 'none');
+            return CARD_CLASS[tier] || CARD_CLASS.none;
         },
 
         getGradeColor(grade) {
@@ -381,24 +383,14 @@ document.addEventListener('alpine:init', () => {
         },
 
         getGradeFromScore(score) {
-            if (score >= 360) return 'SSS+';
-            if (score >= 350) return 'SSS';
-            if (score >= 300) return 'SS';
-            if (score >= 250) return 'S';
-            if (score >= 200) return 'A';
-            if (score >= 150) return 'B';
-            if (score >= 100) return 'C';
-            if (score >= 50) return 'D';
-            return 'F';
+            const grades = this.getGrades();
+            return this.pickTier(grades.item_grade, score, grades.item_grade_default || 'F');
         },
 
         getScoreDisplayData(score) {
-            // 350 이상: base.html의 bg-ultimate 클래스를 텍스트 그라데이션으로 활용
-            if (score >= 350) return { class: 'bg-ultimate text-transparent bg-clip-text', style: '' };
-            if (score >= 300) return { class: '', style: 'color: #b2e52c;' };
-            if (score >= 200) return { class: '', style: 'color: #ffb900;' };
-            if (score >= 100) return { class: '', style: 'color: #a855f7;' };
-            return { class: '', style: 'color: #3b82f6;' };
+            const grades = this.getGrades();
+            const tier = this.pickTier(grades.score_color, score, grades.score_color_default || 'rare');
+            return SCORE_STYLE[tier] || SCORE_STYLE.rare;
         }
     }));
 });

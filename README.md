@@ -70,6 +70,11 @@ app/
 ├── rate_limit.py           # IP 단위 슬라이딩 윈도우 제한, 클라이언트 IP 판별
 ├── analyzer.py             # 장비 평가, 가이드 문구, 총평, 최적 프리셋 선택, 진단 결과 조립(build_report)
 ├── calculator.py           # 점수 공식 (추가옵션, 잠재능력, 스타포스, 무기)
+├── scoring_config.py       # app/data/*.toml 로더. 기동 시 필수 키·타입·순서를 검증
+├── data/
+│   ├── classes.toml        # 직업 → 주스탯 표
+│   ├── scoring.toml        # 점수 공식 상수 (계수, 목표 급수, 가중치, 판정값)
+│   └── grades.toml         # 등급 · 색 · 총평 랭크 컷오프. 페이지와 응답에 실려 화면이 같은 값을 씀
 ├── request_tracker.py      # 동시 진단 제한, 대기열 상한 · 타임아웃, 진행 상태 추적
 ├── static/
 │   ├── images/             # logo.png, favicon.ico
