@@ -239,8 +239,8 @@ def build_character_profile(char_class, main_stat, equipped_items, stat_data) ->
                     pct_total += int(match.group(2))
 
     stat_pct = 1 + (pct_total + conversion_config.baseline_stat_pct) / 100
-    stat_flat = 100 * stat_pct**2 / main_total
-    attack_flat = 25 * stat_pct * (4 * main_total + secondary_total) / (main_total * attack_total)
+    stat_flat = conversion_config.stat_flat_scale * 100 * stat_pct**2 / main_total
+    attack_flat = conversion_config.attack_flat_scale * 25 * stat_pct * (4 * main_total + secondary_total) / (main_total * attack_total)
     crit_total = final_stat_float(stat_data, "크리티컬 데미지")
     crit_damage = None
     if crit_total is not None:

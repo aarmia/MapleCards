@@ -188,8 +188,8 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertEqual((profile["tier"], profile["add_target_multiplier"]), ("중자본", 0.87))
         self.assertEqual(profile["stat_pct_total"], 28)
         # b = 1.48 → 고정 스탯 1 = 100 × 1.48² ÷ 20000, 마력 1 = 25 × 1.48 × (80000 + 4000) ÷ (20000 × 1200)
-        self.assertAlmostEqual(profile["conversion"].stat_flat, 0.0110, places=3)
-        self.assertAlmostEqual(profile["conversion"].attack_flat, 0.1295, places=3)
+        self.assertAlmostEqual(profile["conversion"].stat_flat, 3.0 * 0.01095, places=3)  # × stat_flat_scale
+        self.assertAlmostEqual(profile["conversion"].attack_flat, 2.0 * 0.1295, places=3)  # × attack_flat_scale
         self.assertAlmostEqual(profile["conversion"].crit_damage, 1.48 / 2.20, places=3)  # b ÷ (1.35 + 0.85)
         self.assertIsNone(build_character_profile("제논", "all_stat", [item], stats)["conversion"])
 

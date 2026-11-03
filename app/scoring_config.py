@@ -100,7 +100,8 @@ _SCORING_SPEC = {
         "all_stat_pct_boost_classes": list, "level_stat_fallback": NUMBER, "level_stat_interval_default": NUMBER,
         "attack_flat": NUMBER, "stat_flat": NUMBER,
         "conversion": {
-            "enabled": bool, "baseline_stat_pct": NUMBER, "stat_flat_min": NUMBER, "stat_flat_max": NUMBER,
+            "enabled": bool, "baseline_stat_pct": NUMBER, "stat_flat_scale": NUMBER, "attack_flat_scale": NUMBER,
+            "stat_flat_min": NUMBER, "stat_flat_max": NUMBER,
             "attack_flat_min": NUMBER, "attack_flat_max": NUMBER, "crit_base": NUMBER, "crit_min": NUMBER, "crit_max": NUMBER,
         },
         "demon_avenger_additional": NUMBER, "ignored_keywords": list, "stat_keywords": list, "relevant_keywords": dict,
