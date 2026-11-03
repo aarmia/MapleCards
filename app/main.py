@@ -4,19 +4,31 @@ import os
 from contextlib import asynccontextmanager
 from typing import Annotated
 
+import httpx
 from fastapi import FastAPI, Query, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.requests import ClientDisconnect
 
 from app.analyzer import build_report
 from app.errors import AppError
 from app.request_tracker import DiagnosticRequestTracker
 from app.scraper import NexonAPIError, NexonAPIHandler
+from app.settings import Settings
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-nexon_api = NexonAPIHandler()
+settings = Settings.from_env()
+
+nexon_api = NexonAPIHandler(
+    timeout=httpx.Timeout(
+        connect=settings.nexon_connect_timeout,
+        read=settings.nexon_read_timeout,
+        write=settings.nexon_read_timeout,
+        pool=5.0,
+    )
+)
 
 
 @asynccontextmanager
@@ -30,8 +42,12 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# 동시 진단 5건 제한 및 요청별 진행 상태 추적
-request_tracker = DiagnosticRequestTracker(concurrency=5)
+# 동시 진단 수 제한, 대기열 상한·타임아웃, 요청별 진행 상태 추적. 워커 프로세스 1개를 전제로 메모리에만 둡니다.
+request_tracker = DiagnosticRequestTracker(
+    concurrency=settings.diagnosis_concurrency,
+    max_waiting=settings.queue_max_waiting,
+    wait_timeout=settings.queue_wait_timeout,
+)
 
 # 경로 설정
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -104,12 +120,31 @@ async def request_status(request_id: str):
     return await request_tracker.status(request_id)
 
 
+async def client_disconnected(request: Request) -> bool:
+    """슬롯을 받은 시점에 브라우저가 이미 떠났는지 확인합니다.
+
+    Starlette 는 연결이 끊겨도 핸들러를 취소하지 않으므로, 대기 중 탭을 닫은 요청이
+    Nexon API 호출 4건을 그대로 쓰는 것을 여기서 막습니다.
+    """
+    try:
+        # GET 의 빈 본문 메시지를 먼저 소비해야 그 뒤의 disconnect 메시지를 읽을 수 있습니다.
+        await request.body()
+    except ClientDisconnect:
+        return True
+    return await request.is_disconnected()
+
+
 @app.get("/check-items/{character_name}")
 async def check_items(
+    request: Request,
     character_name: str,
     request_id: Annotated[str | None, Query()] = None,
 ):
     async with request_tracker.track(request_id) as tracked_request_id:
+        if await client_disconnected(request):
+            # 떠난 클라이언트에게 보낼 응답은 없습니다. 499 는 로그 구분용 상태입니다.
+            return Response(status_code=499)
+
         ocid = await nexon_api.get_ocid(character_name)
         await request_tracker.set_stage(tracked_request_id, "equipment")
 

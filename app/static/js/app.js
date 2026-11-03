@@ -6,12 +6,16 @@ document.addEventListener('alpine:init', () => {
         errorMessage: '',
         errorStatus: null,
         errorCode: null,
+        retryCountdown: 0,
+        retryTimer: null,
+        autoRetried: false,
         activeRequestNickname: '',
         requestController: null,
         requestId: '',
         statusPollTimer: null,
         loadingStage: 'character',
         queuePosition: null,
+        queueEstimatedWait: null,
         viewMode: 'top5',
         showHelp: false,
         helpTab: 'guide',
@@ -41,13 +45,37 @@ document.addEventListener('alpine:init', () => {
             this.errorMessage = '';
             this.errorStatus = null;
             this.errorCode = null;
+            this.cancelRetry();
+            this.autoRetried = false;
             this.loading = false;
             this.activeRequestNickname = '';
             this.stopStatusPolling();
             this.requestId = '';
             this.loadingStage = 'character';
             this.queuePosition = null;
+            this.queueEstimatedWait = null;
             this.viewMode = 'top5';
+        },
+
+        cancelRetry() {
+            if (this.retryTimer) {
+                clearInterval(this.retryTimer);
+                this.retryTimer = null;
+            }
+            this.retryCountdown = 0;
+        },
+
+        scheduleRetry(seconds) {
+            // 대기열 초과(503 QUEUE_*)는 서버가 알려준 시간 뒤 한 번만 자동으로 다시 시도합니다. 폭주를 막기 위해 1회로 제한합니다.
+            this.cancelRetry();
+            this.retryCountdown = Math.max(1, Math.min(60, Math.round(seconds)));
+            this.retryTimer = setInterval(() => {
+                this.retryCountdown -= 1;
+                if (this.retryCountdown > 0) return;
+                this.cancelRetry();
+                this.autoRetried = true;
+                this.fetchReport({ auto: true });
+            }, 1000);
         },
 
         stopStatusPolling() {
@@ -66,9 +94,11 @@ document.addEventListener('alpine:init', () => {
                 if (status.stage === 'waiting') {
                     this.loadingStage = 'waiting';
                     this.queuePosition = status.queue_position;
+                    this.queueEstimatedWait = status.estimated_wait_seconds ?? null;
                 } else if (['character', 'equipment', 'analysis'].includes(status.stage)) {
                     this.loadingStage = status.stage;
                     this.queuePosition = null;
+                    this.queueEstimatedWait = null;
                 }
             } catch (_) {
                 // 상태 조회 실패는 본 진단 요청에 영향을 주지 않습니다.
@@ -81,9 +111,12 @@ document.addEventListener('alpine:init', () => {
             this.statusPollTimer = setInterval(() => this.pollRequestStatus(), 350);
         },
 
-        async fetchReport() {
+        async fetchReport({ auto = false } = {}) {
             const trimmedNickname = this.nickname.trim();
             if (!trimmedNickname) return;
+
+            this.cancelRetry();
+            if (!auto) this.autoRetried = false;
 
             if (this.loading && this.requestController && trimmedNickname === this.activeRequestNickname) {
                 return;
@@ -128,6 +161,7 @@ document.addEventListener('alpine:init', () => {
                 this.loadingStage = 'analysis';
                 await new Promise(resolve => setTimeout(resolve, 250));
                 this.report = data;
+                this.autoRetried = false;
             } catch(e) {
                 if (e.name === 'AbortError') {
                     return;
@@ -139,6 +173,9 @@ document.addEventListener('alpine:init', () => {
                     this.errorMessage = e.message;
                     this.errorStatus = e.status;
                     this.errorCode = e.code;
+                    if (!this.autoRetried && (e.code === 'QUEUE_FULL' || e.code === 'QUEUE_TIMEOUT')) {
+                        this.scheduleRetry(e.retryAfter || 5);
+                    }
                 } else {
                     this.errorMessage = '서버에 연결할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요.';
                     this.errorStatus = null;
@@ -152,6 +189,7 @@ document.addEventListener('alpine:init', () => {
                     this.stopStatusPolling();
                     this.requestId = '';
                     this.queuePosition = null;
+                    this.queueEstimatedWait = null;
                 }
             }
         },
@@ -183,6 +221,11 @@ document.addEventListener('alpine:init', () => {
 
         getErrorHint() {
             switch (this.errorCode) {
+                case 'QUEUE_FULL':
+                case 'QUEUE_TIMEOUT':
+                    return this.retryCountdown > 0
+                        ? '서버가 혼잡합니다. ' + this.retryCountdown + '초 후 자동으로 다시 시도합니다.'
+                        : '서버가 혼잡합니다. 잠시 후 다시 시도해주세요.';
                 case 'OPENAPI00010': return '메이플스토리 점검 중에는 넥슨 API가 캐릭터 정보를 주지 않습니다. 점검이 끝난 뒤 이용해주세요.';
                 case 'OPENAPI00011': return '넥슨 Open API 점검 중입니다. 점검이 끝난 뒤 이용해주세요.';
                 case 'OPENAPI00009': return '넥슨 쪽 데이터가 아직 준비되지 않았습니다. 몇 분 뒤 다시 시도해주세요.';

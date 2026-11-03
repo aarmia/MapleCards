@@ -27,9 +27,9 @@
 * **특수 등급 애니메이션**: 일정 점수(극 엔드급) 이상을 달성한 종결급 아이템에는 무지개 빛 애니메이션 효과가 적용됩니다.
 
 ### 4. 서버 안정성 및 배포 최적화
-* **동시 진단 제한**: 동시에 처리하는 진단을 5건으로 제한(asyncio Semaphore)하고, 초과 요청은 대기열에서 순서를 기다리게 하여 API 키 차단을 방지합니다.
+* **동시 진단 제한과 대기열**: 동시에 처리하는 진단 수를 제한(asyncio Semaphore)하고, 초과 요청은 대기열에서 순서를 기다립니다. 대기열 상한과 대기 타임아웃을 넘으면 503과 Retry-After로 안내하고 화면이 한 번 자동으로 다시 시도합니다. 대기 중 탭을 닫은 요청은 Nexon API를 호출하지 않습니다.
 * **진행 상태 조회**: `/request-status/{request_id}`로 대기 순번과 처리 단계(캐릭터 확인 → 장비 조회 → 결과 생성)를 폴링하여 화면에 표시합니다.
-* **오류 매핑**: 넥슨 API 오류를 404 / 429 / 503 / 504 등 HTTP 상태와 사용자용 메시지로 변환하고, 화면은 그 메시지를 그대로 보여줍니다.
+* **오류 매핑**: 넥슨 API 오류 코드(OPENAPI000xx)를 본문에서 읽어 없는 캐릭터 / 키 오류 / 점검 / 호출량 초과를 구분하고, `{"error", "code", "retry_after"}` JSON과 HTTP 상태로 변환합니다. 화면은 메시지와 코드별 힌트를 보여줍니다.
 
 ---
 
@@ -62,10 +62,12 @@
 ```text
 app/
 ├── main.py                 # FastAPI 서버, 엔드포인트(/, /check-items, /request-status, robots.txt, sitemap.xml)
-├── scraper.py              # Nexon Open API 클라이언트 및 오류 변환
+├── scraper.py              # Nexon Open API 클라이언트, 오류 코드(OPENAPI000xx) 변환
+├── errors.py               # 사용자 응답용 예외 AppError (상태 · 메시지 · 코드 · Retry-After)
+├── settings.py             # 환경 변수 운영 설정
 ├── analyzer.py             # 장비 평가, 가이드 문구, 총평, 최적 프리셋 선택, 진단 결과 조립(build_report)
 ├── calculator.py           # 점수 공식 (추가옵션, 잠재능력, 스타포스, 무기)
-├── request_tracker.py      # 동시 진단 제한 및 요청 진행 상태 추적
+├── request_tracker.py      # 동시 진단 제한, 대기열 상한 · 타임아웃, 진행 상태 추적
 ├── static/
 │   ├── images/             # logo.png, favicon.ico
 │   └── js/app.js           # Alpine.js 화면 로직
@@ -116,6 +118,37 @@ uv.lock                     # 잠금 파일 (모든 플랫폼 공용)
    uv run uvicorn app.main:app --reload
    # pip 로 설치했다면: uvicorn app.main:app --reload
    ```
+
+---
+
+## 🛡 운영 설정
+
+워커 프로세스 **1개**를 전제로 합니다. 동시 진단 제한, 대기열, 진행 상태가 모두 프로세스 메모리에 있어 워커가 여러 개면 상태 조회가 어긋나고 제한이 워커 수만큼 늘어납니다. Render Start Command 권장값:
+```bash
+gunicorn -w 1 -k uvicorn.workers.UvicornWorker app.main:app --timeout 120 --graceful-timeout 30 --max-requests 20000 --max-requests-jitter 2000
+```
+진행 상태 폴링 1건도 요청 1건으로 세므로 `--max-requests`는 넉넉히 둡니다. 환경 변수:
+
+| 변수 | 기본값 | 설명 |
+|---|---|---|
+| `NEXON_API_KEY` | 없음 | Nexon Open API 키 (필수) |
+| `SITE_URL` | `https://meculator.onrender.com` | robots.txt / sitemap.xml 에 쓰는 공개 주소 |
+| `DIAGNOSIS_CONCURRENCY` | `5` | 동시에 Nexon API를 호출하는 진단 수 |
+| `QUEUE_MAX_WAITING` | `40` | 대기열 상한. 넘치면 503 `QUEUE_FULL` |
+| `QUEUE_WAIT_TIMEOUT` | `8` | 대기열 최대 대기 초. 넘으면 503 `QUEUE_TIMEOUT` |
+| `NEXON_CONNECT_TIMEOUT` / `NEXON_READ_TIMEOUT` | `3` / `6` | Nexon API 연결 · 읽기 타임아웃(초) |
+
+### 오류 응답
+사용자 오류는 모두 `{"error": 메시지, "code": 코드, "retry_after": 초}` 형태이며 `retry_after`가 있으면 `Retry-After` 헤더도 함께 갑니다.
+
+| 코드 | 상태 | 뜻 |
+|---|---|---|
+| `CHARACTER_NOT_FOUND` | 404 | 없는 닉네임 (Nexon OPENAPI00004) |
+| `OPENAPI00005` / `OPENAPI00002` / `OPENAPI00006` | 503 / 503 / 502 | 잘못된 키 · 권한 없음 · 잘못된 경로. 운영자 확인 필요, CRITICAL 로그 |
+| `OPENAPI00007` | 429 | Nexon 호출량 초과 |
+| `OPENAPI00009` / `OPENAPI00010` / `OPENAPI00011` | 503 | 데이터 준비 중 · 게임 점검 · API 점검 |
+| `NEXON_TIMEOUT` / `NEXON_UNREACHABLE` | 504 / 502 | Nexon 응답 지연 · 연결 실패 |
+| `QUEUE_FULL` / `QUEUE_TIMEOUT` | 503 | 대기열 초과 · 대기 시간 초과. 화면이 Retry-After 뒤 1회 자동 재시도 |
 
 ---
 

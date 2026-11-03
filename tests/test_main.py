@@ -7,7 +7,8 @@ from unittest.mock import patch
 
 import httpx
 
-from app.main import APP_JS_VERSION, SITE_URL, app, check_items
+from app.main import APP_JS_VERSION, SITE_URL, app
+from app.request_tracker import DiagnosticRequestTracker
 from app.scraper import NexonAPIError
 
 
@@ -30,8 +31,10 @@ class ConcurrentNexonAPI:
     def __init__(self):
         self.active_requests = 0
         self.max_active_requests = 0
+        self.ocid_calls = 0
 
     async def get_ocid(self, _):
+        self.ocid_calls += 1
         return "test-ocid"
 
     async def _response(self, data):
@@ -173,12 +176,73 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_character_requests_run_concurrently(self):
         fake_api = ConcurrentNexonAPI()
+        transport = httpx.ASGITransport(app=app)
 
         with patch("app.main.nexon_api", fake_api):
-            result = await check_items("테스트")
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.get("/check-items/테스트")
 
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(fake_api.max_active_requests, 3)
-        self.assertEqual(result["character"], "테스트")
+        self.assertEqual(response.json()["character"], "테스트")
+
+    async def test_full_queue_returns_503_with_retry_after(self):
+        tracker = DiagnosticRequestTracker(concurrency=1, max_waiting=0)
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        async def hold_only_slot():
+            async with tracker.track("holder"):
+                entered.set()
+                await release.wait()
+
+        holder = asyncio.create_task(hold_only_slot())
+        await entered.wait()
+        transport = httpx.ASGITransport(app=app)
+
+        with patch("app.main.request_tracker", tracker), patch("app.main.nexon_api", ConcurrentNexonAPI()):
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.get("/check-items/테스트")
+
+        release.set()
+        await holder
+
+        self.assertEqual(response.status_code, 503)
+        body = response.json()
+        self.assertEqual(body["code"], "QUEUE_FULL")
+        self.assertGreaterEqual(body["retry_after"], 2)
+        self.assertEqual(response.headers["retry-after"], str(body["retry_after"]))
+
+    async def test_disconnected_client_does_not_consume_nexon_calls(self):
+        fake_api = ConcurrentNexonAPI()
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/check-items/test",
+            "raw_path": b"/check-items/test",
+            "query_string": b"",
+            "headers": [(b"host", b"test")],
+            "client": ("127.0.0.1", 1234),
+            "server": ("test", 80),
+        }
+        incoming = [{"type": "http.request", "body": b"", "more_body": False}]
+        sent = []
+
+        async def receive():
+            # 본문 메시지 뒤로는 연결이 끊긴 상태를 계속 알립니다.
+            return incoming.pop(0) if incoming else {"type": "http.disconnect"}
+
+        async def send(message):
+            sent.append(message)
+
+        with patch("app.main.nexon_api", fake_api):
+            await app(scope, receive, send)
+
+        start = next(message for message in sent if message["type"] == "http.response.start")
+        self.assertEqual(start["status"], 499)
+        self.assertEqual(fake_api.ocid_calls, 0)
 
     async def test_check_items_builds_full_report_from_real_fixture(self):
         fixture = load_first_fixture()
