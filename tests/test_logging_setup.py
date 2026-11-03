@@ -31,6 +31,12 @@ class FormatterTests(unittest.TestCase):
         self.assertIsInstance(payload["pid"], int)
         self.assertNotIn("args", payload)
 
+    def test_uvicorn_color_message_is_dropped(self):
+        record = make_record("Uvicorn running", extra={"color_message": "Uvicorn running [1m%s[0m"})
+
+        self.assertNotIn("color_message", json.loads(JsonFormatter().format(record)))
+        self.assertEqual(TextFormatter("%(message)s").format(record), "Uvicorn running")
+
     def test_json_formatter_includes_exception_text(self):
         try:
             raise ValueError("boom")

@@ -10,6 +10,8 @@ _STANDARD_ATTRS = set(vars(logging.LogRecord("x", logging.INFO, "x", 0, "", (), 
     "message",
     "asctime",
     "taskName",
+    # uvicorn 이 기동 메시지에 붙이는 ANSI 색상 버전. 우리 로그에는 필요 없습니다.
+    "color_message",
 }
 
 
