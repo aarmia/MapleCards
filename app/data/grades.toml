@@ -25,9 +25,14 @@ star = 110.0
 
 # 총평 랭크. 비특수 장비 평균 점수가 min 이상인 첫 항목. weapon_keyword 가 장비 이름에 있으면 with_weapon 문구를 씁니다.
 [[overall]]
-min = 380
+min = 390
+rank = "ABSOLUTE"
+comment = "전서버 최상위권 장비입니다. 컨텐츠가 없으시군요."
+
+[[overall]]
+min = 370
 rank = "ETERNAL"
-comment = "전 서버 최상위권 장비입니다. 이제 2차 초월의 영역입니다."
+comment = "서버권 최상위권 장비입니다. 이제 2차 초월의 영역입니다."
 
 [[overall]]
 min = 350

@@ -399,7 +399,7 @@ def select_preset_items(item_data, preset_idx):
 def build_report(character_name, basic_info, item_data, stat_data, unsupported=None):
     """기본정보·장비·스탯 응답으로 진단 결과 전체를 만듭니다.
 
-    /check-items 응답과 골든 테스트(tests/test_golden.py)가 같은 함수를 사용합니다.
+    /check-items 응답이 이 함수를 그대로 사용합니다.
     unsupported 에 Counter 를 주면 점수에 반영하지 못한 옵션을 (종류, 옵션)별로 세어 넣습니다.
     """
     char_class = basic_info.get("character_class")

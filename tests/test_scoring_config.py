@@ -21,7 +21,9 @@ class ScoringConfigTests(unittest.TestCase):
         self.assertEqual(scoring.add_option.targets.default[250], 186)
         self.assertEqual(scoring.weights.potential, 3.3)
         self.assertEqual(grades.item_grade[0], [360, "SSS+"])
-        self.assertEqual((grades.overall[0]["rank"], grades.overall[-1]["rank"]), ("ETERNAL", "EPIC"))
+        mins = [entry["min"] for entry in grades.overall]
+        self.assertEqual(mins, sorted(mins, reverse=True))  # 첫 일치 규칙이라 내림차순
+        self.assertEqual(grades.overall[-1]["min"], 0)  # 마지막 항목이 모든 평균을 받습니다
         with self.assertRaises(ConfigError):
             check_bands([[300, "a"], [350, "b"]], "x", 2)  # 첫 일치 규칙이라 내림차순이 아니면 거부
 
