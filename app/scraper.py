@@ -91,7 +91,7 @@ class NexonAPIHandler:
         # 연결 3초, 읽기 6초. 진단 1건이 슬롯을 붙잡는 최악 시간을 줄여 대기열이 밀리지 않게 합니다.
         self.timeout = timeout or httpx.Timeout(connect=3.0, read=6.0, write=6.0, pool=5.0)
         self._client_lock = asyncio.Lock()
-        self._last_alert_at = 0.0
+        self._last_alert_at: float | None = None
 
         if self.api_key:
             logger.info("Nexon API key loaded")
@@ -127,7 +127,8 @@ class NexonAPIHandler:
 
     def _alert_operator(self, code: str, upstream_status: int) -> None:
         now = time.monotonic()
-        if now - self._last_alert_at < _ALERT_INTERVAL_SEC:
+        # monotonic 은 부팅 후 경과 시간이라 갓 켜진 머신(CI, 새 컨테이너)에서는 60 보다 작을 수 있습니다. 0 과 비교하면 첫 경고가 사라집니다.
+        if self._last_alert_at is not None and now - self._last_alert_at < _ALERT_INTERVAL_SEC:
             return
         self._last_alert_at = now
         logger.critical(
