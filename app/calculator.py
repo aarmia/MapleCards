@@ -25,13 +25,32 @@ def get_potential_options(item_data: dict, potential_type: str) -> list[str]:
     return [value for _, value in indexed_options]
 
 
-def _score_detail(score: float, recognized: list[dict], options: list[str]) -> dict:
+def classify_unrecognized(options: list[str], recognized: list[dict], main_stat: str) -> tuple[list[dict], list[str]]:
+    """점수에 반영되지 않은 옵션을 나눕니다.
+
+    - ignored: 점수에 넣지 않기로 한 옵션 (scoring.toml potential.ignored_keywords)
+    - other_stat: 다른 직업의 스탯을 올리는 옵션 (relevant_keywords 에 없는 스탯)
+    - unsupported: 어디에도 속하지 않는, 엔진이 모르는 옵션. 로그 집계 대상은 이것뿐입니다.
+    """
+    config = SCORING.potential
     recognized_text = {entry["option"] for entry in recognized}
-    return {
-        "score": round(score, 2),
-        "recognized": recognized,
-        "unsupported": [option for option in options if option not in recognized_text],
-    }
+    relevant = config.relevant_keywords.raw.get(main_stat, [])
+    ignored, unsupported = [], []
+    for option in options:
+        if option in recognized_text:
+            continue
+        if any(keyword in option for keyword in config.ignored_keywords):
+            ignored.append({"option": option, "reason": "ignored"})
+        elif any(keyword in option for keyword in config.stat_keywords) and not any(keyword in option for keyword in relevant):
+            ignored.append({"option": option, "reason": "other_stat"})
+        else:
+            unsupported.append(option)
+    return ignored, unsupported
+
+
+def _score_detail(score: float, recognized: list[dict], options: list[str], main_stat: str = "") -> dict:
+    ignored, unsupported = classify_unrecognized(options, recognized, main_stat)
+    return {"score": round(score, 2), "recognized": recognized, "ignored": ignored, "unsupported": unsupported}
 
 def get_main_stat(class_name: str, stat_data: dict = None) -> str:
     """직업명을 받아 주스탯 키워드를 반환합니다. 표는 app/data/classes.toml 에 있습니다."""
@@ -130,13 +149,11 @@ def analyze_potential_score(item_data: dict, potential_type: str, class_name: st
     config = SCORING.potential
 
     is_excluded = any(k in slot for k in config.excluded_slots) or any(k in part for k in config.excluded_slots)
+    main_stat = get_main_stat(class_name).upper()
+    options = get_potential_options(item_data, potential_type)
 
     if is_excluded:
-        return _score_detail(-1, [], get_potential_options(item_data, potential_type))
-
-    main_stat = get_main_stat(class_name).upper()
-
-    options = get_potential_options(item_data, potential_type)
+        return _score_detail(-1, [], options, main_stat)
 
     total_stat_score = 0.0
     total_special_score = 0.0
@@ -246,7 +263,7 @@ def analyze_potential_score(item_data: dict, potential_type: str, class_name: st
     if class_name == "데몬어벤져" and potential_type == "additional_potential":
         total_stat_score *= config.demon_avenger_additional
 
-    return _score_detail(total_stat_score + total_special_score, recognized, options)
+    return _score_detail(total_stat_score + total_special_score, recognized, options, main_stat)
 
 
 def calculate_potential_score(item_data: dict, potential_type: str, class_name: str, char_level: int) -> float:
@@ -282,15 +299,14 @@ def analyze_weapon_potential_score(item_data: dict, potential_type: str, class_n
     slot = item_data.get("item_equipment_slot", "")
     part = item_data.get("item_equipment_part", "")
     is_wse = any(k in slot for k in ["무기", "보조무기"]) or "엠블렘" in part
-    if not is_wse:
-        return _score_detail(0, [], get_potential_options(item_data, potential_type))
-
     main_stat = get_main_stat(class_name)
     target_atk = "마력" if main_stat == "int" else "공격력"
     target_stat = main_stat.upper()
-    weights = SCORING.weapon.potential
-
     options = get_potential_options(item_data, potential_type)
+    if not is_wse:
+        return _score_detail(0, [], options, target_stat)
+
+    weights = SCORING.weapon.potential
 
     total_stat_score = 0.0
     total_special_score = 0.0
@@ -321,7 +337,7 @@ def analyze_weapon_potential_score(item_data: dict, potential_type: str, class_n
             continue
         recognized.append({"option": opt, "value": round(points, 2), "rule": rule})
 
-    return _score_detail(total_stat_score + total_special_score, recognized, options)
+    return _score_detail(total_stat_score + total_special_score, recognized, options, target_stat)
 
 
 def calculate_weapon_potential_score(item_data: dict, potential_type: str, class_name: str) -> float:

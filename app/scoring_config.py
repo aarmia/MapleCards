@@ -91,7 +91,7 @@ _SCORING_SPEC = {
     "potential": {
         "excluded_slots": list, "cooldown_per_second": NUMBER, "all_stat_pct": NUMBER, "all_stat_pct_boost": NUMBER,
         "all_stat_pct_boost_classes": list, "level_stat": NUMBER, "attack_flat": NUMBER, "stat_flat": NUMBER,
-        "demon_avenger_additional": NUMBER,
+        "demon_avenger_additional": NUMBER, "ignored_keywords": list, "stat_keywords": list, "relevant_keywords": dict,
         "crit_damage": {"single": NUMBER, "multi": NUMBER, "additional": NUMBER},
         "xenon": {k: NUMBER for k in ("level_stat_divisor", "stat_pct_divisor", "attack_flat", "stat_flat", "multiplier")},
     },

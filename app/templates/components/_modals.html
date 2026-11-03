@@ -120,6 +120,22 @@
                         </div>
                     </div>
 
+                    <div class="mt-5" x-show="selectedItem?.scoring_basis?.unrecognized_options?.length">
+                        <p class="text-xs font-bold text-slate-300 mb-2">점수에 반영되지 않은 옵션</p>
+                        <div class="space-y-2">
+                            <template x-for="(entry, index) in selectedItem?.scoring_basis?.unrecognized_options || []" :key="entry.category + entry.option + index">
+                                <div class="rounded-xl bg-slate-800/40 border border-slate-700/70 px-3 py-2 flex items-center justify-between gap-3">
+                                    <div class="min-w-0 flex items-center gap-2">
+                                        <span class="text-[10px] font-black whitespace-nowrap" :class="entry.category === '윗잠재' ? 'text-rose-400' : 'text-blue-400'" x-text="entry.category"></span>
+                                        <p class="text-xs font-bold text-slate-300 truncate" x-text="entry.option"></p>
+                                    </div>
+                                    <span class="text-[10px] font-black px-2 py-0.5 rounded-full whitespace-nowrap" :class="unrecognizedBadgeClass(entry.reason)" x-text="unrecognizedLabel(entry.reason)"></span>
+                                </div>
+                            </template>
+                        </div>
+                        <p class="text-[10px] text-slate-500 mt-2">다른 직업 스탯과 점수 제외는 의도된 분류입니다. "미지원"은 아직 환산 규칙이 없는 옵션입니다.</p>
+                    </div>
+
                     <div class="mt-5 pt-4 border-t border-slate-700/80">
                         <p class="text-sm font-black text-slate-300 mb-3">항목별 가중치</p>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-2">

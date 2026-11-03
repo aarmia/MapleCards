@@ -120,6 +120,29 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertEqual(record.getMessage(), "unsupported_option_first_seen")
         self.assertEqual((record.potential_type, record.option), ("potential", "보스 몬스터 공격 시 데미지 +30%"))
         self.assertEqual(collector[("potential", "보스 몬스터 공격 시 데미지 +30%")], 2)
+    def test_unrecognized_options_are_classified_and_exposed(self):
+        item = dict(self.challenger_top)
+        item["potential_option_3"] = "DEX +9%"                       # 레테(INT)에게는 다른 직업 스탯
+        item["additional_potential_option_3"] = "방어력 +7%"          # 점수에 넣지 않기로 한 옵션
+        item["potential_option_2"] = "크리티컬 확률 +9%"               # 엔진이 모르는 옵션
+        unsupported_registry.reset()
+        collector = Counter()
+
+        with self.assertLogs("app.analyzer", level="WARNING") as captured:
+            result = evaluate_equipment([item], "레테", 285, unsupported=collector)[0]
+
+        self.assertEqual(
+            result["scoring_basis"]["unrecognized_options"],
+            [
+                {"category": "윗잠재", "option": "DEX +9%", "reason": "other_stat"},
+                {"category": "윗잠재", "option": "크리티컬 확률 +9%", "reason": "unsupported"},
+                {"category": "에디셔널", "option": "방어력 +7%", "reason": "ignored"},
+            ],
+        )
+        # 로그와 집계에는 엔진이 모르는 옵션만 올라갑니다.
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(list(collector), [("potential", "크리티컬 확률 +9%")])
+
     def test_guide_rules_match_in_order_and_fill_fields(self):
         rules = [
             {"name_any": "hearts", "when": [["total", ">=", 100]], "text": "하트 {star_next}성"},

@@ -374,6 +374,16 @@ document.addEventListener('alpine:init', () => {
             return this.getGradeColor(fallbackGrade);
         },
 
+        unrecognizedLabel(reason) {
+            return { other_stat: '다른 직업 스탯', ignored: '점수 제외', unsupported: '미지원' }[reason] || reason;
+        },
+
+        unrecognizedBadgeClass(reason) {
+            return reason === 'unsupported'
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                : 'bg-slate-700/60 text-slate-400 border border-slate-600';
+        },
+
         getGuideStyle(guideText) {
             if (!guideText) return '';
             if (guideText.includes('종결') || guideText.includes('완벽')) return 'bg-indigo-50 text-indigo-700 border-indigo-100';

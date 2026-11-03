@@ -246,6 +246,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None):
                 "scoring_basis": {
                     "main_stat": main_stat,
                     "recognized_options": [],
+                    "unrecognized_options": [],
                     "weights": ["특수 장비 고유 기준"],
                     "breakdown": [
                         {"key": "add", "label": "추가옵션", "raw_score": round(add_raw_score, 2), "weighted_score": round(total_item_score, 2)},
@@ -326,6 +327,14 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None):
             + with_weighted_values(eddy_analysis, "에디셔널", eddy_score)
         )
 
+        def unrecognized_entries(analysis, category):
+            # 점수에 반영되지 않은 옵션과 그 이유. 화면에서 "왜 점수가 낮은지"를 보여주는 근거입니다.
+            return [
+                {"category": category, "option": entry["option"], "reason": entry["reason"]} for entry in analysis["ignored"]
+            ] + [{"category": category, "option": option, "reason": "unsupported"} for option in analysis["unsupported"]]
+
+        unrecognized_options = unrecognized_entries(pot_analysis, "윗잠재") + unrecognized_entries(eddy_analysis, "에디셔널")
+
         total_item_score = add_score + pot_score + eddy_score + adv_star_score
 
         if pot_val != -1 and not any(k in name for k in special_rings):
@@ -342,6 +351,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None):
                 "scoring_basis": {
                     "main_stat": main_stat,
                     "recognized_options": recognized_options,
+                    "unrecognized_options": unrecognized_options,
                     "weights": [
                         f"윗잠재 환산값 × {weights.potential:g}",
                         f"에디셔널 환산값 × {weights.additional:g}",

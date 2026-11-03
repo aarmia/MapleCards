@@ -37,6 +37,10 @@ level_stat = 3.5                                      # 캐릭터 기준 n레벨
 attack_flat = 0.3                                     # 공격력·마력 +n (고정값)
 stat_flat = 0.09                                      # 주스탯 +n (고정값)
 demon_avenger_additional = 0.9                        # 데몬어벤져 에디셔널 보정
+# 점수에 넣지 않기로 한 옵션. 포함 문자열로 판정하며 로그 집계와 "미지원" 표시에서 뺍니다.
+ignored_keywords = ["최대 MP", "방어력", "점프력", "이동속도", "회복", "피격 시", "확률로", "메소 획득량", "아이템 드롭률", "상태 이상"]
+# 스탯을 언급하는 옵션인지 판정하는 키워드. 아래 relevant_keywords 에 없는 스탯이면 "다른 직업 스탯"으로 분류합니다.
+stat_keywords = ["STR", "DEX", "INT", "LUK", "HP", "공격력", "마력"]
 
 [potential.crit_damage]       # 크리티컬 데미지 환산. 윗잠재는 줄 수에 따라, 에디셔널은 고정
 single = 1.125
@@ -49,6 +53,14 @@ stat_pct_divisor = 3.0
 attack_flat = 0.3
 stat_flat = 0.09
 multiplier = 1.35
+
+[potential.relevant_keywords]  # 주스탯별로 점수와 관련 있는 스탯 키워드
+STR = ["STR", "공격력"]
+DEX = ["DEX", "공격력"]
+INT = ["INT", "마력"]
+LUK = ["LUK", "공격력"]
+HP = ["HP", "공격력"]
+ALL_STAT = ["STR", "DEX", "LUK", "공격력"]
 
 # ── 무기 · 보조무기 · 엠블렘 ──────────────────────────────
 [weapon.add]                  # 무기 추옵: 공격력 비율(%) + 보공 + 데미지 + 올스탯 + 주스탯
