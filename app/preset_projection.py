@@ -41,7 +41,10 @@ def project_context(current, selected, equipped_items, selected_items, level, se
     # Identical equipment must retain actual API values, rather than manufacture a projection.
     same = same_preset or equipped_items == selected_items
     set_report = analyze_sets(equipped_items, equipped_items if same else selected_items, set_data)
-    names = lambda items: sorted((item.get("item_equipment_slot", ""), item.get("item_name", "")) for item in items)
+
+    def names(items):
+        return sorted((item.get("item_equipment_slot", ""), item.get("item_name", "")) for item in items)
+
     set_status = "unchanged" if same or names(equipped_items) == names(selected_items) else "unresolved"
     sources = {**selected.sources, "set_projection_status": set_status,
                "current_set_effects": (set_data or {}).get("set_effect", []),

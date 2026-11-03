@@ -4,7 +4,7 @@ from dataclasses import replace
 
 from app.character_profile import build_stat_context
 from app.potential import reference_context
-from app.preset_optimizer import effects, optimize_presets, boss_index, group_candidates
+from app.preset_optimizer import boss_index, effects, group_candidates, optimize_presets
 
 
 class PresetOptimizerTests(unittest.TestCase):
@@ -55,9 +55,16 @@ class PresetOptimizerTests(unittest.TestCase):
             "크리티컬 데미지": 100}.items()]}
         item = {"item_name": "same", "item_equipment_slot": "모자", "item_total_option": {"str": "100", "dex": "100", "attack_power": "10"}}
         items = {"preset_no": 1, "item_equipment": [item], "item_equipment_preset_1": [item]}
-        row = lambda text: {"stat_level": 1, "stat_increase": text}
-        skill = lambda text: {"skill_effect": text}
-        ability = lambda text: {"ability_info": [{"ability_value": text}]}
+
+        def row(text):
+            return {"stat_level": 1, "stat_increase": text}
+
+        def skill(text):
+            return {"skill_effect": text}
+
+        def ability(text):
+            return {"ability_info": [{"ability_value": text}]}
+
         extras = {"symbol": {"symbol": []},
             "hyper_stat": {"use_preset_no": "1", "hyper_stat_preset_1": [row("일반 몬스터 공격 시 데미지 100% 증가")],
                            "hyper_stat_preset_2": [row("보스 몬스터 공격 시 데미지 40% 증가")]},

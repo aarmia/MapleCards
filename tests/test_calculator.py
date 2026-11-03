@@ -1,5 +1,5 @@
-import unittest
 import math
+import unittest
 from collections import Counter
 from dataclasses import replace
 
@@ -13,7 +13,13 @@ from app.analyzer import (
     unsupported_registry,
 )
 from app.calculator import calculate_potential_score, get_main_stat, get_potential_options
-from app.character_profile import _gear_attack_pct, _gear_attack_pct_sources, _hexa_main_stat, build_character_profile, build_stat_context
+from app.character_profile import (
+    _gear_attack_pct,
+    _gear_attack_pct_sources,
+    _hexa_main_stat,
+    build_character_profile,
+    build_stat_context,
+)
 from app.potential import convert_line, reference_context
 from app.scoring_config import CLASSES
 
@@ -323,14 +329,14 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertAlmostEqual(context.base_stat, (40000 - 4405) / 1.38, places=6)
         self.assertAlmostEqual(context.pct_per_flat, 100 * 1.38 / context.base_stat, places=9)
         self.assertAlmostEqual(context.pct_per_attack, 100 * (4 * 40000 + 4000) / (4 * context.base_stat * 2000), places=9)
-        self.assertAlmostEqual(context.pct_per_crit_damage, (4 * 40000 + 4000) / (2.20 * 4 * context.base_stat), places=9)
+        self.assertAlmostEqual(context.pct_per_crit_damage, (4 * 40000 + 4000) / (2.77 * 4 * context.base_stat), places=9)  # 1.35 + 크뎀 0.85 + 버프 0.57
 
         estimated = build_stat_context("레테", "int", 285, [item], stats, {"hyper_stat": extras["hyper_stat"]})
         self.assertEqual((estimated.basis, estimated.exempt_stat), ("estimated", 24000.0))  # 심볼이 없으면 레벨로 추정 (potential.toml exempt_estimate)
         self.assertEqual(reference_context("레테", "int").basis, "reference")
 
     def test_lines_convert_to_effective_stat_pct(self):
-        # 기준 캐릭터: a = 12000, b = 3 → 고정 스탯 1 = 0.025%, 공/마 1 = 0.12%, 크뎀 1% = 1.333%
+        # 기준 캐릭터: a = 12000, b = 3 → 고정 스탯 1 = 0.025%, 공/마 1 = 0.12%, 크뎀 1% = 144000 ÷ ((1.35 + 0.9 + 0.57) × 48000) = 1.064%
         cases = [
             ("히어로", "str", "STR +12%", 12.0),
             ("히어로", "str", "올스탯 +9%", 9.9),  # 주스탯 1 + 부스탯 1 × 0.1
@@ -340,7 +346,7 @@ class PotentialOptionTests(unittest.TestCase):
             ("히어로", "str", "DEX +40", 0.1),
             ("히어로", "str", "공격력 +12", 1.44),
             ("히어로", "str", "마력 +12", None),
-            ("히어로", "str", "크리티컬 데미지 +8%", 10.67),
+            ("히어로", "str", "크리티컬 데미지 +8%", 8.51),
             ("히어로", "str", "모든 스킬의 재사용 대기시간 -2초(10초 이하는 10%감소, 5초 미만으로 감소 불가)", 14.0),
             ("제논", "all_stat", "STR +9%", 3.0),
             ("제논", "all_stat", "INT +9%", None),
@@ -364,8 +370,8 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertEqual(points("캡틴", 95.0)[0], 0.0)  # 90% 이상이면 0 이지만 미지원으로 남지 않음
         below, context = points("캡틴", 80.0)  # 100% 까지 20% 여유 → 9% 전부 유효
         self.assertAlmostEqual(below, 9 * context.pct_per_crit_rate, places=9)
-        # A × (0.35 + 크뎀) ÷ (w × a × (1 + 크확 × (0.35 + 크뎀)))
-        self.assertAlmostEqual(context.pct_per_crit_rate, 144000 * 1.25 / (48000 * (1 + 0.8 * 1.25)), places=9)
+        # A × (0.35 + 크뎀 + 버프 0.57) ÷ (w × a × (1 + 크확 × (0.35 + 크뎀 + 버프)))
+        self.assertAlmostEqual(context.pct_per_crit_rate, 144000 * 1.82 / (48000 * (1 + 0.8 * 1.82)), places=9)
         archer, context = points("보우마스터", 100.0)  # 궁수는 초과분 9% 가 크리티컬 리인포스 가치
         self.assertAlmostEqual(archer, 9 * 0.5 * 0.25 * context.pct_per_crit_damage, places=9)
         self.assertEqual(points("캡틴", 100.0)[0], 0.0)

@@ -1,7 +1,6 @@
 import logging
 import operator
 import re
-from dataclasses import replace
 from collections import Counter
 
 from app.calculator import (
@@ -16,9 +15,9 @@ from app.calculator import (
     get_starforce_score,
 )
 from app.character_profile import build_character_profile
-from app.preset_projection import project_context, active_items
-from app.preset_optimizer import optimize_presets
 from app.potential import StatContext, reference_context
+from app.preset_optimizer import optimize_presets
+from app.preset_projection import active_items, project_context
 from app.scoring_config import GRADES, SCORING, load_guides
 
 logger = logging.getLogger(__name__)
@@ -445,7 +444,7 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
 
     /check-items 응답이 이 함수를 그대로 사용합니다.
     unsupported 에 Counter 를 주면 점수에 반영하지 못한 옵션을 (종류, 옵션)별로 세어 넣습니다.
-    extras 는 심볼·하이퍼스탯·유니온·유니온 아티팩트·어빌리티·링크 응답(scraper.STAT_EXTRA_ENDPOINTS 의 키)입니다. 없으면 레벨로 추정합니다.
+    extras 는 심볼·하이퍼스탯·유니온·유니온 아티팩트·어빌리티·링크·헥사 스탯·세트 효과 응답(scraper.STAT_EXTRA_ENDPOINTS 의 키)입니다. 없으면 레벨로 추정합니다.
     """
     char_class = basic_info.get("character_class")
     char_level = int(basic_info.get("character_level") or 0)

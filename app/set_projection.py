@@ -106,7 +106,10 @@ def analyze_sets(equipped, selected, data):
     before, after = _counts(equipped), _counts(selected)
     api = {_name(row["set_name"]): row for row in (data or {}).get("set_effect", [])}
     checks, changes, reasons, delta = [], [], [], _zero()
-    identity = lambda item: (item.get("item_equipment_slot"), item.get("item_name"))
+
+    def identity(item):
+        return (item.get("item_equipment_slot"), item.get("item_name"))
+
     changed_ids = {identity(i) for i in equipped} ^ {identity(i) for i in selected}
     unknown = sorted({i.get("item_name", "") for i in equipped + selected
                       if identity(i) in changed_ids and membership(i) is None})

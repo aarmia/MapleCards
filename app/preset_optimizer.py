@@ -9,7 +9,7 @@ import re
 from dataclasses import replace
 
 from app.calculator import final_stat_float, get_potential_options
-from app.character_profile import build_stat_context, _effect_stats
+from app.character_profile import _effect_stats, build_stat_context
 from app.preset_projection import active_items, project_context
 from app.scoring_config import POTENTIAL
 
@@ -68,7 +68,10 @@ def group_candidates(extras):
     """Current always remains a candidate; empty/null saved slots are skipped."""
     groups = []
     hyper = extras.get("hyper_stat") or {}
-    hyper_text = lambda rows: [r.get("stat_increase") for r in rows or [] if float(r.get("stat_level") or 0) > 0]
+
+    def hyper_text(rows):
+        return [r.get("stat_increase") for r in rows or [] if float(r.get("stat_level") or 0) > 0]
+
     current = str(hyper.get("use_preset_no") or "current")
     groups.append(("hyper_stat", True, hyper_text(hyper.get(f"hyper_stat_preset_{current}")),
                    [(str(n), hyper_text(hyper.get(f"hyper_stat_preset_{n}"))) for n in range(1, 4) if hyper.get(f"hyper_stat_preset_{n}")]))
@@ -89,7 +92,10 @@ def group_candidates(extras):
         return [r.get("skill_effect") for r in list(link.get("character_link_skill" + suffix) or []) + owned]
     groups.append(("link", False, link_text(), [(str(n), link_text(f"_preset_{n}")) for n in range(1, 4) if link.get(f"character_link_skill_preset_{n}")]))
     ability = extras.get("ability") or {}
-    ability_text = lambda d: [r.get("ability_value") for r in d.get("ability_info") or []]
+
+    def ability_text(d):
+        return [r.get("ability_value") for r in d.get("ability_info") or []]
+
     groups.append(("ability", False, ability_text(ability), [(str(n), ability_text(ability[f"ability_preset_{n}"])) for n in range(1, 4) if (ability.get(f"ability_preset_{n}") or {}).get("ability_info")]))
     return groups
 
@@ -178,17 +184,21 @@ def optimize_presets(char_class, main_stat, level, item_data, stat_data, extras,
             if not math.isfinite(score) or best and score <= best[0] * (1 + 1e-12):
                 continue
             selected_ids = {"equipment": equipment_no, **{key: option[0] for (key, _), option in zip(dimensions, combination)}}
+            is_current = str(equipment_no) == str(current_no) and all(
+                option[0] == options[0][0] for option, (_, options) in zip(combination, dimensions)
+            )
             ignored = sorted(set(text for source in [*(option[1] for option in combination), *current_effects]
                                  for text in source["ignored"]))
-            best = (score, equipment_no, items, candidate, selected_ids, ignored, new_damage, new_boss, remaining)
+            best = (score, equipment_no, items, candidate, selected_ids, ignored, new_damage, new_boss, remaining, is_current)
     if best is None:
         return None
-    score, equipment_no, items, context, ids, ignored, new_damage, new_boss, remaining = best
+    score, equipment_no, items, context, ids, ignored, new_damage, new_boss, remaining, is_current = best
     metadata = {"method": "saved_presets_boss_stat_index", "boss_defense_percent": BOSS_DEFENSE,
         "selected": ids, "combinations_evaluated": count, "unavailable": unavailable,
         "relative_index": round(score / baseline_score, 6) if baseline_score > 0 else None,
         "damage": new_damage, "boss_damage": new_boss, "ignore_defense": (1 - remaining) * 100,
         "unmodeled_effects": ignored, "set_projection": context.sources.get("set_projection"),
         "limitations": ["지원 스탯 기준 최적 조합이며 실제 DPS 최적을 보장하지 않습니다", "조건부 효과 가동률·쿨감·버프 지속시간 미보정", "검증된 세트만 보정하며 미등록·불일치 규칙은 미보정", "아티팩트·헥사·직업 스킬은 현재 상태 유지"]}
-    context = replace(context, basis="estimated", sources={**context.sources, "preset_optimization": metadata})
+    # 현재 상태 그대로가 최적이면 실제 API 수치를 쓰므로 추정 표시를 하지 않습니다.
+    context = replace(context, basis=context.basis if is_current else "estimated", sources={**context.sources, "preset_optimization": metadata})
     return equipment_no, items, context, metadata

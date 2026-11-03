@@ -2,10 +2,10 @@ import copy
 import unittest
 from dataclasses import replace
 
-from app.potential import reference_context
-from app.set_projection import analyze_sets, apply_sets, membership, PITCHED, DAWN, DAWN_TABLE
 from app.character_profile import build_stat_context
+from app.potential import reference_context
 from app.preset_optimizer import optimize_presets
+from app.set_projection import DAWN, DAWN_TABLE, PITCHED, analyze_sets, apply_sets, membership
 
 
 def item(name, slot):
