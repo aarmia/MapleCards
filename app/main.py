@@ -226,7 +226,8 @@ async def check_items(
             # 분석 로직은 analyzer.build_report 에 모여 있어 골든 테스트와 같은 경로를 탑니다.
             report = build_report(character_name, basic_info, item_data, stat_data, unsupported=unsupported)
             # dict 를 그대로 돌려주면 FastAPI 가 jsonable_encoder 로 한 번 더 훑습니다(1건당 약 3ms). 직접 직렬화합니다.
-            body = json.dumps(report, ensure_ascii=False).encode("utf-8")
+            # FastAPI JSONResponse 와 같은 옵션(공백 없는 구분자, NaN 금지)으로 바이트 단위까지 동일하게 유지합니다.
+            body = json.dumps(report, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
             event.update(
                 outcome="ok",
                 http_status=200,

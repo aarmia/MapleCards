@@ -6,6 +6,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import httpx
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 
 from app.main import APP_JS_VERSION, SITE_URL, app
 from app.rate_limit import SlidingWindowRateLimiter
@@ -288,6 +290,8 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
             set(body),
             {"character", "class", "level", "character_image", "combat_power", "best_preset", "overall", "results"},
         )
+        # 직접 직렬화한 본문이 FastAPI JSONResponse 가 만들던 바이트와 같아야 합니다.
+        self.assertEqual(response.content, JSONResponse(content=jsonable_encoder(body)).body)
         self.assertEqual(body["class"], fixture["basic"]["character_class"])
         self.assertIn(body["best_preset"], (1, 2, 3))
         self.assertIn(body["overall"]["rank"], {"ETERNAL", "DESTINY", "ASTRA", "GENESIS", "EPIC"})
