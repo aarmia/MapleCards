@@ -1,7 +1,6 @@
 """크리티컬 데미지 직접 합산 (보스 세팅 기준).
 
-API 최종 스탯의 크뎀은 조회 시점에 켜져 있던 버프에 따라 인게임 보스 세팅과 ±40%p 까지 차이 납니다(사냥 세팅 스냅샷 등).
-전투력 보정(app/combat_power.py)에는 출처별로 다시 더한 값을 씁니다.
+보스전 크뎀과 전투력 산출용 크뎀은 다릅니다. 전투력에는 아래 출처 중 확인된 성장 요소만 사용합니다.
 
 - 상시: 장비 잠재·에디셔널·소울, 하이퍼스탯, 세트 효과, 유니온 공격대·점령, 유니온 아티팩트, 링크, 어빌리티, 헥사 스탯,
   유니온 챔피언 휘장, 직업 패시브(app/data/class_skills.toml)
@@ -14,8 +13,8 @@ import re
 from app.scoring_config import CLASS_SKILLS
 
 _CRIT = re.compile(r"크리티컬 데미지\s*\+?\s*(\d+(?:\.\d+)?)\s*%")
-_GEAR_KEYS = ("potential_option_1", "potential_option_2", "potential_option_3",
-              "additional_potential_option_1", "additional_potential_option_2", "additional_potential_option_3", "soul_option")
+_GEAR_KEYS = ("soul_option",) + tuple(f"{kind}_option_{n}" for kind in
+                                      ("potential", "additional_potential", "soul_potential") for n in (1, 2, 3))
 # 헥사 스탯 크리티컬 데미지 증가: 메인 스탯은 레벨별 누적값, 추가 스탯은 레벨당 0.35%
 _HEXA_MAIN = (0.0, 0.35, 0.7, 1.05, 1.4, 2.1, 2.8, 3.5, 4.55, 5.6, 7.0)
 _HEXA_SUB = 0.35
@@ -33,7 +32,9 @@ def _class_row(char_class: str) -> dict:
 
 def _hexa(hexa: dict) -> float:
     total = 0.0
-    for core in (hexa or {}).get("character_hexa_stat_core") or []:
+    cores = (core for key in ("character_hexa_stat_core", "character_hexa_stat_core_2", "character_hexa_stat_core_3")
+             for core in (hexa or {}).get(key) or [])
+    for core in cores:
         if core.get("main_stat_name") == _HEXA_NAME:
             total += _HEXA_MAIN[min(int(core.get("main_stat_level") or 0), len(_HEXA_MAIN) - 1)]
         for n in (1, 2):
@@ -59,7 +60,8 @@ def boss_crit_damage(char_class: str, items: list, extras: dict) -> tuple[float,
         "hyper_stat": _hyper(extras.get("hyper_stat")),
         "set": sum(_crit(effect.get("set_option")) for s in (extras.get("set_effect") or {}).get("set_effect") or []
                    for effect in s.get("set_effect_info") or []),
-        "union": sum(_crit(text) for text in (union.get("union_raider_stat") or []) + (union.get("union_occupied_stat") or [])),
+        "union": sum(_crit(text) for text in (union.get("union_raider_stat") or [])
+                     + (union.get("union_state_stat", union.get("union_occupied_stat")) or [])),
         "artifact": sum(_crit(effect.get("name")) for effect in (extras.get("union_artifact") or {}).get("union_artifact_effect") or []),
         "link": sum(_crit(skill.get("skill_effect")) for skill in (extras.get("link_skill") or {}).get("character_link_skill") or []),
         "ability": sum(_crit(ability.get("ability_value")) for ability in (extras.get("ability") or {}).get("ability_info") or []),
@@ -72,3 +74,11 @@ def boss_crit_damage(char_class: str, items: list, extras: dict) -> tuple[float,
     }
     breakdown = {key: round(value, 2) for key, value in breakdown.items()}
     return round(sum(breakdown.values()), 2), breakdown
+
+
+def growth_crit_damage(char_class: str, items: list, extras: dict) -> tuple[float, dict]:
+    """게임 내 전투력 도움말의 성장 출처만 사용. 신규 출처는 자동 포함하지 않습니다."""
+    _, boss = boss_crit_damage(char_class, items, extras)
+    included = {key: boss[key] for key in ("gear", "set", "hyper_stat", "ability", "union", "artifact", "hexa_stat")}
+    # 도움말에 유니온 챔피언 휘장은 별도 명시되어 있지 않아 검증 전까지 제외합니다.
+    return round(sum(included.values()), 2), included

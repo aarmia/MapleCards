@@ -93,3 +93,24 @@ class PresetOptimizerTests(unittest.TestCase):
 
     def test_missing_boss_stats_do_not_claim_optimization(self):
         self.assertIsNone(optimize_presets("히어로", "str", 298, {}, {}, {}, reference_context("히어로", "str")))
+
+    def test_effects_track_each_sub_stat_for_multi_sub_class(self):
+        context = reference_context("섀도어", "luk")
+        result = effects(["STR +30", "DEX +5%", "올스탯 +10"], context)
+        self.assertEqual(result["subs"]["STR"], {"flat": 40, "exempt": 0, "pct": 0})
+        self.assertEqual(result["subs"]["DEX"], {"flat": 10, "exempt": 0, "pct": 5})
+        self.assertEqual(effects(["STR +30"], context, exempt=True)["subs"]["STR"]["exempt"], 30)
+        self.assertNotIn("subs", effects(["DEX +30"], reference_context("나이트워커", "luk")))
+
+    def test_multi_sub_profile_reconstructs_each_sub_stat_exactly(self):
+        stats = {"final_stat": [{"stat_name": k, "stat_value": str(v)} for k, v in {
+            "LUK": 40000, "STR": 4000, "DEX": 6000, "공격력": 3000, "크리티컬 확률": 100, "크리티컬 데미지": 100}.items()]}
+        item = {"item_name": "x", "item_total_option": {"luk": "100", "str": "50", "dex": "50", "attack_power": "10"},
+                "item_add_option": {"all_stat": "6"}, "potential_option_1": "DEX +12%"}
+        context = build_stat_context("섀도어", "luk", 290, [item], stats, {})
+        parts = context.sources["subs"]
+        self.assertEqual((parts["STR"]["mult"], parts["DEX"]["mult"]), (1.06, 1.18))
+        for label, final in (("STR", 4000), ("DEX", 6000)):
+            p = parts[label]
+            self.assertAlmostEqual(p["base"] * p["mult"] + p["exempt"], final)
+

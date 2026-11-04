@@ -4,6 +4,9 @@ import re
 from collections import Counter
 
 from app.calculator import (
+    add_option_entries,
+    flame_lines,
+    flame_stat_lines,
     analyze_potential_score,
     calculate_item_score,
     calculate_potential_score,
@@ -16,7 +19,8 @@ from app.calculator import (
 )
 from app.character_profile import build_character_profile
 from app.combat_power import adjust_combat_power
-from app.crit_damage import boss_crit_damage
+from app.crit_damage import growth_crit_damage
+from app.equip_value import attach_values
 from app.potential import StatContext, best_armor_total, reference_context
 from app.preset_optimizer import optimize_presets
 from app.preset_projection import active_items, project_context
@@ -38,6 +42,7 @@ from app.weapon import (
     tier_of,
     weapon_add_best,
     weapon_add_value,
+    weapon_attack_tier,
 )
 
 logger = logging.getLogger(__name__)
@@ -204,6 +209,32 @@ def build_guide_context(scores, star_val, part_name, item_name, total_score, ite
     }
 
 
+def weapon_flame_tiers(item, recognized, level, attack_label):
+    """무기 추옵 줄(공% 환산)에 불꽃 단계를 붙입니다. 공/마는 기본 공/마 대비 단계 비율표(weapon_attack_tier)로 판별합니다."""
+    per_tier = POTENTIAL.weapon.add_best
+    add_option = item.get("item_add_option") or {}
+    stat_lines = flame_stat_lines(add_option, level) or []
+    lines = []
+    for entry in recognized:
+        option, tier = entry["option"], None
+        match = re.fullmatch(r"(보스 몬스터 데미지|데미지|올스탯) \+(\d+)%?", option)
+        if match:
+            step = {"보스 몬스터 데미지": per_tier.boss_damage_per_tier, "데미지": per_tier.damage_per_tier,
+                    "올스탯": per_tier.all_stat_per_tier}[match[1]]
+            amount = int(match[2])
+            tier = amount // step if amount % step == 0 else None
+        elif option.startswith(f"{attack_label} +"):
+            tier = weapon_attack_tier(item, attack_label, float(option.split("+")[1]))
+        else:
+            match = re.fullmatch(r"(STR|DEX|INT|LUK) \+(\d+)", option)
+            single = [line for line in stat_lines if match and list(line["stats"]) == [match[1].lower()]]
+            others = [line for line in stat_lines if match and match[1].lower() in line["stats"] and len(line["stats"]) > 1]
+            if single and not others:
+                tier = single[0]["tier"]
+        lines.append({"option": option, "tier": tier, "value": entry["value"]})
+    return lines
+
+
 def exceptional_axis(item, part_name):
     """익셉셔널 강화 축: 대상 부위(potential.toml [exceptional].parts)면 (강화 횟수, 점수)를, 아니면 None 을 돌려줍니다."""
     config = POTENTIAL.exceptional
@@ -336,12 +367,17 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                     "recognized_options": [
                         {**entry, "category": "고유 옵션", "weighted_value": round(entry["value"] * factor, 2), "weight": round(factor, 3)}
                         for entry in analysis["recognized"]
-                    ],
+                    ] + ([
+                        # 훈장·포켓은 추가옵션 급수가 점수라 줄별 급수를 함께 보여줍니다.
+                        {**entry, "category": "추가옵션", "weighted_value": round(entry["value"] * factor, 2), "weight": round(factor, 3)}
+                        for entry in add_option_entries(item.get("item_add_option") or {}, char_class, main_stat=main_stat)
+                    ] if axis_key == "add" else []),
                     "unrecognized_options": [
                         {"category": "고유 옵션", "option": entry["option"], "reason": entry["reason"]} for entry in analysis["ignored"]
                     ] + [{"category": "고유 옵션", "option": option, "reason": "unsupported"} for option in analysis["unsupported"]],
                     "weights": notes,
                     "breakdown": special_breakdown,
+                    "add_lines": flame_lines(item.get("item_add_option") or {}, item_req_level, char_class, main_stat=main_stat) if axis_key == "add" else None,
                     "benchmarks": {"special": benchmark},
                     "star_score": 0,
                 },
@@ -372,6 +408,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         else: adv_star_score = get_starforce_score(star, item_req_level)
 
         soul_analysis, soul_val, soul_score, benchmarks, add_recognized = None, 0.0, 0.0, None, []
+        add_lines = None  # 불꽃 줄별 단계·급수 (화면 표시용). 되돌릴 수 없으면 None
         axes = GUIDES.axes
         add_evaluated = not any(k in part or k in slot for k in axes.no_add_parts)
         star_evaluated = not any(k in part or k in slot for k in axes.no_star_parts)
@@ -381,6 +418,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             if group == "weapon":
                 # 무기 추옵 = 공% 환산값 ÷ 레벨별 불꽃 최대 조합 × 100 × weights.add (방어구와 같은 척도)
                 add_raw_score, add_recognized = weapon_add_value(item.get("item_add_option"), weapon_context, char_level)
+                add_lines = weapon_flame_tiers(item, add_recognized, item_req_level, weapon_context.attack_label)
                 add_best = weapon_add_best(item, weapon_context, char_level)
                 add_score = (100 * add_raw_score / add_best * weights.add) if add_best > 0 else 0.0
                 soul_analysis = analyze_weapon_item(item, "soul", weapon_context, char_level)
@@ -411,6 +449,8 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             # 추옵 축 = 급수 ÷ 그 레벨의 불꽃 최대 급수 × 100 × weights.add. 기준 만점은 100 × weights.add 입니다.
             if add_evaluated:
                 add_raw_score = calculate_item_score(item.get("item_add_option", {}), char_class, main_stat=main_stat)
+                add_recognized = add_option_entries(item.get("item_add_option", {}), char_class, main_stat=main_stat)
+                add_lines = flame_lines(item.get("item_add_option") or {}, item_req_level, char_class, main_stat=main_stat)
                 add_best = calculate_item_score(flame_best_add_option(item_req_level, char_class, main_stat, context.sub_names), char_class, main_stat=main_stat)
                 add_score = (100 * add_raw_score / add_best * weights.add) if add_best > 0 else 0.0
             benchmarks = {
@@ -511,6 +551,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                     "main_stat": main_stat_label,
                     "recognized_options": recognized_options,
                     "unrecognized_options": unrecognized_options,
+                    "add_lines": add_lines,
                     "weights": weight_notes(item_req_level)
                     + ([f"무기류 공격력% 단위 환산 · 보공 1% = 공 {weapon_context.boss_per_pct:.3g}%, 유효 스탯 1% = 공 {weapon_context.stat_pct_unit:.3g}%, 기준점은 캐릭터별 최상 조합"] if is_weapon else [])
                     + ([f"익셉셔널 강화 1회당 {POTENTIAL.exceptional.points_per_upgrade:g}점 (현재 {exceptional[0]}회)"] if exceptional and exceptional[0] > 0 else []),
@@ -565,17 +606,34 @@ def bar_max(level: int, name: str, part: str = "", benchmarks: dict | None = Non
     }
 
 
-def build_combat_power_basis(stat_data, current_context, optimal_context, optimization, char_class, equipped_items, extras) -> dict:
+def _power_estimate_limit(char_class, equipped, selected):
+    if char_class in ("제로", "데몬어벤져", "제논"):
+        return "직업별 전투력 보정 계수 또는 제외 옵션 미검증"
+    def weapon(rows, slot):
+        return next((item for item in rows if item.get("item_equipment_slot") == slot), {})
+    fields = ("item_name", "item_base_option", "item_add_option", "starforce", "starforce_scroll_flag", "item_starforce_option")
+    a, b = weapon(equipped, "무기"), weapon(selected, "무기")
+    if any(a.get(k) != b.get(k) for k in fields):
+        return "무기 교체·강화에 필요한 기본 공/마·추옵·스타포스 표준화 미검증"
+    a, b = weapon(equipped, "보조무기"), weapon(selected, "보조무기")
+    if a != b and any(x.get("item_name") == "아스트라 아워글라스" for x in (a, b)):
+        return "아스트라 아워글라스 기본 보공 제외 보정 미검증"
+    return None
+
+
+def build_combat_power_basis(stat_data, current_context, optimal_context, optimization, char_class, equipped_items, extras, selected_items=None) -> dict:
     """API 전투력을 최적 세팅 기준으로 보정합니다 (app/combat_power.py). 최적화 미지원이면 API 값을 그대로 둡니다.
 
-    크뎀은 API 값 대신 출처별 직접 합산(app/crit_damage.py, 보스 세팅 버프 포함)을 쓰고,
+    크뎀은 API 값 대신 성장 요소 합산(app/crit_damage.py, 일반 스킬·버프 제외)을 쓰고,
     최적 세팅은 그 값에 최적화기가 계산한 크뎀 차이(장비·하이퍼·유니온·세트 등)를 더합니다.
     """
     api_power = final_stat_float(stat_data, "전투력") or 0.0
     boss = final_stat_float(stat_data, "보스 몬스터 데미지") or 0.0
     supported = optimization.get("method") == "saved_presets_boss_stat_index" and current_context.main_stat in ("str", "dex", "int", "luk")
-    if not supported:
-        return {"api": api_power, "adjusted": api_power, "status": "unsupported", "ratio": 1.0}
+    limit = _power_estimate_limit(char_class, equipped_items, selected_items if selected_items is not None else equipped_items)
+    if not supported or limit:
+        return {"api": api_power, "adjusted": api_power, "status": "unsupported", "ratio": 1.0,
+                "reason": limit or "프리셋 투영에 필요한 입력 부족"}
 
     def inputs(context, boss_damage):
         return {"main_stat": context.final_main, "sub_stat": context.final_sub, "attack": context.attack,
@@ -584,7 +642,7 @@ def build_combat_power_basis(stat_data, current_context, optimal_context, optimi
     # 링크 스킬은 전투력에 반영되지 않으므로 최적화기가 링크만 현재로 고정해 투영한 값을 씁니다.
     optimal = dict(optimization.get("combat_power_inputs") or inputs(optimal_context, optimization.get("boss_damage", boss)))
     current = inputs(current_context, boss)
-    crit, crit_breakdown = boss_crit_damage(char_class, equipped_items, extras)
+    crit, crit_breakdown = growth_crit_damage(char_class, equipped_items, extras)
     optimal["crit_damage_pct"] = crit + optimal["crit_damage_pct"] - current["crit_damage_pct"]
     current["crit_damage_pct"] = crit
     basis = adjust_combat_power(api_power, current, optimal, bool(optimization.get("combat_power_is_current", True)))
@@ -662,7 +720,7 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
     profile["context"].sources["equipment_basis"] = "selected_preset"
     profile["context"].sources["final_stats_basis"] = "projected_saved_presets" if optimized else "currently_equipped"
     combat_power_basis = build_combat_power_basis(stat_data, equipped_context, profile["context"], profile["optimization"],
-                                                  char_class, equipped_items, extras)
+                                                  char_class, equipped_items, extras, items)
     # 무기류 환산(공격력% 단위)에 쓰는 보공·데미지·방무는 스탯 응답에서 읽습니다.
     profile["weapon"] = WeaponContext(
         profile["context"],
@@ -676,6 +734,7 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
     spare_rings = [item for item in select_preset_items(item_data, best_preset_idx) if item.get("item_equipment_slot") == "예비 특수 반지"]
     extra_items = [item for item in spare_rings if item not in items] + ([title] if title else [])
     evaluate_list = evaluate_equipment([*items, *extra_items], char_class, char_level, unsupported=unsupported, main_stat=main_stat, profile=profile)
+    attach_values(evaluate_list, items, equipped_items, profile, char_level, (extras or {}).get("set_effect"))
     overall_review, all_sorted_results = generate_overall_review(evaluate_list)
 
     return {

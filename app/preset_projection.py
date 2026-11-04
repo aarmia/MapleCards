@@ -3,7 +3,7 @@ import re
 from dataclasses import replace
 
 from app.calculator import get_potential_options
-from app.set_projection import analyze_sets, apply_sets
+from app.set_projection import analyze_sets, apply_sets, sum_subs
 
 
 def active_items(items):
@@ -76,6 +76,14 @@ def project_context(current, selected, equipped_items, selected_items, level, se
         sub_ratio = sub_base / (current.stat_weight * base)
         sources.update(preset_sub_flat_delta=sub, sub_base_estimate=sub_base,
                        sub_exempt=current.sources["sub_exempt"])
+    elif "subs" in current.sources and "subs" in selected.sources:
+        parts = {}
+        for label, part in current.sources["subs"].items():
+            sub = flat_delta(equipped_items, selected_items, label.lower(), label, level)
+            parts[label] = {"base": max(0, part["base"] + sub["total"]), "mult": selected.sources["subs"][label]["mult"],
+                            "exempt": part["exempt"]}
+        final_sub = sum_subs(parts)
+        sources["subs"] = parts
     else:
         sources["sub_projection_unmodeled"] = True
     sources.update(preset_main_flat_delta=main["total"], preset_main_flat_breakdown=main,

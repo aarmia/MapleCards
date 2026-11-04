@@ -196,6 +196,31 @@ def part_group(slot: str, part: str) -> str:
     return "weapon"
 
 
+def weapon_attack_tier(item_data: dict, attack_label: str, amount: float) -> int | None:
+    """무기 공/마 추옵 수치의 불꽃 단계.
+
+    1) 데스티니·제네시스는 무기 종류별 1추~5추 수치표(potential.toml [weapon.flame_attack])에서 같은 값을 찾습니다.
+    2) 표에 없으면 7단계 수치(기본 공/마 × attack_ratio)에 대한 비율이 attack_tier_ratio 의 한 단계와
+       ±0.03 안에서 맞을 때 그 단계, 아니면 None (1~2단계 포함)입니다.
+    """
+    name = item_data.get("item_name") or ""
+    part = (item_data.get("item_equipment_part") or "").replace(" ", "")
+    for set_name, table in POTENTIAL.weapon.flame_attack.raw.items():
+        values = table.get(part) if set_name in name else None
+        if values and int(amount) == amount and int(amount) in values:
+            return 7 - values.index(int(amount))
+    config = POTENTIAL.weapon.add_best
+    base = item_data.get("item_base_option") or {}
+    level = int(base.get("base_equipment_level") or 0)
+    base_attack = float(base.get("magic_power" if attack_label == "마력" else "attack_power") or 0)
+    if base_attack <= 0 or amount <= 0:
+        return None
+    ratio = next(value for level_min, value in config.attack_ratio if level >= level_min)
+    observed = amount / (base_attack * ratio)
+    tier, expected = min(config.attack_tier_ratio, key=lambda row: abs(observed - row[1]))
+    return int(tier) if abs(observed - expected) <= 0.03 else None
+
+
 def weapon_add_best(item_data: dict, context: WeaponContext, char_level: int) -> float:
     """무기 추옵 기준점: 레벨별 불꽃 최대 조합의 공% 환산값 (potential.toml [weapon.add_best]).
 

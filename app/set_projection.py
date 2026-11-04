@@ -211,6 +211,11 @@ def analyze_sets(equipped, selected, data):
             "preserved_sets": [name for name in api if name not in before and name not in after and name not in MEMBERS]}
 
 
+def sum_subs(parts):
+    """부스탯별 {base, mult, exempt} 의 최종 부스탯 합"""
+    return sum(max(0, p["base"] * p["mult"] + p["exempt"]) for p in parts.values())
+
+
 def apply_sets(context, report):
     sources = {**context.sources, "set_projection": report, "set_projection_status": report["status"]}
     if report["status"] != "applied":
@@ -224,12 +229,18 @@ def apply_sets(context, report):
     attack_key = "magic" if main == "int" else "attack"
     attack_mult = context.attack_multiplier + d[attack_key + "_pct"] / 100
     attack = (context.attack / context.attack_multiplier + d[attack_key]) * attack_mult
-    # 부스탯은 단일 부스탯 직업만 보정합니다. 복수 부스탯(섀도어·듀블·카데나)은 현재 값을 그대로 둡니다.
+    # 단일 부스탯은 sub_* 키로, 복수 부스탯(섀도어·듀블·카데나)은 sources['subs'] 로 보정합니다.
     modeled_sub = len(context.sub_names) == 1 and "sub_base_estimate" in context.sources
     sub = context.sub_names[0].lower()
     sub_base = context.sources.get("sub_base_estimate", 0) + d[sub]
     sub_mult = context.sources.get("sub_multiplier", 1) + d[sub + "_pct"] / 100
-    if min(base, mult, attack_mult, attack, sub_mult if modeled_sub else 1) <= 0:
+    parts = None
+    if not modeled_sub and "subs" in context.sources:
+        # 복수 부스탯은 부스탯마다 세트의 깡스탯·% 를 더합니다.
+        parts = {label: {**p, "base": p["base"] + d[label.lower()], "mult": p["mult"] + d[label.lower() + "_pct"] / 100}
+                 for label, p in context.sources["subs"].items()}
+    if min(base, mult, attack_mult, attack, sub_mult if modeled_sub else 1,
+           *(p["mult"] for p in (parts or {}).values())) <= 0:
         blocked = {**report, "status": "unresolved", "reasons": ["세트 보정 후 유효 범위를 벗어난 스탯"], "delta": _zero()}
         return replace(context, sources={**sources, "set_projection": blocked, "set_projection_status": "unresolved"})
     sub_fields = {}
@@ -237,6 +248,9 @@ def apply_sets(context, report):
         sources.update(sub_base_estimate=sub_base, sub_multiplier=sub_mult)
         sub_fields = {"final_sub": sub_base * sub_mult + context.sources.get("sub_exempt", 0),
                       "sub_pct_ratio": sub_base / (context.stat_weight * base), "sub_flat_ratio": sub_mult / (context.stat_weight * mult)}
+    elif parts is not None:
+        sources["subs"] = parts
+        sub_fields = {"final_sub": sum_subs(parts)}
     return replace(context, base_stat=base, stat_pct=mult, final_main=base * mult + context.exempt_stat, attack=attack,
         attack_multiplier=attack_mult, crit_damage=context.crit_damage + d["crit"],
         crit_rate=context.crit_rate + d["rate"] if context.crit_rate is not None else None, sources=sources, **sub_fields)

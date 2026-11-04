@@ -219,13 +219,6 @@ async def check_items(
                 nexon_api.get_character_stat(ocid),
                 nexon_api.get_stat_extras(ocid),
             )
-            guild_name = (basic_info or {}).get("character_guild_name")
-            if guild_name:
-                # 길드 노블레스 크뎀(보스 세팅 버프). 기본 정보의 길드명이 있어야 해서 병렬 조회 뒤에 따로 합니다.
-                try:
-                    extras["guild"] = await nexon_api.get_guild(guild_name, basic_info.get("world_name", ""))
-                except NexonAPIError as exc:
-                    extras_failed = {**extras_failed, "guild": exc.code}
             event["nexon_ms"] = _elapsed_ms(nexon_started)
             if extras_failed:
                 # 심볼·하이퍼스탯 등 추가 조회 실패. 진단은 계속되고 잠재 환산은 추정값을 씁니다.

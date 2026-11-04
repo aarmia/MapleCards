@@ -237,7 +237,7 @@ _POTENTIAL_SPEC = {
     "weapon": {
         "boss_defense": NUMBER, "secondary_star_level": NUMBER,
         "buff": {k: NUMBER for k in ("attack_pct_extra", "boss_damage_extra", "ied_extra_pct")},
-        "add_best": {"attack_ratio": list, "boss_damage_per_tier": NUMBER, "damage_per_tier": NUMBER, "all_stat_per_tier": NUMBER, "lines": NUMBER},
+        "add_best": {"attack_ratio": list, "attack_tier_ratio": list, "boss_damage_per_tier": NUMBER, "damage_per_tier": NUMBER, "all_stat_per_tier": NUMBER, "lines": NUMBER},
         "best_lines": {
             "count": dict, "soul_total": NUMBER, "destiny_keyword": str,
             "destiny": {"potential": list, "additional_potential": list},

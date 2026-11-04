@@ -83,6 +83,17 @@ class SetProjectionTests(unittest.TestCase):
         self.assertEqual(p.final_sub, 8760)
         self.assertEqual(p.crit_damage, c.crit_damage + 10)
 
+    def test_set_changes_recompute_each_sub_stat_of_multi_sub_class(self):
+        before, after, data = pitched_fixture()
+        report = analyze_sets(before, after, data)
+        parts = {"STR": {"base": 1000, "mult": 2, "exempt": 100}, "DEX": {"base": 2000, "mult": 1.5, "exempt": 0}}
+        c = replace(reference_context("섀도어", "luk"), base_stat=8000, stat_pct=10, attack=10000, attack_multiplier=2,
+                    exempt_stat=30000, final_sub=5100, sources={"subs": parts})
+        p = apply_sets(c, report)
+        self.assertEqual(p.final_sub, 1080 * 2 + 100 + 2080 * 1.5)
+        self.assertEqual(p.sources["subs"]["DEX"]["base"], 2080)
+        self.assertEqual(parts["STR"]["base"], 1000)  # 입력을 바꾸지 않습니다
+
     def test_reverse_removes_ied_multiplicatively(self):
         before, after, data = pitched_fixture()
         data["set_effect"][0]["total_set_count"] = 10

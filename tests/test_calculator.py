@@ -12,7 +12,13 @@ from app.analyzer import (
     split_guide,
     unsupported_registry,
 )
-from app.calculator import calculate_potential_score, get_main_stat, get_potential_options
+from app.calculator import (
+    add_option_entries,
+    calculate_item_score,
+    calculate_potential_score,
+    get_main_stat,
+    get_potential_options,
+)
 from app.character_profile import (
     _gear_attack_pct,
     _gear_attack_pct_sources,
@@ -446,6 +452,44 @@ class PotentialOptionTests(unittest.TestCase):
 
         self.assertEqual(result["guide_tag"], "미지원")
         self.assertIn("블랙 하트", result["guide_message"])
+
+
+
+class AddOptionEntriesTests(unittest.TestCase):
+    def test_line_values_sum_to_add_option_score_for_every_stat_kind(self):
+        option = {"str": "40", "dex": "42", "int": "30", "luk": "168", "max_hp": "2100",
+                  "attack_power": "3", "magic_power": "4", "all_stat": "6"}
+        for char_class, main in (("섀도어", "luk"), ("나이트워커", "luk"), ("비숍", "int"),
+                                 ("제논", "all_stat"), ("데몬어벤져", "hp"), ("히어로", "str")):
+            entries = add_option_entries(option, char_class, main_stat=main)
+            self.assertAlmostEqual(sum(e["value"] for e in entries), calculate_item_score(option, char_class, main_stat=main), places=6, msg=char_class)
+        rows = {e["option"]: (e["value"], e["rule"]) for e in add_option_entries(option, "섀도어", main_stat="luk")}
+        self.assertEqual(rows["LUK +168"], (168, "주스탯"))
+        self.assertEqual(rows["올스탯 +6%"], (60, "올스탯% × 10"))
+        self.assertEqual(rows["DEX +42"], (4.2, "부스탯 ÷ 10"))
+        self.assertEqual(add_option_entries({}, "섀도어", main_stat="luk"), [])
+
+
+    def test_flame_stat_totals_are_split_back_into_tiered_lines(self):
+        from app.calculator import flame_lines, flame_stat_lines
+        gloves = {"luk": "168", "dex": "42", "int": "42", "all_stat": "6"}
+        self.assertEqual(flame_stat_lines(gloves, 250), [
+            {"stats": {"luk": 84}, "tier": 7}, {"stats": {"dex": 42, "luk": 42}, "tier": 6}, {"stats": {"int": 42, "luk": 42}, "tier": 6}])
+        lines = flame_lines(gloves, 250, "섀도어", main_stat="luk")
+        self.assertEqual([(l["option"], l["tier"]) for l in lines],
+                         [("LUK +84", 7), ("올스탯 +6%", 6), ("LUK +42 · DEX +42", 6), ("LUK +42 · INT +42", 6)])
+        self.assertAlmostEqual(sum(l["value"] for l in lines), calculate_item_score(gloves, "섀도어", main_stat="luk"))
+        # 140제 미만은 레벨 ÷ 20 + 1 · 레벨 ÷ 40 + 1 (120제: 단일 7, 이중 4/단계)
+        self.assertEqual(flame_stat_lines({"str": 12, "dex": 12}, 120), [{"stats": {"str": 12, "dex": 12}, "tier": 3}])
+        # 100제 STR 6 · DEX 6 은 이중 2단계와 단일 1단계 두 줄이 모두 가능해 판별하지 않습니다.
+        self.assertIsNone(flame_stat_lines({"str": 6, "dex": 6}, 100))
+
+    def test_flame_stat_lines_refuses_impossible_or_ambiguous_totals(self):
+        from app.calculator import flame_stat_lines
+        self.assertIsNone(flame_stat_lines({"luk": 5}, 250))                       # 12 의 배수 아님
+        self.assertIsNone(flame_stat_lines({"luk": 84, "speed": 1, "jump": 1, "armor": 1, "all_stat": 1}, 250))  # 남은 줄 0
+        self.assertIsNone(flame_stat_lines({"str": 7, "dex": 7, "int": 7, "luk": 7}, 250))  # 이중 두 줄 조합이 여러 개
+        self.assertEqual(flame_stat_lines({}, 250), [])
 
 
 if __name__ == "__main__":

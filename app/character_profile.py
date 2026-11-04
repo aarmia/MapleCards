@@ -200,15 +200,24 @@ def build_stat_context(char_class, main_stat: str, char_level: int, equipped_ite
         sources["exempt_dropped"] = True
     crit_damage = final_stat_float(stat_data, "크리티컬 데미지")
     sub_pct_ratio = sub_flat_ratio = None
-    if len(names) == 1 and len(subs) == 1 and main_stat != "hp":
-        sub_hyper, sub_hyper_pct = _hyper_stat(extras.get("hyper_stat"), subs)
-        sub_union, sub_union_pct = _effect_stats(_union_texts(extras.get("union_raider")), subs)
-        sub_other_pct = sum(_effect_stats(texts, subs)[1] for texts in (
+
+    def sub_part(label):
+        """부스탯 하나의 % 적용 깡스탯·배율·% 미적용 스탯 (주스탯과 같은 방식으로 역산)"""
+        own = (label,)
+        sub_hyper, sub_hyper_pct = _hyper_stat(extras.get("hyper_stat"), own)
+        sub_union, sub_union_pct = _effect_stats(_union_texts(extras.get("union_raider")), own)
+        sub_other_pct = sum(_effect_stats(texts, own)[1] for texts in (
             _artifact_texts(extras.get("union_artifact")), _ability_texts(extras.get("ability")),
             _link_texts(extras.get("link_skill")))) + sub_hyper_pct + sub_union_pct
-        sub_multiplier = 1 + (_gear_pct(equipped_items, subs[0].lower(), subs) + sub_other_pct) / 100
-        sub_exempt = _symbol_stat(extras.get("symbol"), subs) + sub_hyper + sub_union
-        sub_base = max(0, final_stat_value(stat_data, subs[0]) - sub_exempt) / sub_multiplier
+        multiplier = 1 + (_gear_pct(equipped_items, label.lower(), own) + sub_other_pct) / 100
+        exempt_part = _symbol_stat(extras.get("symbol"), own) + sub_hyper + sub_union
+        return max(0, final_stat_value(stat_data, label) - exempt_part) / multiplier, multiplier, exempt_part
+
+    if len(names) == 1 and len(subs) > 1 and main_stat != "hp":
+        # 복수 부스탯(섀도어·듀블·카데나 등)은 부스탯마다 따로 역산합니다. 잠재 환산 비율(sub_pct_ratio)은 기존대로 둡니다.
+        sources["subs"] = {label: dict(zip(("base", "mult", "exempt"), sub_part(label))) for label in subs}
+    if len(names) == 1 and len(subs) == 1 and main_stat != "hp":
+        sub_base, sub_multiplier, sub_exempt = sub_part(subs[0])
         sub_pct_ratio = sub_base / (stat_weight(char_class) * base_stat)
         sub_flat_ratio = sub_multiplier / (stat_weight(char_class) * stat_pct)
         sources["sub_multiplier"] = sub_multiplier
