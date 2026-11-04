@@ -274,10 +274,10 @@ document.addEventListener('alpine:init', () => {
 
         getFilteredItems() {
             if (!this.report || !this.report.results) return [];
-            // 모든 아이템 점수: 무기류·특수부위·시드링까지 전부 (기준 대비 % 오름차순). 취약 5종: 평균에 들어가는 아이템 중 낮은 5개
-            const items = [...this.report.results].sort((a, b) => a.score_ratio - b.score_ratio);
+            // 모든 아이템 점수: 칭호를 뺀 전부 (기준 대비 % 오름차순). 취약 5종: 평균에 들어가는 아이템 중 낮은 5개
+            const items = [...this.report.results].filter(item => item.part !== '칭호').sort((a, b) => a.score_ratio - b.score_ratio);
             if (this.viewMode === 'all') return items;
-            return items.filter(item => item.part !== '칭호' && item.scored !== false).slice(0, 5);
+            return items.filter(item => item.scored !== false).slice(0, 5);
         },
 
         equipCells() {
@@ -371,6 +371,11 @@ document.addEventListener('alpine:init', () => {
             return blocks.filter(block => block.options.length || this.axisEntries(item, block.category).length);
         },
 
+        // 상세 모달에서 기본 옵션만 보여주는 부위 (뱃지: 점수·환산 없음)
+        baseOnly(item) {
+            return item?.part === '뱃지';
+        },
+
         summaryCards(item) {
             if (!item?.scoring_basis) return [];
             const rows = Object.fromEntries((item.scoring_basis.breakdown || []).map(row => [row.key, row]));
@@ -438,8 +443,9 @@ document.addEventListener('alpine:init', () => {
             return STAT_BAR_CLASS[tier] || STAT_BAR_CLASS.poor;
         },
 
-        getStatWidth(val, key) {
-            const max = this.getGrades().stat_bar_max?.[key] ?? 110.0;
+        getStatWidth(val, key, item) {
+            // 아이템마다 서버가 레벨·세트로 고른 만점(bar_max)을 먼저 씁니다
+            const max = item?.bar_max?.[key] ?? this.getGrades().stat_bar_max?.[key] ?? 100.0;
             return Math.min((parseFloat(val) / max) * 100, 100);
         },
 

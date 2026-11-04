@@ -390,7 +390,8 @@ def analyze_lines(options: list[str], context: StatContext, char_level: int) -> 
 
 
 def best_armor_total(kind: str, part: str, context: StatContext, char_level: int, item_level: int = 0) -> float:
-    """방어구·장신구의 캐릭터별 기준점: potential.toml [armor.best_lines] 에서 아이템 레벨 표를 골라 후보 중 가장 좋은 줄 × count"""
+    """방어구·장신구의 캐릭터별 기준점: potential.toml [armor.best_lines] 에서 아이템 레벨 표를 골라 후보 중 가장 좋은 줄 × count.
+    부위 표에 <종류>_lines 가 있으면 그 줄 조합을 환산해 합산합니다 (장갑·모자)."""
     config = POTENTIAL.armor.best_lines
     tier_name = next(name for level_min, name in config.tiers if item_level >= level_min)
     table = config.raw[tier_name]
@@ -398,9 +399,16 @@ def best_armor_total(kind: str, part: str, context: StatContext, char_level: int
     fixed = part_table.get(f"{kind}_total", table.get(f"{kind}_total"))
     if fixed is not None:  # 고정 기준 만점 (유효 스탯%)
         return float(fixed)
-    candidates = part_table.get(kind) or table[kind]
     main = "최대 HP" if context.main_stat == "hp" else ("STR" if context.main_stat == "all_stat" else context.main_label)
     attack = "마력" if context.main_stat == "int" else "공격력"
+    lines = part_table.get(f"{kind}_lines")
+    if lines:
+        total = 0.0
+        for text in lines:
+            converted = convert_line(text.replace("주스탯", main), context, char_level)
+            total += converted[0] if converted else 0.0
+        return round(total, 2)
+    candidates = part_table.get(kind) or table[kind]
     values = []
     for text in candidates:
         if text.startswith(("공격력", "마력")) and not text.startswith(attack):

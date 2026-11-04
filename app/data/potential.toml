@@ -124,21 +124,22 @@ tiers = [[250, "lv250"], [0, "lv200"]]
 potential = ["주스탯 +13%", "올스탯 +10%"]
 additional_potential_total = 23   # 에디셔널 기준 만점 (유효 스탯%). 모든 부위 공통
 
+# 장갑·모자 윗잠재는 정해진 3줄 조합을 기준 만점으로 씁니다 (<종류>_lines: 줄마다 환산해 합산). 세 번째 줄은 유니크급 주스탯
 [armor.best_lines.lv250.parts."장갑"]
-potential = ["크리티컬 데미지 +8%", "주스탯 +13%", "올스탯 +10%"]
+potential_lines = ["크리티컬 데미지 +8%", "크리티컬 데미지 +8%", "주스탯 +10%"]
 
 [armor.best_lines.lv250.parts."모자"]
-potential = ["모든 스킬의 재사용 대기시간 -2초", "주스탯 +13%", "올스탯 +10%"]
+potential_lines = ["모든 스킬의 재사용 대기시간 -2초", "모든 스킬의 재사용 대기시간 -2초", "주스탯 +10%"]
 
 [armor.best_lines.lv200]          # 200제 이하 레전드리 최대값
 potential = ["주스탯 +12%", "올스탯 +9%"]
 additional_potential_total = 20
 
 [armor.best_lines.lv200.parts."장갑"]
-potential = ["크리티컬 데미지 +8%", "주스탯 +12%", "올스탯 +9%"]
+potential_lines = ["크리티컬 데미지 +8%", "크리티컬 데미지 +8%", "주스탯 +9%"]
 
 [armor.best_lines.lv200.parts."모자"]
-potential = ["모든 스킬의 재사용 대기시간 -2초", "주스탯 +12%", "올스탯 +9%"]
+potential_lines = ["모든 스킬의 재사용 대기시간 -2초", "모든 스킬의 재사용 대기시간 -2초", "주스탯 +9%"]
 
 [weapon.add_best]                 # 무기 불꽃 최대 조합 (app/weapon.py weapon_add_best): 공/마 줄 + 나머지 후보 중 환산값 큰 (lines − 1) 줄
 attack_ratio = [[250, 0.72], [200, 0.618], [0, 0.40]]   # 7등급 공/마 = 기본 공격력 × 비율. [레벨 하한, 비율] 내림차순 첫 일치 (관측값, 160제는 표본 1개)

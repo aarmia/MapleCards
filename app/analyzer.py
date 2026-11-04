@@ -21,6 +21,7 @@ from app.potential import StatContext, best_armor_total, reference_context
 from app.preset_optimizer import optimize_presets
 from app.preset_projection import active_items, project_context
 from app.scoring_config import GRADES, POTENTIAL, SCORING, load_guides
+from app.set_projection import MEMBERS, PITCHED
 from app.special import (
     analyze_special_lines,
     best_total,
@@ -328,6 +329,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                 "guide_tag": special_guide_tag,
                 "guide_message": special_guide_message,
                 "detail": special_detail,
+                "bar_max": bar_max(item_req_level, name),
                 "raw_options": {**raw_options_dict, "fixed_options": lines, "expired": expired, "special_ring_level": item.get("special_ring_level")},
                 "scoring_basis": {
                     "main_stat": main_stat_label,
@@ -503,6 +505,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                 "guide_tag": guide_tag,
                 "guide_message": guide_message,
                 "detail": detail,
+                "bar_max": bar_max(item_req_level, name, part, benchmarks),
                 "raw_options": {**raw_options_dict, "soul_options": [e["option"] for e in (soul_analysis or {}).get("recognized", []) if not e.get("hidden")] + (soul_analysis or {}).get("unsupported", [])},
                 "scoring_basis": {
                     "main_stat": main_stat_label,
@@ -541,6 +544,25 @@ def generate_overall_review(evaluate_list):
     }
 
     return overall_review, all_sorted_results
+
+
+BAR_MAX_FROM_BENCHMARK = ("모자", "장갑")   # 윗잠재 막대 만점을 아이템 기준 만점(쿨감·크뎀 조합)으로 쓰는 부위
+
+
+def bar_max(level: int, name: str, part: str = "", benchmarks: dict | None = None) -> dict:
+    """아이템 카드 막대가 100% 가 되는 값 (grades.toml stat_bar_max). 윗잠·에디는 레벨, 익셉셔널은 칠흑 여부로 고릅니다.
+    모자·장갑의 윗잠재는 레벨 고정값 대신 그 아이템의 기준 만점을 씁니다."""
+    m = GRADES.stat_bar_max
+    low = level <= m.low_level_max
+    pot = m.pot_low if low else m.pot
+    if part in BAR_MAX_FROM_BENCHMARK and (benchmarks or {}).get("pot"):
+        pot = benchmarks["pot"]
+    return {
+        "add": m.add, "star": m.star, "soul": m.soul, "special": m.special,
+        "pot": pot,
+        "pot_additional": m.pot_additional_low if low else m.pot_additional,
+        "exceptional": m.exceptional_pitched if " ".join((name or "").split()) in MEMBERS[PITCHED] else m.exceptional,
+    }
 
 
 def build_combat_power_basis(stat_data, current_context, optimal_context, optimization, char_class, equipped_items, extras) -> dict:

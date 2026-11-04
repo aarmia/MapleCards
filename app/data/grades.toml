@@ -6,7 +6,7 @@
 item_grade = [[90, "SSS+"], [86, "SSS"], [78, "SS"], [67, "S"], [56, "A"], [43, "B"], [28, "C"], [14, "D"]]   # 기준 대비 % → 등급 문자. SSS+ 는 최상위 랭커 장비가 전부 들어오는 선
 item_grade_default = "F"
 
-card_highlight = [[100, "transcendent"], [90, "legendary"], [78, "unique"], [67, "epic"]]   # 아이템 카드 테두리 강조
+card_highlight = [[90, "transcendent"], [86, "legendary"], [78, "unique"], [67, "epic"]]   # 아이템 카드 테두리 강조. 등급 컷과 같음: SSS+ · SSS · SS · S
 card_highlight_default = "none"
 
 score_color = [[90, "ultimate"], [78, "legendary"], [56, "unique"], [28, "epic"]]   # 점수 숫자 색
@@ -20,14 +20,21 @@ add = [[108, "ultimate", true], [105, "legendary", false], [90, "unique", false]
 exceptional = []   # 익셉셔널 막대는 구간 없이 기본 색(빨강)으로 통일
 default = "poor"
 
-[stat_bar_max]   # 막대 길이가 100% 가 되는 값
-add = 110.0
-pot = 39.0           # 주스탯 13% × 3줄
-pot_additional = 22.0
-star = 110.0
-exceptional = 30.0   # 익셉셔널 강화 3회가 막대 100%
+[stat_bar_max]   # 막대 길이가 100% 가 되는 값. 아이템마다 analyzer 가 레벨·세트로 골라 bar_max 로 내려 줍니다
+add = 100.0
+star = 100.0
+pot = 39.0                    # 윗잠재 (아이템 레벨 low_level_max 초과, 250제)
+pot_low = 36.0                # 윗잠재 (200제 이하)
+pot_additional = 23.0         # 에디셔널 (250제)
+pot_additional_low = 20.0     # 에디셔널 (200제 이하)
+low_level_max = 200
+exceptional = 30.0            # 익셉셔널 (광휘 등 3회)
+exceptional_pitched = 10.0    # 익셉셔널 (칠흑 1회)
+soul = 20.0                   # 소울 잠재 기준 만점과 같음
+special = 100.0               # 특수부위 고유 옵션 (이미 % 척도)
 
-# 총평 랭크. 칭호·뱃지를 뺀 모든 아이템의 기준 대비 % 평균이 min 이상인 첫 항목 (최상위 랭커 98% 가 ABSOLUTE 에 들어오는 선). weapon_keyword 가 장비 이름에 있으면 with_weapon 문구를 씁니다.
+# 총평 랭크. 칭호·뱃지를 뺀 모든 아이템의 기준 대비 % 평균이 min 이상인 첫 항목 (최상위 랭커 98% 가 ABSOLUTE 에 들어오는 선).
+# weapon_keyword 가 장비 이름에 있으면 with_weapon 문구를 씁니다. 랭크별 색은 app/templates/components/_overall_review.html 이 정합니다.
 [[overall]]
 min = 97
 rank = "ABSOLUTE"
@@ -35,15 +42,15 @@ comment = "전서버 최상위권 장비입니다. 컨텐츠가 없으시군요.
 
 [[overall]]
 min = 92
-rank = "ETERNAL"
-comment = "서버권 최상위권 장비입니다. 이제 2차 초월의 영역입니다."
+rank = "DESTINY+"
+comment = "서버권 최상위권 장비입니다. 이제 데스티니 2차 초월의 영역입니다."
 
 [[overall]]
 min = 87
-rank = "DESTINY"
+rank = "ELDER"
 comment = "데스티니 초월에 충분히 도전할만한 스펙입니다.  당신의 가능성을 믿고 초월에 도전하세요!"
 weapon_keyword = "데스티니"
-with_weapon = "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 더 높은 곳으로의 성장을 준비하세요!"
+with_weapon = "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 2차 초월을 향한 성장을 준비하세요!"
 
 [[overall]]
 min = 80
@@ -53,14 +60,9 @@ weapon_keyword = "데스티니"
 with_weapon = "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 더 높은 곳으로의 성장을 준비하세요!"
 
 [[overall]]
-min = 72
+min = 70
 rank = "ASTRA"
 comment = "본격적으로 아스트라 해방에 도전하세요.  2차 해방까지는 가성비의 영역으로 들어섰습니다."
-
-[[overall]]
-min = 65
-rank = "ASTRA"
-comment = "아스트라 보조 해방을 위한 준비를 할 때 입니다.  천천히 아스트라 해방 준비에 도전하세요."
 
 [[overall]]
 min = 55

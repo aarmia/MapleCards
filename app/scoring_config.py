@@ -139,7 +139,8 @@ _GRADES_SPEC = {
     "card_highlight": list, "card_highlight_default": str,
     "score_color": list, "score_color_default": str,
     "stat_bar": {"pot": list, "pot_additional": list, "star": list, "add": list, "default": str},
-    "stat_bar_max": {"add": NUMBER, "pot": NUMBER, "pot_additional": NUMBER, "star": NUMBER},
+    "stat_bar_max": {k: NUMBER for k in ("add", "star", "pot", "pot_low", "pot_additional", "pot_additional_low", "low_level_max",
+                                         "exceptional", "exceptional_pitched", "soul", "special")},
     "overall": list,
 }
 
