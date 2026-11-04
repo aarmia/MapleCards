@@ -108,3 +108,9 @@ all_stat = 7
 boss_damage = 30
 ignore_defense = 30
 attack = 30
+
+# ── 익셉셔널 강화 (훈장·장신구) ──
+# 해당 부위는 "익셉셔널" 축이 추가되어 강화 1회당 points_per_upgrade 점을 총점에 더합니다 (item_exceptional_option.exceptional_upgrade)
+[exceptional]
+parts = ["반지", "펜던트", "귀고리", "눈장식", "얼굴장식", "벨트", "포켓 아이템", "훈장"]
+points_per_upgrade = 10

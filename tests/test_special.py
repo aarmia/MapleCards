@@ -41,6 +41,23 @@ class SpecialPartTests(unittest.TestCase):
         self.assertEqual((ring_results["반지1"]["total_score"], ring_results["반지1"]["part"]), (100.0, "특수 반지"))
         self.assertEqual(ring_results["예비 특수 반지"]["total_score"], 50.0)
 
+    def test_exceptional_upgrades_add_ten_points_each_on_accessories_and_medals(self):
+        belt = {
+            "item_equipment_part": "벨트", "item_equipment_slot": "벨트", "item_name": "몽환의 벨트", "potential_option_1": "STR +12%",
+            "item_exceptional_option": {"str": "40", "exceptional_upgrade": 2}, "starforce": "22",
+            "item_base_option": {"base_equipment_level": 200}, "item_add_option": {}, "item_etc_option": {}, "item_starforce_option": {},
+        }
+        medal = {
+            "item_equipment_part": "훈장", "item_equipment_slot": "훈장", "item_name": "불멸의 유산",
+            "item_add_option": {"str": "91"}, "item_exceptional_option": {"exceptional_upgrade": 3}, "item_base_option": {},
+        }
+        results = {r["part"]: r for r in evaluate_equipment([belt, medal], "히어로", 285)}
+        self.assertEqual(results["벨트"]["detail"]["exceptional"], 20)
+        self.assertEqual(results["벨트"]["scoring_basis"]["breakdown"][-1], {"key": "exceptional", "label": "익셉셔널", "raw_score": 2, "weighted_score": 20})
+        self.assertAlmostEqual(results["벨트"]["total_score"], sum(results["벨트"]["detail"].values()), delta=0.3)
+        self.assertEqual(results["훈장"]["detail"]["exceptional"], 30)
+        self.assertAlmostEqual(results["훈장"]["total_score"], results["훈장"]["detail"]["special"] + 30, delta=0.1)
+
     def test_title_options_are_parsed_and_expired_titles_score_zero(self):
         description = "깊은 어둠이 걸어온 마법의 주문\n\n보스 몬스터 데미지 +30%\n몬스터 방어율 무시+30%\n일반 몬스터 데미지 +30%\n추가 경험치 +100%\n공격력/마력+30\n옵션 적용 기간: 90일"
         self.assertEqual(title_lines(description, "마력"), ["마력 +30", "보스 몬스터 데미지 +30%", "몬스터 방어율 무시 +30%"])

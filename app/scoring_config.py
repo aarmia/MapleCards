@@ -253,6 +253,7 @@ _POTENTIAL_SPEC = {
         },
     },
     "special": {"ignored_keys": list, "add_option_parts": list, "ring_part": str, "best": dict, "ring": {"max_level": NUMBER, "weights": dict, "default": NUMBER}},
+    "exceptional": {"parts": list, "points_per_upgrade": NUMBER},
 }
 
 

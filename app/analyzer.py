@@ -187,6 +187,18 @@ def build_guide_context(scores, star_val, part_name, item_name, total_score, ite
     }
 
 
+def exceptional_axis(item, part_name):
+    """익셉셔널 강화 축: 대상 부위(potential.toml [exceptional].parts)면 (강화 횟수, 점수)를, 아니면 None 을 돌려줍니다."""
+    config = POTENTIAL.exceptional
+    if not any(keyword in (part_name or "") for keyword in config.parts):
+        return None
+    try:
+        count = int((item.get("item_exceptional_option") or {}).get("exceptional_upgrade") or 0)
+    except (TypeError, ValueError):
+        count = 0
+    return count, round(count * config.points_per_upgrade, 2)
+
+
 def get_special_part_guide(total_score, part_name, item_name, expired=False):
     return select_guide(GUIDES.special_rule, {"total": total_score, "expired": expired}, GUIDES.names.raw, item_name, part_name)
 
@@ -272,13 +284,22 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             special_guide_tag, special_guide_message = split_guide(special_guide)
             if expired:
                 notes.insert(0, "칭호 옵션 적용 기간 만료 · 스탯을 인정하지 않습니다")
+            exceptional = exceptional_axis(item, part)
+            special_detail = {"special": round(total_item_score, 1)}
+            special_breakdown = [{"key": "special", "label": "고유 옵션", "raw_score": round(value, 2), "weighted_score": total_item_score}]
+            if exceptional:
+                upgrades, points = exceptional
+                total_item_score = round(total_item_score + points, 2)
+                special_detail["exceptional"] = points
+                special_breakdown.append({"key": "exceptional", "label": "익셉셔널", "raw_score": upgrades, "weighted_score": points})
+                notes.append(f"익셉셔널 강화 1회당 {POTENTIAL.exceptional.points_per_upgrade:g}점 (현재 {upgrades}회)")
             evaluate_list.append({
                 "is_wse": False, "is_special": True, "is_noljang": False, "slot": slot, "part": part, "name": name, "icon": icon, "star": 0, "level": item_req_level,
                 "total_score": total_item_score,
                 "guide": special_guide,
                 "guide_tag": special_guide_tag,
                 "guide_message": special_guide_message,
-                "detail": {"special": round(total_item_score, 1)},
+                "detail": special_detail,
                 "raw_options": {**raw_options_dict, "fixed_options": lines, "expired": expired, "special_ring_level": item.get("special_ring_level")},
                 "scoring_basis": {
                     "main_stat": main_stat_label,
@@ -290,7 +311,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                         {"category": "고유 옵션", "option": entry["option"], "reason": entry["reason"]} for entry in analysis["ignored"]
                     ] + [{"category": "고유 옵션", "option": option, "reason": "unsupported"} for option in analysis["unsupported"]],
                     "weights": notes,
-                    "breakdown": [{"key": "special", "label": "고유 옵션", "raw_score": round(value, 2), "weighted_score": total_item_score}],
+                    "breakdown": special_breakdown,
                     "benchmarks": {"special": benchmark},
                     "star_score": 0,
                 },
@@ -404,6 +425,12 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         if group == "weapon":
             detail["soul"] = round(soul_score, 1)
             breakdown.insert(3, {"key": "soul", "label": "소울", "raw_score": round(max(soul_val, 0), 2), "weighted_score": round(soul_score, 2)})
+        exceptional = exceptional_axis(item, part) if not is_weapon else None
+        if exceptional:
+            upgrades, exceptional_points = exceptional
+            total_item_score += exceptional_points
+            detail["exceptional"] = exceptional_points
+            breakdown.append({"key": "exceptional", "label": "익셉셔널", "raw_score": upgrades, "weighted_score": exceptional_points})
 
         if pot_val != -1:
             guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part, total_item_score, name, item_req_level, is_noljang, benchmarks)
@@ -420,7 +447,9 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                     "main_stat": main_stat_label,
                     "recognized_options": recognized_options,
                     "unrecognized_options": unrecognized_options,
-                    "weights": weight_notes(item_req_level) + ([f"무기류 공격력% 단위 환산 · 보공 1% = 공 {weapon_context.boss_per_pct:.3g}%, 유효 스탯 1% = 공 {weapon_context.stat_pct_unit:.3g}%, 기준점은 캐릭터별 최상 조합"] if is_weapon else []),
+                    "weights": weight_notes(item_req_level)
+                    + ([f"무기류 공격력% 단위 환산 · 보공 1% = 공 {weapon_context.boss_per_pct:.3g}%, 유효 스탯 1% = 공 {weapon_context.stat_pct_unit:.3g}%, 기준점은 캐릭터별 최상 조합"] if is_weapon else [])
+                    + ([f"익셉셔널 강화 1회당 {POTENTIAL.exceptional.points_per_upgrade:g}점 (현재 {exceptional[0]}회)"] if exceptional else []),
                     "breakdown": breakdown,
                     "benchmarks": benchmarks,
                     "star_score": round(adv_star_score, 2),
