@@ -55,6 +55,7 @@ reinforce_uptime = 0.25
 # 스탯 계열(주스탯·올스탯·크뎀 등)은 잠재와 같은 유효 스탯% 에 "유효 스탯 1% 의 공% 가치" 를 곱해 환산합니다.
 [weapon]
 boss_defense = 380                # 방무 환산 기준 보스 방어율 (%)
+secondary_star_level = 200        # 보조무기 스타포스는 이 레벨의 장비로 보고 환산합니다
 
 [weapon.buff]                     # 전투 중 가정. 메이플 스카우터 세부 스펙 효율(공격력% 단위, Lv298 나이트워커)에 맞춘 측정값
 attack_pct_extra = 72             # 스탯창에 없는 스킬 패시브·버프 공격력 %p (스탯창 배율 + 영웅의 메아리에 더함)
@@ -62,8 +63,7 @@ boss_damage_extra = 475           # 보공·데미지 분모에 더하는 버프
 ied_extra_pct = 88                # 남은 방어율에 곱해 빼는 추가 방무 % (곱연산)
 
 [weapon.best_lines]               # 캐릭터별 기준점(최상 조합): 후보는 종류별 최대값이고, 캐릭터에게 환산값이 가장 큰 줄이 count 줄 모두에 붙은 것을 최상으로 봅니다
-count = { potential = 3, additional_potential = 3, soul = 3 }
-soul_option = ["공격력 +3%"]        # 소울 옵션 1줄은 소울 잠재 최상 조합에 더합니다
+count = { potential = 3, additional_potential = 3, soul = 3 }   # 소울은 소울 잠재 3줄만 (소울 옵션 줄은 점수에서 제외)
 destiny_keyword = "데스티니"        # 이름에 이 말이 있으면 destiny 표, 아니면 default 표(제네시스·보조무기·엠블렘). 엠블렘은 보공 후보를 뺍니다
 
 [weapon.best_lines.destiny]
@@ -83,6 +83,8 @@ soul = ["공격력 +8%", "보스 몬스터 데미지 +12%", "몬스터 방어율
 ignored_keys = ["speed", "jump", "max_mp", "armor", "equipment_level_decrease"]
 add_option_parts = ["훈장", "포켓 아이템"]   # 기본 옵션은 빼고 추가옵션(환생의 불꽃)만 환산하는 부위
 ring_part = "특수 반지"                     # 시드링(리스트레인트·컨티뉴어스 등)과 예비 특수 반지 자리의 아이템
+no_grade_parts = ["훈장", "뱃지"]           # 등급 문자를 매기지 않고 점수만 보여주는 부위
+no_score_parts = ["뱃지"]                   # 점수도 보여주지 않고 전체 랭크 평균에서도 빼는 부위 (칭호는 항상 제외)
 
 [special.ring]                    # 시드링: 점수 = 종류 가중치 × 레벨 ÷ max_level. 이름에 키워드가 있으면 그 가중치, 없으면 default
 max_level = 6

@@ -17,7 +17,7 @@ pot = [[118, "ultimate", true], [100, "legendary", false], [92, "unique", false]
 pot_additional = [[48, "ultimate", true], [32, "legendary", false], [25, "unique", false], [19, "epic", false], [9, "rare", false]]
 star = [[100, "legendary", false], [90, "unique", false], [75, "epic", false], [50, "rare", false]]
 add = [[108, "ultimate", true], [105, "legendary", false], [90, "unique", false], [75, "epic", false], [50, "rare", false]]
-exceptional = [[30, "ultimate", false], [20, "legendary", false], [10, "unique", false]]   # 익셉셔널 강화 1회 10점, 3회 30점
+exceptional = []   # 익셉셔널 막대는 구간 없이 기본 색(빨강)으로 통일
 default = "poor"
 
 [stat_bar_max]   # 막대 길이가 100% 가 되는 값

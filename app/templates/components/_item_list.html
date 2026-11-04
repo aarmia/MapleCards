@@ -38,9 +38,10 @@
             <span class="text-4xl font-black tracking-tighter drop-shadow-sm"
                   :class="getScoreDisplayData(item.score_ratio).class"
                   :style="getScoreDisplayData(item.score_ratio).style"
+                  x-show="item.graded !== false"
                   x-text="getGradeFromScore(item.score_ratio)"></span>
 
-            <span class="text-sm font-black text-slate-400 mt-1 group-hover:text-slate-600 transition-colors" x-text="item.total_score"></span>
+            <span x-show="item.scored !== false" class="text-sm font-black text-slate-400 mt-1 group-hover:text-slate-600 transition-colors" x-text="item.total_score"></span>
         </div>
 
     </div>

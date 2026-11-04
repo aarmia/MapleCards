@@ -9,6 +9,7 @@ attack_default = 4
 attack_all_stat = 5           # 제논
 attack_hp = 15                # 데몬어벤져 (최대 HP + 공격력 × 15)
 magic_int = 3                 # INT 직업은 마력 × 3
+sub_stat_divisor = 10         # 부스탯(classes.toml secondary_stat)은 ÷ 10 으로 합산
 
 [add_option.targets]          # 아이템 레벨별 목표 급수. 표에 없는 레벨은 fallback 식(level × slope + offset)을 쓰고, min_level 미만이면 100점 처리
 # 고자본(3~5억) 기준의 목표. 다른 자본대는 add_option.tiers 의 배율만 곱하고 기준값 자체는 바꾸지 않습니다.

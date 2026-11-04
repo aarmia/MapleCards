@@ -1,7 +1,7 @@
 import math
 import re
 
-from app.potential import StatContext, analyze_lines, reference_context, score_detail
+from app.potential import StatContext, analyze_lines, reference_context, score_detail, secondary_names
 from app.scoring_config import CLASSES, SCORING
 
 
@@ -68,17 +68,19 @@ def get_main_stat(class_name: str, stat_data: dict = None) -> str:
 
     return CLASSES.default
 
-def calculate_item_score(add_option: dict, class_name: str, main_stat: str | None = None) -> int:
+def calculate_item_score(add_option: dict, class_name: str, main_stat: str | None = None) -> float:
     main_stat = main_stat or get_main_stat(class_name)
     grade = SCORING.add_option.grade
 
     all_stat_pct = int(add_option.get("all_stat", 0))
     attack_pwr = int(add_option.get("attack_power", 0))
     magic_pwr = int(add_option.get("magic_power", 0))
+    # 부스탯은 ÷ sub_stat_divisor 로 더합니다 (듀블·섀도어·카데나는 STR·DEX 둘 다)
+    sub_total = sum(int(add_option.get(name.lower(), 0) or 0) for name in secondary_names(class_name, main_stat)) / grade.sub_stat_divisor
 
     if main_stat == "hp":
         hp_val = int(add_option.get("max_hp", 0))
-        return hp_val + (attack_pwr * grade.attack_hp)
+        return hp_val + (attack_pwr * grade.attack_hp) + sub_total
 
     if main_stat == "all_stat":
         s_val = int(add_option.get("str", 0))
@@ -88,10 +90,10 @@ def calculate_item_score(add_option: dict, class_name: str, main_stat: str | Non
 
     if main_stat == "int":
         int_val = int(add_option.get("int", 0))
-        return int_val + (all_stat_pct * grade.all_stat_pct_default) + (magic_pwr * grade.magic_int)
+        return int_val + (all_stat_pct * grade.all_stat_pct_default) + (magic_pwr * grade.magic_int) + sub_total
 
     stat_val = int(add_option.get(main_stat, 0))
-    return stat_val + (all_stat_pct * grade.all_stat_pct_default) + (attack_pwr * grade.attack_default)
+    return stat_val + (all_stat_pct * grade.all_stat_pct_default) + (attack_pwr * grade.attack_default) + sub_total
 
 def get_advanced_add_score(actual_급수, level, part_name, char_name_class, target_multiplier=1.0):
     add_config = SCORING.add_option

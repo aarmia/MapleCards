@@ -165,3 +165,20 @@ def title_item(title: dict) -> dict | None:
         "item_add_option": {},
         "item_total_option": {},
     }
+
+
+def best_add_option(part: str, main_stat: str, sub_names) -> dict:
+    """훈장·포켓의 추옵 최대치(potential.toml [special.best])를 item_add_option 과 같은 dict 로 만듭니다."""
+    table = POTENTIAL.special.best.raw.get(part) or {}
+    best: dict = {}
+    if main_stat == "hp":
+        best["max_hp"] = table.get("main_stat_hp", table.get("main_stat", 0))
+    elif main_stat == "all_stat":
+        best["str"] = table.get("main_stat", 0)
+    else:
+        best[main_stat] = table.get("main_stat", 0)
+    if sub_names and table.get("sub_stat"):
+        best[sub_names[0].lower()] = table["sub_stat"]
+    if table.get("all_stat"):
+        best["all_stat"] = table["all_stat"]
+    return best

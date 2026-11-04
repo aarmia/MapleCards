@@ -17,7 +17,8 @@ _ATTACK_FLAT = re.compile(r"^(공격력|마력) \+(\d+)$")
 _BOSS = re.compile(r"^보스 몬스터 (?:공격 시 )?데미지 \+(\d+(?:\.\d+)?)%$")
 _DAMAGE = re.compile(r"^데미지 \+(\d+(?:\.\d+)?)%$")
 _IED = re.compile(r"^몬스터 방어율 무시 \+(\d+(?:\.\d+)?)%$")
-SOUL_KEYS = ("soul_option", "soul_potential_option_1", "soul_potential_option_2", "soul_potential_option_3")
+# 소울 옵션(soul_option, 예: 공격력 +3%)은 점수와 화면 모두에서 제외하고 소울 잠재 3줄만 봅니다.
+SOUL_KEYS = ("soul_potential_option_1", "soul_potential_option_2", "soul_potential_option_3")
 
 
 @dataclass(frozen=True)
@@ -127,7 +128,7 @@ def analyze_weapon_lines(options: list[str], context: WeaponContext, char_level:
 
 
 def soul_lines(item_data: dict) -> list[str]:
-    """소울 옵션 + 소울 잠재(최대 3줄). 비어 있는 값은 뺍니다."""
+    """소울 잠재(최대 3줄). 소울 옵션 줄은 세지 않습니다."""
     return [str(item_data.get(key)).strip() for key in SOUL_KEYS if item_data.get(key) and str(item_data.get(key)).strip()]
 
 
@@ -180,11 +181,8 @@ def best_lines_total(kind: str, part_group: str, context: WeaponContext, char_le
         converted = convert_weapon_line(text, context, char_level)
         return converted[0] if converted else 0.0
 
-    # 캐릭터에게 가장 좋은 줄이 count 줄 모두에 붙은 조합. 소울은 여기에 소울 옵션 1줄을 더합니다
-    total = max(value_of(text) for text in candidates) * config.raw["count"][kind]
-    if kind == "soul":
-        total += sum(value_of(text) for text in config.raw["soul_option"])
-    return round(total, 2)
+    # 캐릭터에게 가장 좋은 줄이 count 줄 모두에 붙은 조합
+    return round(max(value_of(text) for text in candidates) * config.raw["count"][kind], 2)
 
 
 def part_group(slot: str, part: str) -> str:

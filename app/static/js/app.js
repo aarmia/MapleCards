@@ -33,7 +33,17 @@ document.addEventListener('alpine:init', () => {
         loadingStage: 'character',
         queuePosition: null,
         queueEstimatedWait: null,
-        viewMode: 'top5',
+        viewMode: 'equip',
+        // 장비창 배치 [슬롯, 열, 행]. 7열 격자: 1·2열 왼쪽 블록, 3~5열 캐릭터(1~4행)와 무기류(5행), 6·7열 오른쪽 블록.
+        // 슬롯 이름은 넥슨 응답의 item_equipment_slot 과 같고, 칭호는 장비창에 보이지 않습니다.
+        equipLayout: [
+            ['반지1', 1, 1], ['얼굴장식', 2, 1], ['모자', 6, 1], ['망토', 7, 1],
+            ['반지2', 1, 2], ['눈장식', 2, 2], ['상의', 6, 2], ['장갑', 7, 2],
+            ['반지3', 1, 3], ['귀고리', 2, 3], ['하의', 6, 3], ['신발', 7, 3],
+            ['반지4', 1, 4], ['펜던트', 2, 4], ['어깨장식', 6, 4], ['뱃지', 7, 4],
+            ['벨트', 1, 5], ['펜던트2', 2, 5], ['무기', 3, 5], ['보조무기', 4, 5], ['엠블렘', 5, 5], ['훈장', 6, 5], ['기계 심장', 7, 5],
+            ['포켓 아이템', 1, 6], ['예비 특수 반지', 2, 6],
+        ],
         showHelp: false,
         helpTab: 'guide',
         showDetail: false,
@@ -71,7 +81,7 @@ document.addEventListener('alpine:init', () => {
             this.loadingStage = 'character';
             this.queuePosition = null;
             this.queueEstimatedWait = null;
-            this.viewMode = 'top5';
+            this.viewMode = 'equip';
         },
 
         cancelRetry() {
@@ -154,7 +164,7 @@ document.addEventListener('alpine:init', () => {
             this.errorMessage = '';
             this.errorStatus = null;
             this.errorCode = null;
-            this.viewMode = 'top5';
+            this.viewMode = 'equip';
             this.startStatusPolling();
 
             try {
@@ -264,19 +274,120 @@ document.addEventListener('alpine:init', () => {
 
         getFilteredItems() {
             if (!this.report || !this.report.results) return [];
-            const nonWseItems = this.report.results.filter(item => !item.is_wse && !item.is_special);
-            if (this.viewMode === 'all') return nonWseItems;
-            return nonWseItems.slice(0, 5);
+            // 모든 아이템 점수: 무기류·특수부위·시드링까지 전부 (기준 대비 % 오름차순). 취약 5종: 평균에 들어가는 아이템 중 낮은 5개
+            const items = [...this.report.results].sort((a, b) => a.score_ratio - b.score_ratio);
+            if (this.viewMode === 'all') return items;
+            return items.filter(item => item.part !== '칭호' && item.scored !== false).slice(0, 5);
         },
 
-        getWseItems() {
-            if (!this.report?.results) return [];
-            return this.report.results.filter(item => item.is_wse && !item.is_special).reverse();
+        equipCells() {
+            const cells = [{ slot: 'char', style: 'grid-row: 1 / span 4; grid-column: 3 / span 3;' }];
+            this.equipLayout.forEach(([slot, col, row]) => cells.push({ slot, style: `grid-row: ${row}; grid-column: ${col};` }));
+            return cells;
         },
 
-        getSpecialItems() {
-            if (!this.report?.results) return [];
-            return this.report.results.filter(item => item.is_special);
+        getSlotItem(slot) {
+            const results = this.report?.results || [];
+            // 한벌옷은 상의 자리에 표시합니다.
+            return results.find(item => item.slot === slot) || (slot === '상의' ? results.find(item => item.slot === '한벌옷') : null) || null;
+        },
+
+        // ── 상세 모달 환산 요약 ──
+        axisEntries(item, category, includeHidden = false) {
+            // hidden 줄(소울 옵션 첫 줄)은 점수에는 들어가지만 목록에는 보이지 않습니다.
+            return (item?.scoring_basis?.recognized_options || []).filter(entry => entry.category === category && (includeHidden || !entry.hidden));
+        },
+
+        recognizedCategories(item) {
+            const order = ['윗잠재', '에디셔널', '소울', '고유 옵션'];
+            const present = new Set((item?.scoring_basis?.recognized_options || []).map(entry => entry.category));
+            return order.filter(category => present.has(category));
+        },
+
+        categoryColor(category) {
+            return { '윗잠재': 'text-red-300', '에디셔널': 'text-blue-400', '소울': 'text-amber-400', '추가옵션': 'text-emerald-300', '익셉셔널': 'text-rose-400', '고유 옵션': 'text-violet-300' }[category] || 'text-neutral-300';
+        },
+
+        summaryUnit(item) {
+            return item?.is_wse ? '공격력%' : '유효 스탯%';
+        },
+
+        entryValueText(item, entry) {
+            return '+' + entry.value + (item?.is_wse ? '% (공)' : '%');
+        },
+
+        axisTotalText(item, category) {
+            const entries = this.axisEntries(item, category, true);
+            if (!entries.length) return '-';
+            const crit = entries.filter(entry => /크리티컬 데미지/.test(entry.option));
+            const total = entries.reduce((sum, entry) => sum + entry.value, 0);
+            if (item?.part === '장갑' && crit.length) {
+                const rest = total - crit.reduce((sum, entry) => sum + entry.value, 0);
+                return `${crit.length}크` + (rest > 0.05 ? ` + ${rest.toFixed(1)}%` : '');
+            }
+            return total.toFixed(1) + (item?.is_wse ? '% (공)' : '%');
+        },
+
+        addSummaryLines(item) {
+            if (!item) return [];
+            if (item.is_wse) return this.axisEntries(item, '추가옵션').map(entry => entry.option);
+            const add = item.raw_options?.add || {};
+            const main = (item.scoring_basis?.main_stat || '').toLowerCase();
+            const keys = main === 'all_stat' ? ['str', 'dex', 'luk'] : main === 'hp' ? ['max_hp'] : [main];
+            const lines = [];
+            keys.forEach(key => { if (Number(add[key] || 0)) lines.push(`${this.labelMap[key] || key.toUpperCase()} +${add[key]}`); });
+            if (Number(add.all_stat || 0)) lines.push(`올스탯 +${add.all_stat}%`);
+            const attack = main === 'int' ? 'magic_power' : 'attack_power';
+            if (Number(add[attack] || 0)) lines.push(`${this.labelMap[attack]} +${add[attack]}`);
+            const subs = main === 'all_stat' ? [] : main === 'hp' ? ['str'] : main === 'int' ? ['luk'] : main === 'luk' ? ['dex'] : main === 'dex' ? ['str'] : ['dex'];
+            const subKeys = ['섀도어', '듀얼블레이더', '카데나'].includes(this.report?.class) ? ['str', 'dex'] : subs;
+            subKeys.forEach(key => { if (Number(add[key] || 0)) lines.push(`${this.labelMap[key]} +${add[key]}`); });
+            return lines;
+        },
+
+        exceptionalLines(item) {
+            // 익셉셔널 강화로 오른 스탯. 네 스탯이 같으면 올스탯, 공/마가 같으면 공마로 묶습니다.
+            const ex = item?.raw_options?.exceptional || {};
+            const n = key => Number(ex[key] || 0);
+            const lines = [];
+            const stats = ['str', 'dex', 'int', 'luk'].map(n);
+            if (stats.every(v => v === stats[0]) && stats[0] > 0) lines.push(`올스탯 +${stats[0]}`);
+            else ['str', 'dex', 'int', 'luk'].forEach(key => { if (n(key)) lines.push(`${this.labelMap[key]} +${n(key)}`); });
+            if (n('max_hp') && n('max_hp') === n('max_mp')) lines.push(`최대 HP/MP +${n('max_hp')}`);
+            else { if (n('max_hp')) lines.push(`최대 HP +${n('max_hp')}`); if (n('max_mp')) lines.push(`최대 MP +${n('max_mp')}`); }
+            if (n('attack_power') && n('attack_power') === n('magic_power')) lines.push(`공/마 +${n('attack_power')}`);
+            else { if (n('attack_power')) lines.push(`공격력 +${n('attack_power')}`); if (n('magic_power')) lines.push(`마력 +${n('magic_power')}`); }
+            return lines;
+        },
+
+        optionBlocks(item) {
+            if (!item) return [];
+            const raw = item.raw_options || {};
+            const blocks = [
+                { key: 'potential', title: 'Potential', grade: raw.potential_grade, options: (raw.potential_options || []).filter(Boolean), category: '윗잠재' },
+                { key: 'additional', title: 'Additional', grade: raw.additional_grade, options: (raw.additional_options || []).filter(Boolean), category: '에디셔널' },
+                { key: 'soul', title: 'Soul', grade: null, options: raw.soul_options || [], category: '소울' },
+            ];
+            return blocks.filter(block => block.options.length || this.axisEntries(item, block.category).length);
+        },
+
+        summaryCards(item) {
+            if (!item?.scoring_basis) return [];
+            const rows = Object.fromEntries((item.scoring_basis.breakdown || []).map(row => [row.key, row]));
+            const cards = [];
+            if (rows.add) {
+                cards.push({ key: 'add', label: '추가옵션', color: 'text-emerald-300', total: item.is_wse ? `${rows.add.raw_score}% (공)` : `${rows.add.raw_score}`, lines: this.addSummaryLines(item) });
+            }
+            if (rows.special) {
+                cards.push({ key: 'special', label: '고유 옵션', color: 'text-violet-300', total: `유효 ${rows.special.raw_score}%`, lines: this.axisEntries(item, '고유 옵션').map(entry => entry.option) });
+            }
+            if (rows.pot) cards.push({ key: 'pot', label: '윗잠재', color: this.categoryColor('윗잠재'), total: this.axisTotalText(item, '윗잠재'), lines: [`${this.axisEntries(item, '윗잠재').length}줄 인식 · ${this.summaryUnit(item)}`] });
+            if (rows.pot_additional) cards.push({ key: 'eddy', label: '에디셔널', color: this.categoryColor('에디셔널'), total: this.axisTotalText(item, '에디셔널'), lines: [`${this.axisEntries(item, '에디셔널').length}줄 인식 · ${this.summaryUnit(item)}`] });
+            if (rows.exceptional) {
+                cards.push({ key: 'exceptional', label: '익셉셔널', color: this.categoryColor('익셉셔널'), total: `${rows.exceptional.raw_score}회`, lines: this.exceptionalLines(item) });
+            }
+            if (rows.soul) cards.push({ key: 'soul', label: '소울', color: this.categoryColor('소울'), total: this.axisTotalText(item, '소울'), lines: [`${this.axisEntries(item, '소울').length}줄 인식 · 공격력%`] });
+            return cards;
         },
 
         openItemDetail(item) {

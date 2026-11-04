@@ -4,62 +4,24 @@
     {% include "components/_header.html" %}
 
     <div x-cloak x-show="report && !report.error" id="report-area" class="p-2 animate-fade-in">
-        <div class="flex justify-end gap-2 mb-4">
-            <button @click="viewMode = (viewMode === 'wse' ? 'top5' : 'wse')"
-                    class="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg transition-all shadow-sm border"
-                    :class="viewMode === 'wse' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'">
-                <span x-text="viewMode === 'wse' ? '🔙 취약 아이템 보기' : '⚔️ 특수 아이템 정보 보기'"></span>
-            </button>
-            <button @click="viewMode = (viewMode === 'all' ? 'top5' : 'all')"
-                    class="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg transition-all shadow-sm border"
-                    :class="viewMode === 'all' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'">
-                <span x-text="viewMode === 'all' ? '⚠️ 취약 아이템 5종만 보기' : '📊 모든 아이템 점수 보기'"></span>
-            </button>
+        <div class="flex flex-wrap justify-end gap-2 mb-4">
+            <template x-for="mode in [['equip', '🧰 장비창'], ['top5', '⚠️ 취약 아이템 5종'], ['all', '📊 모든 아이템 점수']]" :key="mode[0]">
+                <button @click="viewMode = mode[0]"
+                        class="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg transition-all shadow-sm border"
+                        :class="viewMode === mode[0] ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'">
+                    <span x-text="mode[1]"></span>
+                </button>
+            </template>
         </div>
 
         {% include "components/_summary.html" %}
 
         {% include "components/_overall_review.html" %}
-        {% include "components/_preset_optimization.html" %}
 
         <div class="space-y-4">
 
-            <template x-if="viewMode === 'wse'">
-                <div class="space-y-8 animate-fade-in">
-                    <section>
-                        <div class="mb-3 flex items-center justify-between">
-                            <div>
-                                <h3 class="font-black text-slate-800">무기 · 보조무기 · 엠블렘</h3>
-                                <p class="text-[11px] text-slate-500">공격력·마력, 보스 데미지, 방어율 무시 중심 평가</p>
-                            </div>
-                            <span class="text-xs font-bold text-blue-600" x-text="getWseItems().length + '개'"></span>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <template x-for="(item, index) in getWseItems()" :key="'wse-' + item.name + index">
-                                {% include "components/_wse_grid.html" %}
-                            </template>
-                        </div>
-                    </section>
-
-                    <section>
-                        <div class="mb-3 flex items-center justify-between">
-                            <div>
-                                <h3 class="font-black text-slate-800">특수 장비</h3>
-                                <p class="text-[11px] text-slate-500">훈장·뱃지·포켓 아이템·칭호의 고유 기준 평가</p>
-                            </div>
-                            <span class="text-xs font-bold text-violet-600" x-text="getSpecialItems().length + '개'"></span>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <template x-for="(item, index) in getSpecialItems()" :key="'special-' + item.name + index">
-                                {% include "components/_wse_grid.html" %}
-                            </template>
-                        </div>
-                        <div x-show="getSpecialItems().length === 0"
-                             class="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center text-sm font-bold text-slate-500">
-                            현재 착용 정보에서 확인 가능한 특수 장비가 없습니다.
-                        </div>
-                    </section>
-                </div>
+            <template x-if="viewMode === 'equip'">
+                {% include "components/_equip_grid.html" %}
             </template>
 
             <template x-if="viewMode === 'top5' || viewMode === 'all'">

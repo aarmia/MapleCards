@@ -71,11 +71,15 @@ class WeaponConversionTests(unittest.TestCase):
         self.assertGreater(w["detail"]["soul"], 0)
         self.assertEqual(sorted({e["category"] for e in w["scoring_basis"]["recognized_options"]}), ["소울", "에디셔널", "윗잠재", "추가옵션"])
         self.assertAlmostEqual(w["total_score"], w["detail"]["add"] + w["detail"]["pot"] + w["detail"]["pot_additional"] + w["detail"]["soul"] + w["detail"]["star"], delta=0.3)
+        # 보조무기는 윗잠·에디 + 200제 기준 스타포스, 엠블렘은 윗잠·에디만
+        secondary_result = results["보조무기"]
+        self.assertEqual([row["key"] for row in secondary_result["scoring_basis"]["breakdown"]], ["pot", "pot_additional", "star"])
+        self.assertEqual(secondary_result["detail"]["star"], 100.0)  # 22성 · 200제 기준
+        emblem_result = results["엠블렘"]
+        self.assertEqual([row["key"] for row in emblem_result["scoring_basis"]["breakdown"]], ["pot", "pot_additional"])
+        self.assertAlmostEqual(emblem_result["total_score"], emblem_result["detail"]["pot"] + emblem_result["detail"]["pot_additional"], delta=0.3)
         for slot in ("보조무기", "엠블렘"):
-            r = results[slot]
-            self.assertEqual([row["key"] for row in r["scoring_basis"]["breakdown"]], ["pot", "pot_additional"])
-            self.assertAlmostEqual(r["total_score"], r["detail"]["pot"] + r["detail"]["pot_additional"], delta=0.3)
-            self.assertNotIn("add", r["detail"])
+            self.assertNotIn("add", results[slot]["detail"])
         self.assertIn("pot", w["scoring_basis"]["benchmarks"])
         self.assertLessEqual(results["엠블렘"]["scoring_basis"]["benchmarks"]["pot"], w["scoring_basis"]["benchmarks"]["pot"])
 

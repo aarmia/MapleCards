@@ -1,0 +1,42 @@
+<div class="bg-white rounded-3xl border border-slate-200 p-4 md:p-6 shadow-sm animate-fade-in">
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h3 class="font-black text-slate-800">장비창</h3>
+            <p class="text-[11px] text-slate-500">아이콘을 누르면 상세 점수와 환산 근거가 열립니다. 테두리 색은 기준 대비 등급입니다.</p>
+        </div>
+        <span class="text-xs font-bold text-blue-600" x-text="(report?.results?.length || 0) + '개'"></span>
+    </div>
+    <div class="grid grid-cols-7 gap-1.5 md:gap-2 max-w-[620px] mx-auto">
+        <template x-for="cell in equipCells()" :key="cell.slot">
+            <div :style="cell.style" class="min-w-0">
+                <!-- 캐릭터 -->
+                <template x-if="cell.slot === 'char'">
+                    <div class="h-full rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center min-h-[320px] overflow-visible">
+                        <img x-show="report?.character_image" :src="report?.character_image || ''" class="w-20 h-20 object-contain scale-[5] drop-shadow-[0_10px_15px_rgba(0,0,0,0.15)]" alt="">
+                        <span x-show="!report?.character_image" class="text-[10px] font-bold text-slate-300">NO IMAGE</span>
+                    </div>
+                </template>
+                <!-- 착용 아이템 -->
+                <template x-if="cell.slot !== 'char' && getSlotItem(cell.slot)">
+                    <div @click="openItemDetail(getSlotItem(cell.slot))" @keydown.enter.prevent="openItemDetail(getSlotItem(cell.slot))"
+                         role="button" tabindex="0" :title="getSlotItem(cell.slot).name"
+                         class="aspect-square rounded-2xl p-1.5 flex flex-col items-center justify-center cursor-pointer transition-transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                         :class="getSlotItem(cell.slot).graded ? getBorderColor(getSlotItem(cell.slot).score_ratio) : 'border border-slate-200 bg-slate-50'">
+                        <img :src="getSlotItem(cell.slot).shape_icon || getSlotItem(cell.slot).icon" class="w-9 h-9 md:w-11 md:h-11 object-contain drop-shadow-sm" alt="">
+                        <span x-show="getSlotItem(cell.slot).graded" class="mt-1 text-[11px] font-black leading-none"
+                              :class="getScoreDisplayData(getSlotItem(cell.slot).score_ratio).class"
+                              :style="getScoreDisplayData(getSlotItem(cell.slot).score_ratio).style"
+                              x-text="getGradeFromScore(getSlotItem(cell.slot).score_ratio)"></span>
+                        <span x-show="getSlotItem(cell.slot).scored" class="text-[9px] font-bold text-slate-500 leading-none mt-0.5" x-text="Math.round(getSlotItem(cell.slot).total_score)"></span>
+                    </div>
+                </template>
+                <!-- 빈 칸 -->
+                <template x-if="cell.slot !== 'char' && !getSlotItem(cell.slot) && cell.slot !== '예비 특수 반지'">
+                    <div class="aspect-square rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 flex items-center justify-center">
+                        <span class="text-[9px] font-bold text-slate-300 text-center leading-tight px-1" x-text="cell.slot"></span>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+</div>

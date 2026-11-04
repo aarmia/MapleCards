@@ -85,7 +85,7 @@ _CLASSES_SPEC = {
 }
 _SCORING_SPEC = {
     "add_option": {
-        "grade": {k: NUMBER for k in ("all_stat_pct_default", "all_stat_pct_all_stat", "attack_default", "attack_all_stat", "attack_hp", "magic_int")},
+        "grade": {k: NUMBER for k in ("all_stat_pct_default", "all_stat_pct_all_stat", "attack_default", "attack_all_stat", "attack_hp", "magic_int", "sub_stat_divisor")},
         "targets": {
             "default": dict, "default_fallback": _FALLBACK,
             "xenon": dict, "xenon_fallback": _FALLBACK,
@@ -244,16 +244,19 @@ _POTENTIAL_SPEC = {
     "hyper_stat": {"main_stat_per_level": NUMBER},
     "crit_rate": {"zero_threshold": NUMBER, "reinforce_ratio": NUMBER, "reinforce_uptime": NUMBER},
     "weapon": {
-        "boss_defense": NUMBER,
+        "boss_defense": NUMBER, "secondary_star_level": NUMBER,
         "buff": {k: NUMBER for k in ("attack_pct_extra", "boss_damage_extra", "ied_extra_pct")},
         "add_best": {"attack_ratio": NUMBER, "boss_damage": NUMBER, "all_stat": NUMBER},
         "best_lines": {
-            "count": dict, "destiny_keyword": str, "soul_option": list,
+            "count": dict, "destiny_keyword": str,
             "destiny": {"potential": list, "additional_potential": list, "soul": list},
             "default": {"potential": list, "additional_potential": list, "soul": list},
         },
     },
-    "special": {"ignored_keys": list, "add_option_parts": list, "ring_part": str, "best": dict, "ring": {"max_level": NUMBER, "weights": dict, "default": NUMBER}},
+    "special": {
+        "ignored_keys": list, "add_option_parts": list, "ring_part": str, "no_grade_parts": list, "no_score_parts": list,
+        "best": dict, "ring": {"max_level": NUMBER, "weights": dict, "default": NUMBER},
+    },
     "exceptional": {"parts": list, "points_per_upgrade": NUMBER},
     "armor": {"best_lines": {"count": dict, "potential": list, "additional_potential": list, "parts": dict}},
 }

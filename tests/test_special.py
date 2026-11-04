@@ -56,7 +56,7 @@ class SpecialPartTests(unittest.TestCase):
         self.assertEqual(results["벨트"]["scoring_basis"]["breakdown"][-1], {"key": "exceptional", "label": "익셉셔널", "raw_score": 2, "weighted_score": 20})
         self.assertAlmostEqual(results["벨트"]["total_score"], sum(results["벨트"]["detail"].values()), delta=0.3)
         self.assertEqual(results["훈장"]["detail"]["exceptional"], 30)
-        self.assertAlmostEqual(results["훈장"]["total_score"], results["훈장"]["detail"]["special"] + 30, delta=0.1)
+        self.assertAlmostEqual(results["훈장"]["total_score"], results["훈장"]["detail"]["add"] + 30, delta=0.1)
         # 강화가 없으면 축 자체가 보이지 않습니다
         plain = evaluate_equipment([{**belt, "item_exceptional_option": {"exceptional_upgrade": 0}}], "히어로", 285)[0]
         self.assertNotIn("exceptional", plain["detail"])
