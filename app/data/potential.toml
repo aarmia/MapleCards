@@ -75,3 +75,32 @@ soul = ["공격력 +8%", "보스 몬스터 데미지 +12%", "몬스터 방어율
 potential = ["공격력 +12%", "보스 몬스터 데미지 +40%", "몬스터 방어율 무시 +40%"]
 additional_potential = ["공격력 +12%", "보스 몬스터 데미지 +18%", "몬스터 방어율 무시 +5%"]
 soul = ["공격력 +8%", "보스 몬스터 데미지 +12%", "몬스터 방어율 무시 +5%"]
+
+# ── 훈장 · 뱃지 · 포켓 아이템 · 칭호 (app/special.py) ──
+# 고정 옵션(item_total_option, 칭호는 설명 문구)을 잠재와 같은 유효 스탯% 로 환산하고, 부위별 최상 아이템을 이 캐릭터 기준으로
+# 환산한 값을 100 으로 두는 점수입니다. 표의 값은 item_total_option 과 같은 형태(기본 옵션 + 추옵 합계)입니다.
+[special]
+ignored_keys = ["speed", "jump", "max_mp", "armor", "equipment_level_decrease"]
+
+[special.best."뱃지"]               # 창세의 뱃지: 올스탯 15 (각 스탯에 포함), 공/마 10
+main_stat = 15
+sub_stat = 15
+attack = 10
+
+[special.best."훈장"]               # 불멸의 유산: 기본 올스탯 10 · 공/마 10 · 보공 10% + 추옵 최대 주스탯 161 · 부스탯 49 · 올스탯 7
+main_stat = 171
+sub_stat = 59
+all_stat = 7
+attack = 10
+boss_damage = 10
+
+[special.best."포켓 아이템"]       # 저주받은 마도서: 기본 주스탯 20 · 부스탯 10 · 공/마 10 + 추옵 최대 주스탯 133 · 부스탯 35 · 올스탯 7
+main_stat = 153
+sub_stat = 45
+all_stat = 7
+attack = 10
+
+[special.best."칭호"]               # 보공 30% · 방무 30% · 공/마 30. 옵션은 검색 때마다 설명 문구에서 읽고 만료되면 인정하지 않습니다
+boss_damage = 30
+ignore_defense = 30
+attack = 30

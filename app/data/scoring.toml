@@ -79,6 +79,4 @@ special_parts = ["훈장", "뱃지", "포켓 아이템", "칭호"]
 secondary_slots = ["보조무기", "엠블렘"]                  # 추옵·스타포스를 고정 점수로 두는 슬롯
 excluded_rings = ["리스트레인트", "컨티뉴어스", "웨폰퍼프"]   # 시드링은 평가에서 제외
 superior_keyword = "타일런트"
-pocket_demon_avenger_divisor = 11
-fixed = [["창세", 280.0], ["칠요", 250.0], ["불멸", 320.0]]   # 이름에 포함된 순서대로 첫 일치
-default = 180.0
+# 훈장·뱃지·포켓·칭호의 환산과 최상 기준은 potential.toml 의 [special] 에 있습니다.

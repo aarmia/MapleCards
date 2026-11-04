@@ -99,10 +99,7 @@ _SCORING_SPEC = {
     "starforce": {k: NUMBER for k in ("reference_level", "level_weight_divisor", "base_star", "over_star_log_weight")},
     "weights": {k: NUMBER for k in ("potential", "additional", "soul", "superior_star", "weapon_add")},
     "noljang": {k: NUMBER for k in ("star_min", "star_max", "max_level", "etc_stat_strong", "etc_attack_strong", "etc_stat_weak", "etc_attack_weak")},
-    "special_items": {
-        "wse_slots": list, "special_parts": list, "secondary_slots": list, "excluded_rings": list, "superior_keyword": str,
-        "pocket_demon_avenger_divisor": NUMBER, "fixed": list, "default": NUMBER,
-    },
+    "special_items": {"wse_slots": list, "special_parts": list, "secondary_slots": list, "excluded_rings": list, "superior_keyword": str},
 }
 
 
@@ -133,9 +130,6 @@ def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
         if previous is not None and band[0] > previous:
             raise ConfigError(f"{path.name}: add_option.tiers.bands 는 전투력 하한 내림차순이어야 합니다")
         previous = band[0]
-    for entry in data["special_items"]["fixed"]:
-        if not (isinstance(entry, list) and len(entry) == 2 and isinstance(entry[0], str) and isinstance(entry[1], NUMBER)):
-            raise ConfigError(f"{path.name}: special_items.fixed 는 [이름, 점수] 쌍의 목록이어야 합니다")
     return Section(data, path.name)
 
 
@@ -258,6 +252,7 @@ _POTENTIAL_SPEC = {
             "default": {"potential": list, "additional_potential": list, "soul": list},
         },
     },
+    "special": {"ignored_keys": list, "best": dict},
 }
 
 

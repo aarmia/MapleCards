@@ -18,6 +18,7 @@ from app.potential import StatContext, reference_context
 from app.preset_optimizer import optimize_presets
 from app.preset_projection import active_items, project_context
 from app.scoring_config import GRADES, SCORING, load_guides
+from app.special import analyze_special_lines, best_total, special_lines, title_item
 from app.weapon import WeaponContext, analyze_weapon_item, best_lines_total, part_group, tier_of, weapon_add_value
 
 logger = logging.getLogger(__name__)
@@ -116,7 +117,7 @@ GUIDE_FIELDS = {
     "add_evaluated", "star_evaluated", "worst", "next", "min_ratio", "target_add", "target_star_330", "target_star_17",
     "target_star_21",
 }
-SPECIAL_GUIDE_FIELDS = {"total"}
+SPECIAL_GUIDE_FIELDS = {"total", "expired"}
 GUIDES = load_guides(rule_fields=GUIDE_FIELDS, special_fields=SPECIAL_GUIDE_FIELDS)
 
 _OPERATORS = {"<": operator.lt, "<=": operator.le, ">": operator.gt, ">=": operator.ge, "==": operator.eq, "!=": operator.ne}
@@ -186,8 +187,8 @@ def build_guide_context(scores, star_val, part_name, item_name, total_score, ite
     }
 
 
-def get_special_part_guide(total_score, part_name, item_name):
-    return select_guide(GUIDES.special_rule, {"total": total_score}, GUIDES.names.raw, item_name, part_name)
+def get_special_part_guide(total_score, part_name, item_name, expired=False):
+    return select_guide(GUIDES.special_rule, {"total": total_score, "expired": expired}, GUIDES.names.raw, item_name, part_name)
 
 
 def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_req_level, is_noljang=False, benchmarks=None):
@@ -249,40 +250,39 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         }
 
         if is_special:
-            actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class, main_stat=main_stat)
-            add_raw_score = actual_add_급수
-            if "포켓" in part:
-                total_item_score = actual_add_급수
-                if char_class == "데몬어벤져" and total_item_score > 0:
-                    total_item_score = total_item_score / special_items.pocket_demon_avenger_divisor
-            else:
-                # 이름에 포함된 키워드 순서대로 첫 일치. 표는 scoring.toml 의 special_items.fixed
-                total_item_score = next(
-                    (score for keyword, score in special_items.fixed if keyword in name),
-                    special_items.default,
-                )
-
-            special_guide = get_special_part_guide(total_item_score, part, name)
+            # 훈장·뱃지·포켓·칭호: 고정 옵션을 유효 스탯% 로 환산하고 부위별 최상(캐릭터별 환산)을 100 으로 둡니다 (app/special.py).
+            lines, expired = special_lines(item, weapon_context)
+            analysis = analyze_special_lines(lines, weapon_context, char_level)
+            value = analysis["score"]
+            benchmark = best_total(part, weapon_context, char_level)
+            total_item_score = round(100 * value / benchmark, 2) if benchmark > 0 else 0.0
+            _log_unsupported_options(name, "special", analysis, unsupported)
+            factor = (total_item_score / value) if value else 0
+            special_guide = get_special_part_guide(total_item_score, part, name, expired)
             special_guide_tag, special_guide_message = split_guide(special_guide)
+            notes = [f"고유 옵션 유효 스탯% 합 ÷ 이 캐릭터의 부위 최상({benchmark:.2f}) × 100"] + context.notes()
+            if expired:
+                notes.insert(0, "칭호 옵션 적용 기간 만료 · 스탯을 인정하지 않습니다")
             evaluate_list.append({
                 "is_wse": False, "is_special": True, "is_noljang": False, "slot": slot, "part": part, "name": name, "icon": icon, "star": 0, "level": item_req_level,
-                "total_score": round(total_item_score, 2),
+                "total_score": total_item_score,
                 "guide": special_guide,
                 "guide_tag": special_guide_tag,
                 "guide_message": special_guide_message,
-                "detail": {"add": round(total_item_score, 1), "star": 0, "pot": 0, "pot_additional": 0},
-                "raw_options": raw_options_dict,
+                "detail": {"special": round(total_item_score, 1)},
+                "raw_options": {**raw_options_dict, "fixed_options": lines, "expired": expired},
                 "scoring_basis": {
                     "main_stat": main_stat_label,
-                    "recognized_options": [],
-                    "unrecognized_options": [],
-                    "weights": ["특수 장비 고유 기준"],
-                    "breakdown": [
-                        {"key": "add", "label": "추가옵션", "raw_score": round(add_raw_score, 2), "weighted_score": round(total_item_score, 2)},
-                        {"key": "pot", "label": "윗잠재", "raw_score": 0, "weighted_score": 0},
-                        {"key": "pot_additional", "label": "에디셔널", "raw_score": 0, "weighted_score": 0},
-                        {"key": "star", "label": "스타포스", "raw_score": 0, "weighted_score": 0, "star": 0},
+                    "recognized_options": [
+                        {**entry, "category": "고유 옵션", "weighted_value": round(entry["value"] * factor, 2), "weight": round(factor, 3)}
+                        for entry in analysis["recognized"]
                     ],
+                    "unrecognized_options": [
+                        {"category": "고유 옵션", "option": entry["option"], "reason": entry["reason"]} for entry in analysis["ignored"]
+                    ] + [{"category": "고유 옵션", "option": option, "reason": "unsupported"} for option in analysis["unsupported"]],
+                    "weights": notes,
+                    "breakdown": [{"key": "special", "label": "고유 옵션", "raw_score": round(value, 2), "weighted_score": total_item_score}],
+                    "benchmarks": {"special": benchmark},
                     "star_score": 0,
                 },
             })
@@ -521,7 +521,9 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
         ignore_defense=final_stat_float(stat_data, "방어율 무시") or 0.0,
     )
 
-    evaluate_list = evaluate_equipment(items, char_class, char_level, unsupported=unsupported, main_stat=main_stat, profile=profile)
+    # 칭호는 장비 목록이 아니라 응답의 title 필드에 있으므로 평가 목록에 따로 넣습니다.
+    title = title_item(item_data.get("title") or {})
+    evaluate_list = evaluate_equipment([*items, *([title] if title else [])], char_class, char_level, unsupported=unsupported, main_stat=main_stat, profile=profile)
     overall_review, all_sorted_results = generate_overall_review(evaluate_list)
 
     return {
