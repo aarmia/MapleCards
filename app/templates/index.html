@@ -1,24 +1,32 @@
 {% extends "base.html" %}
 
+{% macro view_tabs(extra_class) %}
+<div class="{{ extra_class }}">
+    <template x-for="mode in [['equip', '🧰 장비창', '🧰 장비창'], ['top5', '⚠️ 취약 아이템 5종', '⚠️ 취약 5종'], ['all', '📊 모든 아이템 점수', '📊 전체 점수']]" :key="mode[0]">
+        <button @click="setViewMode(mode[0])" :aria-pressed="viewMode === mode[0]"
+                class="flex items-center justify-center gap-2 text-[12px] md:text-xs font-bold px-2 md:px-4 py-2.5 md:py-2 rounded-lg transition-all shadow-sm border leading-tight text-center"
+                :class="viewMode === mode[0] ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'">
+            <span class="hidden md:inline" x-text="mode[1]"></span><span class="md:hidden whitespace-nowrap" x-text="mode[2]"></span>
+        </button>
+    </template>
+</div>
+{% endmacro %}
+
 {% block content %}
     {% include "components/_header.html" %}
 
     <div x-cloak x-show="report && !report.error" id="report-area" class="p-2 animate-fade-in">
-        <div class="grid grid-cols-3 gap-1.5 mb-4 md:flex md:justify-end md:gap-2">
-            <template x-for="mode in [['equip', '🧰 장비창', '🧰 장비창'], ['top5', '⚠️ 취약 아이템 5종', '⚠️ 취약 5종'], ['all', '📊 모든 아이템 점수', '📊 전체 점수']]" :key="mode[0]">
-                <button @click="viewMode = mode[0]"
-                        class="flex items-center justify-center gap-2 text-[11px] md:text-xs font-bold px-2 md:px-4 py-2.5 md:py-2 rounded-lg transition-all shadow-sm border leading-tight text-center"
-                        :class="viewMode === mode[0] ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'">
-                    <span class="hidden md:inline" x-text="mode[1]"></span><span class="md:hidden whitespace-nowrap" x-text="mode[2]"></span>
-                </button>
-            </template>
-        </div>
+        <!-- 데스크톱: 결과 위 오른쪽 탭 -->
+        {{ view_tabs("hidden md:flex md:justify-end md:gap-2 mb-4") }}
 
         {% include "components/_summary.html" %}
 
         {% include "components/_overall_review.html" %}
 
-        <div class="space-y-4">
+        <!-- 모바일: 바뀌는 영역 바로 위에 붙고 스크롤해도 화면 위에 남는 탭 -->
+        {{ view_tabs("md:hidden sticky top-0 z-30 -mx-2 px-2 py-2 mb-2 grid grid-cols-3 gap-1.5 bg-slate-50/95 backdrop-blur") }}
+
+        <div x-ref="views" class="space-y-4 scroll-mt-16 md:scroll-mt-0">
 
             <template x-if="viewMode === 'equip'">
                 {% include "components/_equip_grid.html" %}

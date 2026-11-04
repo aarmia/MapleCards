@@ -1,3 +1,25 @@
+{# 장비 칸 하나. slot 은 Alpine 식(문자열)이고, mobile 이면 칸·글씨를 키웁니다. #}
+{% macro equip_cell(slot, mobile=False) %}
+<template x-if="getSlotItem({{ slot }})">
+    <div @click="openItemDetail(getSlotItem({{ slot }}))" @keydown.enter.prevent="openItemDetail(getSlotItem({{ slot }}))"
+         role="button" tabindex="0" :title="getSlotItem({{ slot }}).name" :aria-label="getSlotItem({{ slot }}).part + ' ' + getSlotItem({{ slot }}).name"
+         class="aspect-square flex flex-col items-center justify-center cursor-pointer transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400 {{ 'rounded-xl p-1' if mobile else 'rounded-xl md:rounded-2xl p-1 md:p-1.5 hover:scale-105' }}"
+         :class="getSlotItem({{ slot }}).graded ? getBorderColor(getSlotItem({{ slot }}).score_ratio) : 'border border-slate-200 bg-slate-50'">
+        <img :src="getSlotItem({{ slot }}).shape_icon || getSlotItem({{ slot }}).icon" class="{{ 'w-8 h-8' if mobile else 'w-7 h-7 md:w-11 md:h-11' }} object-contain drop-shadow-sm" alt="">
+        <span x-show="getSlotItem({{ slot }}).graded" class="mt-1 {{ 'text-[13px]' if mobile else 'text-[11px]' }} font-black leading-none"
+              :class="getScoreDisplayData(getSlotItem({{ slot }}).score_ratio).class"
+              :style="getScoreDisplayData(getSlotItem({{ slot }}).score_ratio).style"
+              x-text="getGradeFromScore(getSlotItem({{ slot }}).score_ratio)"></span>
+        <span x-show="getSlotItem({{ slot }}).scored" class="{{ 'text-[11px]' if mobile else 'text-[9px]' }} font-bold text-slate-500 leading-none mt-0.5" x-text="Math.round(getSlotItem({{ slot }}).total_score)"></span>
+    </div>
+</template>
+<template x-if="!getSlotItem({{ slot }})">
+    <div class="aspect-square rounded-xl {{ '' if mobile else 'md:rounded-2xl' }} border border-dashed border-slate-200 bg-slate-50/60 flex items-center justify-center">
+        <span class="{{ 'text-[10px]' if mobile else 'text-[9px]' }} font-bold text-slate-300 text-center leading-tight px-1 break-keep" x-text="{{ slot }}"></span>
+    </div>
+</template>
+{% endmacro %}
+
 <div class="bg-white rounded-3xl border border-slate-200 p-3 md:p-6 shadow-sm animate-fade-in">
     <div class="flex items-start justify-between gap-3 mb-3 md:mb-4 px-1 md:px-0">
         <div class="min-w-0">
@@ -6,35 +28,33 @@
         </div>
         <span class="text-xs font-bold text-blue-600 whitespace-nowrap" x-text="(report?.results?.length || 0) + '개'"></span>
     </div>
-    <div class="grid grid-cols-7 gap-1 md:gap-2 max-w-[620px] mx-auto">
+
+    <!-- 모바일: 캐릭터 없이 부위 그룹별 5열. 칸을 키워 등급·점수를 읽고 누르기 쉽게 합니다. -->
+    <div class="md:hidden space-y-4">
+        <template x-for="group in mobileEquipGroups()" :key="group.title">
+            <section>
+                <h4 class="text-[11px] font-black text-slate-500 mb-1.5 px-1" x-text="group.title"></h4>
+                <div class="grid grid-cols-5 gap-1.5">
+                    <template x-for="slot in group.slots" :key="slot">
+                        <div class="min-w-0">{{ equip_cell("slot", mobile=True) }}</div>
+                    </template>
+                </div>
+            </section>
+        </template>
+    </div>
+
+    <!-- 데스크톱: 캐릭터를 가운데 둔 게임 장비창 배치 -->
+    <div class="hidden md:grid grid-cols-7 gap-1 md:gap-2 max-w-[620px] mx-auto">
         <template x-for="cell in equipCells()" :key="cell.slot">
             <div :style="cell.style" class="min-w-0">
-                <!-- 캐릭터 -->
                 <template x-if="cell.slot === 'char'">
                     <div class="h-full rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center min-h-[200px] md:min-h-[320px] overflow-visible">
                         <img x-show="report?.character_image" :src="report?.character_image || ''" class="w-20 h-20 object-contain scale-[3] md:scale-[5] drop-shadow-[0_10px_15px_rgba(0,0,0,0.15)]" alt="">
                         <span x-show="!report?.character_image" class="text-[10px] font-bold text-slate-300">NO IMAGE</span>
                     </div>
                 </template>
-                <!-- 착용 아이템 -->
-                <template x-if="cell.slot !== 'char' && getSlotItem(cell.slot)">
-                    <div @click="openItemDetail(getSlotItem(cell.slot))" @keydown.enter.prevent="openItemDetail(getSlotItem(cell.slot))"
-                         role="button" tabindex="0" :title="getSlotItem(cell.slot).name"
-                         class="aspect-square rounded-xl md:rounded-2xl p-1 md:p-1.5 flex flex-col items-center justify-center cursor-pointer transition-transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                         :class="getSlotItem(cell.slot).graded ? getBorderColor(getSlotItem(cell.slot).score_ratio) : 'border border-slate-200 bg-slate-50'">
-                        <img :src="getSlotItem(cell.slot).shape_icon || getSlotItem(cell.slot).icon" class="w-7 h-7 md:w-11 md:h-11 object-contain drop-shadow-sm" alt="">
-                        <span x-show="getSlotItem(cell.slot).graded" class="mt-1 text-[11px] font-black leading-none"
-                              :class="getScoreDisplayData(getSlotItem(cell.slot).score_ratio).class"
-                              :style="getScoreDisplayData(getSlotItem(cell.slot).score_ratio).style"
-                              x-text="getGradeFromScore(getSlotItem(cell.slot).score_ratio)"></span>
-                        <span x-show="getSlotItem(cell.slot).scored" class="text-[9px] font-bold text-slate-500 leading-none mt-0.5" x-text="Math.round(getSlotItem(cell.slot).total_score)"></span>
-                    </div>
-                </template>
-                <!-- 빈 칸 -->
-                <template x-if="cell.slot !== 'char' && !getSlotItem(cell.slot) && cell.slot !== '예비 특수 반지'">
-                    <div class="aspect-square rounded-xl md:rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 flex items-center justify-center">
-                        <span class="text-[9px] font-bold text-slate-300 text-center leading-tight px-1" x-text="cell.slot"></span>
-                    </div>
+                <template x-if="cell.slot !== 'char' && (getSlotItem(cell.slot) || cell.slot !== '예비 특수 반지')">
+                    <div>{{ equip_cell("cell.slot") }}</div>
                 </template>
             </div>
         </template>

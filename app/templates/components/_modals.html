@@ -1,9 +1,12 @@
-<div x-show="showDetail" x-cloak class="fixed inset-0 z-[110] flex items-center justify-center p-2 md:p-4">
-    <div x-show="showDetail" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" @click="showDetail = false" class="fixed inset-0 bg-neutral-950/70 backdrop-blur-md"></div>
-    <div x-show="showDetail" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-8 scale-95" x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-         class="relative bg-neutral-700 text-white rounded-2xl md:rounded-3xl shadow-2xl max-w-4xl w-full border border-neutral-600 overflow-hidden flex flex-col max-h-[94vh] md:max-h-[90vh]">
+<!-- 상세: 모바일은 아래에서 올라오는 시트, 데스크톱은 가운데 창. 뒤로가기·Esc·바깥 클릭으로 닫힙니다. -->
+<div x-show="showDetail" x-cloak @keydown.escape.window="closeDetail()" class="fixed inset-0 z-[110] flex items-end md:items-center justify-center p-0 md:p-4">
+    <div x-show="showDetail" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" @click="closeDetail()" class="fixed inset-0 bg-neutral-950/70 backdrop-blur-md"></div>
+    <div x-show="showDetail" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-16 md:translate-y-8 md:scale-95" x-transition:enter-end="opacity-100 translate-y-0 md:scale-100"
+         role="dialog" aria-modal="true" :aria-label="selectedItem?.name"
+         class="relative bg-neutral-700 text-white rounded-t-2xl md:rounded-3xl shadow-2xl max-w-4xl w-full border border-neutral-600 border-b-0 md:border-b overflow-hidden flex flex-col max-h-[92vh] md:max-h-[90vh]">
+        <div class="md:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-neutral-500"></div>
 
-        <div class="p-4 md:p-6 border-b border-neutral-600 flex items-center gap-3 md:gap-4">
+        <div class="px-4 py-3 md:p-6 border-b border-neutral-600 flex items-center gap-3 md:gap-4">
             <div class="p-1.5 md:p-2 bg-neutral-800 rounded-xl border border-neutral-600 shrink-0">
                 <img :src="selectedItem?.shape_icon || selectedItem?.icon" class="w-10 h-10 md:w-12 md:h-12 object-contain">
             </div>
@@ -15,24 +18,48 @@
             </div>
             <span class="hidden md:inline-block px-3 py-1 rounded-full bg-neutral-800 border border-neutral-600 text-xs font-black text-blue-300 whitespace-nowrap"
                   x-text="'적용 주스탯 · ' + (selectedItem?.scoring_basis?.main_stat || '-')"></span>
-            <button @click="showDetail = false" class="p-1 md:p-2 text-neutral-300 hover:text-white transition-colors shrink-0">
+            <!-- 모바일: 결론(등급·점수)을 머리글에 고정 -->
+            <div class="md:hidden text-right shrink-0" x-show="selectedItem?.scored !== false">
+                <span x-show="selectedItem?.graded !== false" class="block text-lg font-black leading-none"
+                      :class="getScoreDisplayData(selectedItem?.score_ratio).class" :style="getScoreDisplayData(selectedItem?.score_ratio).style"
+                      x-text="getGradeFromScore(selectedItem?.score_ratio)"></span>
+                <span class="block text-sm font-black text-blue-300 mt-0.5" x-text="selectedItem?.total_score"></span>
+            </div>
+            <button @click="closeDetail()" aria-label="닫기" class="p-2 -mr-1 md:mr-0 text-neutral-300 hover:text-white transition-colors shrink-0">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
 
         <!-- 왼쪽 원본 옵션과 오른쪽 환산이 같은 행(Y축)에 놓이도록 행 단위로 배치합니다 -->
-        <div class="p-3 md:p-6 overflow-y-auto custom-scrollbar flex-1 space-y-3 md:space-y-4">
-            <!-- 행 1: 기본 옵션 | 환산 요약 -->
-            <div class="grid grid-cols-1 gap-4 items-stretch" :class="baseOnly(selectedItem) ? '' : 'lg:grid-cols-[minmax(380px,1fr)_minmax(0,1.6fr)]'">
+        <!-- 모바일 순서: 점수 근거 → 장착 가치 → 기본 옵션 → 옵션 카드. 데스크톱은 DOM 순서 그대로입니다. -->
+        <div class="p-3 md:p-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-6 overflow-y-auto overscroll-contain custom-scrollbar flex-1 flex flex-col gap-3 md:gap-4">
+            <template x-if="selectedItem?.equip_value">
+                <section class="max-md:order-[-1] rounded-2xl border border-emerald-600/50 bg-neutral-800 p-4">
+                    <h3 class="font-bold text-emerald-300 text-sm md:text-base">주스탯% 환산 장착 가치</h3>
+                    <template x-if="selectedItem.equip_value.item != null">
+                        <div class="mt-1">
+                            <p class="text-lg md:text-sm font-black md:font-bold" x-text="selectedItem.equip_value.stat + ' ' + (selectedItem.equip_value.total ?? selectedItem.equip_value.item) + '% 상당'"></p>
+                            <p class="text-xs md:text-sm text-neutral-200 break-keep">
+                                <span class="whitespace-nowrap" x-text="'장비 자체 ' + selectedItem.equip_value.item"></span>
+                                <span> · </span>
+                                <span class="whitespace-nowrap" x-text="'세트 유지분 ' + (selectedItem.equip_value.set ?? '판별 불가')"></span>
+                            </p>
+                        </div>
+                    </template>
+                    <p class="text-xs text-amber-200 break-keep" x-text="selectedItem.equip_value.reason"></p>
+                    <p class="mt-1 text-[11px] md:text-xs text-neutral-300 break-keep">같은 프리셋의 빈 슬롯 대비 상시 스탯 추정치입니다. 쿨감·조건부 효과는 제외하며, 부위별 값을 합산하지 않습니다. 기존 점수·순위에는 영향이 없습니다.</p>
+                </section>
+            </template>
+            <div class="grid grid-cols-1 gap-4">
                 <section class="rounded-2xl border border-neutral-600 bg-neutral-800/50 p-4 md:p-5">
-                    <h4 class="text-xs font-black text-neutral-300 uppercase mb-5 tracking-widest">Base Options</h4>
+                    <h4 class="text-xs font-black text-neutral-300 uppercase mb-4 md:mb-5 tracking-widest">Base Options</h4>
                     <div class="space-y-3.5 py-1">
                         <template x-for="(label, key) in labelMap" :key="key">
                             <div x-show="getTotalStat(selectedItem, key) !== 0" class="grid grid-cols-[84px_minmax(0,1fr)] md:grid-cols-[100px_minmax(0,1fr)] items-baseline gap-x-2 md:gap-x-3 text-xs">
                                 <span class="text-neutral-300 font-medium truncate" x-text="label"></span>
                                 <div class="font-bold text-white flex items-baseline gap-x-1 tabular-nums whitespace-nowrap">
                                     <span class="w-14 md:w-16 text-left" x-text="formatTotalStat(selectedItem, key, label)"></span>
-                                    <span class="text-[10px] opacity-80 font-bold">
+                                    <span class="text-[11px] md:text-[10px] opacity-80 font-bold">
                                         (<span x-text="getSafeValue(selectedItem?.raw_options?.base[key])"></span><span style="color: #00ff9d;" x-show="getSafeValue(selectedItem?.raw_options?.add[key]) > 0" x-text="' +' + getSafeValue(selectedItem?.raw_options?.add[key])"></span><span style="color: #00d4ff;" x-show="getSafeValue(selectedItem?.raw_options?.etc[key]) > 0" x-text="' +' + getSafeValue(selectedItem?.raw_options?.etc[key])"></span><span style="color: #ffcc00;" x-show="getSafeValue(selectedItem?.raw_options?.starforce[key]) > 0" x-text="' +' + getSafeValue(selectedItem?.raw_options?.starforce[key])"></span><span style="color: #ff4d4d;" x-show="getSafeValue(selectedItem?.raw_options?.exceptional?.[key]) > 0" x-text="' +' + getSafeValue(selectedItem?.raw_options?.exceptional[key])"></span>)
                                     </span>
                                 </div>
@@ -41,56 +68,42 @@
                     </div>
                 </section>
 
-                <section x-show="selectedItem?.scoring_basis && !baseOnly(selectedItem)" class="rounded-2xl border border-neutral-600 bg-neutral-800/50 p-4 md:p-5">
-                    <h4 class="text-xs font-black text-neutral-300 uppercase mb-4 tracking-widest">환산 요약</h4>
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        <template x-for="card in summaryCards(selectedItem)" :key="card.key">
-                            <div class="rounded-xl bg-neutral-800/80 border border-neutral-600 px-3 py-3 min-w-0">
-                                <p class="text-[10px] font-black mb-1" :class="card.color" x-text="card.label"></p>
-                                <p class="text-lg font-black text-emerald-400 leading-tight" x-text="card.total"></p>
-                                <template x-for="line in card.lines" :key="line">
-                                    <p class="text-[10px] text-neutral-300 font-semibold mt-1 truncate" x-text="line"></p>
-                                </template>
-                            </div>
-                        </template>
-                    </div>
-                </section>
             </div>
 
-            <!-- 행 2~4: 윗잠재 / 에디셔널 / 소울 — 왼쪽 원본 줄, 오른쪽 환산 -->
-            <template x-for="block in (baseOnly(selectedItem) ? [] : optionBlocks(selectedItem))" :key="block.key">
-                <div class="grid grid-cols-1 lg:grid-cols-[minmax(380px,1fr)_minmax(0,1.6fr)] gap-4 items-stretch">
-                    <section class="rounded-2xl border border-neutral-600 bg-neutral-800/50 p-4 md:p-5">
+            <!-- 옵션 카드: 추가옵션 → 익셉셔널 → 윗잠재 → 에디셔널 → 소울. 넓은 화면은 2열, 짝이 없는 카드는 한 줄을 다 씁니다. -->
+            <div x-show="optionCards(selectedItem).length" class="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+                <template x-for="card in optionCards(selectedItem)" :key="card.key">
+                    <section class="rounded-2xl border border-neutral-600 bg-neutral-800/50 p-4 md:p-5" :class="card.wide ? 'lg:col-span-2' : ''">
                         <div class="flex items-center gap-2 mb-3">
-                            <h4 class="text-[10px] font-black text-neutral-300 uppercase tracking-widest" x-text="block.title"></h4>
-                            <span x-show="block.grade" class="text-[9px] font-black px-2 py-0.5 rounded-full border text-white" :style="`border-color: ${getGradeColor(block.grade)}; background-color: ${getGradeColor(block.grade)}20`" x-text="block.grade"></span>
+                            <h4 class="text-xs font-black" :class="card.color" x-text="card.title"></h4>
+                            <!-- :style 은 객체로 써야 x-show 의 display:none 을 덮어쓰지 않습니다 -->
+                            <span x-show="card.grade" class="text-[9px] font-black px-2 py-0.5 rounded-full border text-white" :style="{ borderColor: getGradeColor(card.grade), backgroundColor: getGradeColor(card.grade) + '20' }" x-text="card.grade"></span>
+                            <span class="ml-auto text-sm font-black text-emerald-400 whitespace-nowrap" x-text="card.total"></span>
                         </div>
-                        <ul class="space-y-2">
-                            <template x-for="(opt, index) in block.options" :key="opt + index">
-                                <li class="text-[11px] font-bold text-neutral-100 flex items-start gap-2">
-                                    <span class="mt-1.5 w-1 h-1 rounded-full flex-none" :style="`background-color: ${block.key === 'soul' ? '#fbbf24' : getOptionLineColor(opt, selectedItem?.level, selectedItem?.is_wse, block.grade, block.key === 'additional')}`"></span>
-                                    <span x-text="opt"></span>
+                        <ul class="space-y-1.5" :class="card.wide ? 'lg:grid lg:grid-cols-2 lg:gap-1.5 lg:space-y-0' : ''">
+                            <template x-for="line in card.lines" :key="line.key">
+                                <li class="rounded-lg bg-neutral-800/80 border border-neutral-600 px-3 py-2 flex items-center gap-2.5">
+                                    <!-- 추가옵션은 점 대신 불꽃 단계. 단계를 확정할 수 없으면 '?' -->
+                                    <span x-show="card.key === 'add'" class="flex-none w-4 text-center text-xs font-black tabular-nums"
+                                          :class="line.tier ? 'text-emerald-300' : 'text-neutral-500'"
+                                          :title="line.tier ? '' : '불꽃 줄을 하나로 확정할 수 없거나 단계 기준이 없는 옵션'"
+                                          x-text="line.tier ? line.tier : '?'"></span>
+                                    <span x-show="card.key !== 'add'" class="w-1.5 h-1.5 rounded-full flex-none" :style="{ backgroundColor: line.dot }"></span>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-xs font-bold text-neutral-100 break-keep" x-text="line.text"></p>
+                                        <p x-show="line.sub" class="text-[10px] text-neutral-400 truncate" x-text="line.sub"></p>
+                                    </div>
+                                    <span x-show="line.value" class="text-sm font-black text-emerald-400 whitespace-nowrap tabular-nums" x-text="line.value"></span>
+                                    <span x-show="line.badge" class="text-[10px] font-black px-2 py-0.5 rounded-full whitespace-nowrap"
+                                          :class="unrecognizedBadgeClass(line.badge)" x-text="unrecognizedLabel(line.badge)"></span>
+                                    <span x-show="card.key !== 'add' && card.key !== 'exceptional' && !line.value && !line.badge" class="text-xs font-bold text-neutral-500">-</span>
                                 </li>
                             </template>
+                            <li x-show="!card.lines.length" class="text-[11px] text-neutral-400">표시할 옵션이 없습니다.</li>
                         </ul>
                     </section>
-                    <section class="rounded-2xl border border-neutral-600 bg-neutral-800/50 p-4 md:p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <p class="text-xs font-black" :class="categoryColor(block.category)" x-text="block.category + ' 환산'"></p>
-                            <span class="text-sm font-black text-emerald-400" x-text="axisTotalText(selectedItem, block.category)"></span>
-                        </div>
-                        <div class="space-y-1.5">
-                            <template x-for="(entry, index) in axisEntries(selectedItem, block.category)" :key="entry.option + index">
-                                <div class="rounded-lg bg-neutral-800/80 border border-neutral-600 px-3 py-1.5 flex items-center justify-between gap-3">
-                                    <p class="text-xs font-bold text-neutral-100 truncate" x-text="entry.option"></p>
-                                    <span class="text-sm font-black text-emerald-400 whitespace-nowrap" x-text="entryValueText(selectedItem, entry)"></span>
-                                </div>
-                            </template>
-                            <p x-show="!axisEntries(selectedItem, block.category).length" class="text-[11px] text-neutral-400">환산된 줄이 없습니다.</p>
-                        </div>
-                    </section>
-                </div>
-            </template>
+                </template>
+            </div>
 
             <!-- 특수부위 고유 옵션 환산 -->
             <section x-show="axisEntries(selectedItem, '고유 옵션').length && !baseOnly(selectedItem)" class="rounded-2xl border border-neutral-600 bg-neutral-800/50 p-4 md:p-5">
@@ -108,10 +121,10 @@
                 </div>
             </section>
 
-            <section x-show="selectedItem?.scoring_basis?.unrecognized_options?.length && !baseOnly(selectedItem)" class="rounded-2xl border border-neutral-600 bg-neutral-800/50 p-4 md:p-5">
+            <section x-show="otherUnrecognized(selectedItem).length && !baseOnly(selectedItem)" class="rounded-2xl border border-neutral-600 bg-neutral-800/50 p-4 md:p-5">
                 <p class="text-xs font-bold text-neutral-300 mb-2">점수에 반영되지 않은 옵션</p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-                    <template x-for="(entry, index) in selectedItem?.scoring_basis?.unrecognized_options || []" :key="entry.category + entry.option + index">
+                    <template x-for="(entry, index) in otherUnrecognized(selectedItem)" :key="entry.category + entry.option + index">
                         <div class="rounded-lg bg-neutral-800/60 border border-neutral-600/70 px-3 py-2 flex items-center justify-between gap-3">
                             <div class="min-w-0 flex items-center gap-2">
                                 <span class="text-[10px] font-black whitespace-nowrap" :class="categoryColor(entry.category)" x-text="entry.category"></span>
@@ -124,8 +137,8 @@
                 <p class="text-[10px] text-neutral-400 mt-2">다른 직업 스탯과 점수 제외는 의도된 분류입니다. "미지원"은 아직 환산 규칙이 없는 옵션입니다.</p>
             </section>
 
-            <!-- 맨 아래: 점수 산출 -->
-            <section x-show="selectedItem?.scoring_basis?.breakdown?.length && !baseOnly(selectedItem)" class="rounded-2xl border border-blue-400/30 bg-blue-500/10 p-4">
+            <!-- 점수 산출: 데스크톱은 맨 아래, 모바일은 맨 위 -->
+            <section x-show="selectedItem?.scoring_basis?.breakdown?.length && !baseOnly(selectedItem)" class="max-md:order-[-2] rounded-2xl border border-blue-400/30 bg-blue-500/10 p-4">
                 <div class="flex items-center justify-between mb-3">
                     <h4 class="text-xs font-black text-neutral-300 uppercase tracking-widest">Scoring Basis</h4>
                     <span class="text-[10px] font-bold text-neutral-300" x-show="selectedItem?.benchmark_total"
@@ -145,7 +158,7 @@
             </section>
         </div>
 
-        <div class="px-4 py-3 md:p-6 bg-blue-600/10 border-t border-neutral-600 flex justify-between items-center">
+        <div class="hidden md:flex px-4 py-3 md:p-6 bg-blue-600/10 border-t border-neutral-600 justify-between items-center">
             <span class="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Item Score</span>
             <span x-show="selectedItem?.scored !== false" class="text-xl md:text-2xl font-black text-blue-300" x-text="selectedItem?.total_score"></span>
         </div>
