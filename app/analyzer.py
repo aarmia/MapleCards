@@ -14,12 +14,20 @@ from app.calculator import (
     get_starforce_score,
 )
 from app.character_profile import build_character_profile
-from app.potential import StatContext, reference_context
+from app.potential import StatContext, best_armor_total, reference_context
 from app.preset_optimizer import optimize_presets
 from app.preset_projection import active_items, project_context
 from app.scoring_config import GRADES, POTENTIAL, SCORING, load_guides
 from app.special import analyze_special_lines, best_total, is_seed_ring, ring_score, special_lines, title_item
-from app.weapon import WeaponContext, analyze_weapon_item, best_lines_total, part_group, tier_of, weapon_add_value
+from app.weapon import (
+    WeaponContext,
+    analyze_weapon_item,
+    best_lines_total,
+    part_group,
+    tier_of,
+    weapon_add_best,
+    weapon_add_value,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +123,7 @@ def get_best_preset(
 GUIDE_FIELDS = {
     "total", "add", "pot", "eddy", "starscore", "star", "star_next", "max_star", "at_cap", "level", "noljang", "limited",
     "add_evaluated", "star_evaluated", "worst", "next", "min_ratio", "target_add", "target_star_330", "target_star_17",
-    "target_star_21",
+    "target_star_21", "ratio", "add_ratio", "pot_ratio", "eddy_ratio",
 }
 SPECIAL_GUIDE_FIELDS = {"total", "expired"}
 GUIDES = load_guides(rule_fields=GUIDE_FIELDS, special_fields=SPECIAL_GUIDE_FIELDS)
@@ -147,7 +155,7 @@ def select_guide(rules: list, context: dict, names: dict, item_name: str, part_n
     raise ValueError("가이드 규칙에 기본 규칙이 없습니다")
 
 
-def build_guide_context(scores, star_val, part_name, item_name, total_score, item_req_level, is_noljang, benchmarks=None) -> dict:
+def build_guide_context(scores, star_val, part_name, item_name, total_score, item_req_level, is_noljang, benchmarks=None, ratio=None) -> dict:
     """규칙 표가 비교할 값들을 계산합니다. 파생값(최대 스타포스, 최저 축, 목표치)은 코드가 맡고 규칙 표는 조건과 문구만 가집니다."""
     cap = GUIDES.star_cap
     max_star = cap.default
@@ -162,10 +170,12 @@ def build_guide_context(scores, star_val, part_name, item_name, total_score, ite
     eval_indices = [1, 2] + ([0] if add_evaluated else []) + ([3] if star_evaluated else [])
     # 무기류는 캐릭터별 최상 조합(benchmarks)을 윗잠·에디 기준점으로 씁니다.
     marks = list(axes.benchmarks)
-    for index, key in ((1, "pot"), (2, "pot_additional")):
+    for index, key in ((0, "add"), (1, "pot"), (2, "pot_additional"), (3, "star")):
         if benchmarks and benchmarks.get(key):
             marks[index] = benchmarks[key]
     ratios = [scores[i] / marks[i] for i in range(4)]
+    if ratio is None:  # 직접 호출 시: 평가 축의 기준점 합 대비 총점
+        ratio = round(100 * total_score / sum(marks[i] for i in eval_indices), 2)
     ranked = sorted(((ratios[i], axes.labels[i]) for i in eval_indices), key=lambda entry: entry[0])
 
     targets = GUIDES.targets
@@ -178,6 +188,8 @@ def build_guide_context(scores, star_val, part_name, item_name, total_score, ite
         "limited": any(keyword in item_name for keyword in GUIDES.names.limited),
         "add_evaluated": add_evaluated, "star_evaluated": star_evaluated,
         "worst": ranked[0][1], "next": ranked[1][1] if len(ranked) > 1 else ranked[0][1], "min_ratio": ranked[0][0],
+        # 기준 만점 대비 비율. 등급·랭크와 같은 기준이라 부위(축 수·캐릭터별 기준점)에 관계없이 비교할 수 있습니다.
+        "ratio": ratio, "add_ratio": ratios[0], "pot_ratio": ratios[1], "eddy_ratio": ratios[2],
         "target_add": targets.add_low if item_req_level <= targets.add_level_split else targets.add_high,
         "target_star_330": min(
             targets.star_330_low if item_req_level <= targets.star_330_level_split else targets.star_330_high, max_star
@@ -203,8 +215,8 @@ def get_special_part_guide(total_score, part_name, item_name, expired=False):
     return select_guide(GUIDES.special_rule, {"total": total_score, "expired": expired}, GUIDES.names.raw, item_name, part_name)
 
 
-def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_req_level, is_noljang=False, benchmarks=None):
-    context = build_guide_context(scores, star_val, part_name, item_name, total_score, item_req_level, is_noljang, benchmarks)
+def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_req_level, is_noljang=False, benchmarks=None, ratio=None):
+    context = build_guide_context(scores, star_val, part_name, item_name, total_score, item_req_level, is_noljang, benchmarks, ratio)
     return select_guide(GUIDES.rule, context, GUIDES.names.raw, item_name)
 
 
@@ -296,6 +308,8 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             evaluate_list.append({
                 "is_wse": False, "is_special": True, "is_noljang": False, "slot": slot, "part": part, "name": name, "icon": icon, "star": 0, "level": item_req_level,
                 "total_score": total_item_score,
+                "score_ratio": total_item_score,
+                "benchmark_total": 100.0,
                 "guide": special_guide,
                 "guide_tag": special_guide_tag,
                 "guide_message": special_guide_message,
@@ -342,6 +356,9 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         else: adv_star_score = get_starforce_score(star, item_req_level)
 
         soul_analysis, soul_val, soul_score, benchmarks, add_recognized = None, 0.0, 0.0, None, []
+        axes = GUIDES.axes
+        add_evaluated = not any(k in part or k in slot for k in axes.no_add_parts)
+        star_evaluated = not any(k in part or k in slot for k in axes.no_star_parts)
         if is_weapon:
             # 무기류는 공격력% 단위(app/weapon.py). 무기는 추옵·스타포스·윗잠·에디·소울, 보조무기·엠블렘은 윗잠·에디만 평가합니다.
             group = part_group(slot, part)
@@ -368,10 +385,17 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             }
             if group == "weapon":
                 benchmarks["soul"] = round(best_lines_total("soul", group, weapon_context, char_level, tier) * weights.soul, 2)
+                benchmarks["add"] = round(weapon_add_best(item, weapon_context, char_level) * weights.weapon_add, 2)
         else:
-            actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class, main_stat=main_stat)
-            add_raw_score = actual_add_급수
-            add_score = get_advanced_add_score(actual_add_급수, item_req_level, part, char_class, target_multiplier=target_multiplier)
+            # 추옵이 없는 부위(반지·어깨장식·기계 심장)는 추옵 축 자체를 두지 않습니다.
+            if add_evaluated:
+                actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class, main_stat=main_stat)
+                add_raw_score = actual_add_급수
+                add_score = get_advanced_add_score(actual_add_급수, item_req_level, part, char_class, target_multiplier=target_multiplier)
+            benchmarks = {
+                "pot": round(best_armor_total("potential", part, context, char_level) * weights.potential, 2),
+                "pot_additional": round(best_armor_total("additional_potential", part, context, char_level) * weights.additional, 2),
+            }
             pot_analysis = analyze_potential_score(item, "potential", char_class, char_level, main_stat=main_stat, context=context)
             pot_val = pot_analysis["score"]
             pot_score = (pot_val * weights.potential) if pot_val > 0 else 0
@@ -418,13 +442,21 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             {"key": "pot", "label": "윗잠재", "raw_score": round(max(pot_val, 0), 2), "weighted_score": round(pot_score, 2)},
             {"key": "pot_additional", "label": "에디셔널", "raw_score": round(max(eddy_val, 0), 2), "weighted_score": round(eddy_score, 2)},
         ]
-        if group != "secondary" and group != "emblem":
-            detail.update(add=round(add_score, 1), star=round(adv_star_score, 1))
+        if add_evaluated:
+            detail["add"] = round(add_score, 1)
             breakdown.insert(0, {"key": "add", "label": "추가옵션", "raw_score": round(add_raw_score, 2), "weighted_score": round(add_score, 2)})
+        if star_evaluated:
+            detail["star"] = round(adv_star_score, 1)
             breakdown.append({"key": "star", "label": "스타포스", "raw_score": star, "weighted_score": round(adv_star_score, 2), "star": star})
         if group == "weapon":
             detail["soul"] = round(soul_score, 1)
             breakdown.insert(3, {"key": "soul", "label": "소울", "raw_score": round(max(soul_val, 0), 2), "weighted_score": round(soul_score, 2)})
+        # 기준 만점 = 평가하는 축의 기준점 합. 등급·랭크는 총점이 아니라 이 비율로 매깁니다 (익셉셔널은 만점에 넣지 않는 가산).
+        benchmark_total = benchmarks["pot"] + benchmarks["pot_additional"] + benchmarks.get("soul", 0)
+        if add_evaluated:
+            benchmark_total += benchmarks.get("add") or axes.benchmarks[0]
+        if star_evaluated:
+            benchmark_total += axes.benchmarks[3]
         exceptional = exceptional_axis(item, part) if not is_weapon else None
         if exceptional:
             upgrades, exceptional_points = exceptional
@@ -433,11 +465,14 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             breakdown.append({"key": "exceptional", "label": "익셉셔널", "raw_score": upgrades, "weighted_score": exceptional_points})
 
         if pot_val != -1:
-            guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part, total_item_score, name, item_req_level, is_noljang, benchmarks)
+            score_ratio = round(100 * total_item_score / benchmark_total, 2) if benchmark_total > 0 else 0.0
+            guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part, total_item_score, name, item_req_level, is_noljang, benchmarks, score_ratio)
             guide_tag, guide_message = split_guide(guide_text)
             evaluate_list.append({
                 "is_wse": is_weapon, "is_special": False, "is_noljang": is_noljang, "slot": slot, "part": part, "name": name, "icon": icon, "star": star, "level": item_req_level,
                 "total_score": round(total_item_score, 2),
+                "score_ratio": score_ratio,
+                "benchmark_total": round(benchmark_total, 2),
                 "guide": guide_text,
                 "guide_tag": guide_tag,
                 "guide_message": guide_message,
@@ -460,10 +495,11 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
 
 
 def generate_overall_review(evaluate_list):
-    total_scores = [item["total_score"] for item in evaluate_list if not item["is_special"]]
-    avg_score = sum(total_scores) / len(total_scores) if total_scores else 0
-    all_sorted_results = sorted(evaluate_list, key=lambda x: x["total_score"])
-    worst_item = next((item for item in all_sorted_results if not item.get("is_special")), None)
+    # 전체 랭크는 기준 만점 대비 비율의 평균입니다. 특수부위·시드링은 포함하고 칭호만 뺍니다.
+    ratios = [item["score_ratio"] for item in evaluate_list if item["part"] != "칭호"]
+    avg_score = sum(ratios) / len(ratios) if ratios else 0
+    all_sorted_results = sorted(evaluate_list, key=lambda x: x["score_ratio"])
+    worst_item = next((item for item in all_sorted_results if item["part"] != "칭호"), None)
 
     # 랭크 컷과 문구는 app/data/grades.toml 의 overall 표. 평균이 min 이상인 첫 항목, 없으면 마지막 항목을 씁니다.
     entry = next((candidate for candidate in GRADES.overall if avg_score >= candidate["min"]), GRADES.overall[-1])

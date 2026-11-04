@@ -3,7 +3,7 @@
 
         <div class="flex flex-col items-center justify-center min-w-[80px]">
             <span class="text-[9px] font-black mb-2 tracking-widest uppercase text-slate-400" x-text="viewMode === 'all' ? 'Rank ' + (index+1) : 'Priority ' + (index+1)"></span>
-            <div @click="openItemDetail(item)" class="relative p-2 rounded-2xl cursor-pointer hover:scale-110 transition-transform active:scale-95 group" :class="getBorderColor(item.total_score)">
+            <div @click="openItemDetail(item)" class="relative p-2 rounded-2xl cursor-pointer hover:scale-110 transition-transform active:scale-95 group" :class="getBorderColor(item.score_ratio)">
                 <img :src="item.icon" class="w-12 h-12 object-contain drop-shadow-sm">
                 <span class="absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white shadow-sm bg-slate-900 text-white" x-text="item.star + '★'"></span>
             </div>
@@ -36,9 +36,9 @@
             <span class="text-[9px] font-bold text-slate-400 tracking-widest mb-1 uppercase">Total Grade</span>
 
             <span class="text-4xl font-black tracking-tighter drop-shadow-sm"
-                  :class="getScoreDisplayData(item.total_score).class"
-                  :style="getScoreDisplayData(item.total_score).style"
-                  x-text="getGradeFromScore(item.total_score)"></span>
+                  :class="getScoreDisplayData(item.score_ratio).class"
+                  :style="getScoreDisplayData(item.score_ratio).style"
+                  x-text="getGradeFromScore(item.score_ratio)"></span>
 
             <span class="text-sm font-black text-slate-400 mt-1 group-hover:text-slate-600 transition-colors" x-text="item.total_score"></span>
         </div>

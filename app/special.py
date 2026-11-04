@@ -105,7 +105,11 @@ def best_total(part: str, context: WeaponContext, char_level: int) -> float:
     sub = stats.sub_names[0] if stats.sub_names else None
     lines = []
     for key, value in table.items():
+        if key == "main_stat_hp":
+            continue
         if key == "main_stat":
+            if stats.main_stat == "hp" and "main_stat_hp" in table:
+                value = table["main_stat_hp"]
             lines.append(f"{main} +{value:g}")
         elif key == "sub_stat" and sub:
             lines.append(f"{sub} +{value:g}")

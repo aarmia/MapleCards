@@ -193,3 +193,12 @@ def part_group(slot: str, part: str) -> str:
     if "보조무기" in slot:
         return "secondary"
     return "weapon"
+
+
+def weapon_add_best(item_data: dict, context: WeaponContext, char_level: int) -> float:
+    """무기 추옵 기준점: 기본 공격력 × attack_ratio 의 고정 공/마 + 보공 + 올스탯 (potential.toml [weapon.add_best])"""
+    config = POTENTIAL.weapon.add_best
+    base = item_data.get("item_base_option") or {}
+    base_attack = float(base.get("magic_power" if context.attack_label == "마력" else "attack_power") or 0)
+    lines = [f"{context.attack_label} +{round(base_attack * config.attack_ratio)}", f"보스 몬스터 데미지 +{config.boss_damage:g}%", f"올스탯 +{config.all_stat:g}"]
+    return round(sum((convert_weapon_line(text, context, char_level) or (0.0, ""))[0] for text in lines), 2)

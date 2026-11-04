@@ -1,13 +1,15 @@
 # 점수 컷오프. 화면의 등급 문자, 카드 강조, 점수 색, 스탯 막대 색과 총평 랭크가 모두 이 파일을 따릅니다.
 # 구간은 내림차순으로 적고 첫 일치를 씁니다. 티어 이름(ultimate, legendary …)에 어떤 색을 입힐지는 app.js 가 정합니다.
+# 아이템 등급·카드 강조·점수 색·총평 랭크의 기준은 총점이 아니라 "기준 만점 대비 %"(score_ratio) 입니다.
+# 기준 만점 = 평가하는 축의 기준점 합(캐릭터별 최상 조합 포함). 특수부위·시드링은 이미 % 척도이고 익셉셔널은 100 을 넘는 가산입니다.
 
-item_grade = [[360, "SSS+"], [350, "SSS"], [300, "SS"], [250, "S"], [200, "A"], [150, "B"], [100, "C"], [50, "D"]]   # 아이템 총점 → 등급 문자
+item_grade = [[99, "SSS+"], [96, "SSS"], [83, "SS"], [69, "S"], [55, "A"], [41, "B"], [28, "C"], [14, "D"]]   # 기준 대비 % → 등급 문자
 item_grade_default = "F"
 
-card_highlight = [[365, "transcendent"], [350, "legendary"], [300, "unique"], [250, "epic"]]   # 아이템 카드 테두리 강조
+card_highlight = [[100, "transcendent"], [96, "legendary"], [83, "unique"], [69, "epic"]]   # 아이템 카드 테두리 강조
 card_highlight_default = "none"
 
-score_color = [[350, "ultimate"], [300, "legendary"], [200, "unique"], [100, "epic"]]   # 점수 숫자 색
+score_color = [[96, "ultimate"], [83, "legendary"], [55, "unique"], [28, "epic"]]   # 점수 숫자 색
 score_color_default = "rare"
 
 [stat_bar]   # 축별 막대 색 구간. [기준, 티어, 초과 여부]. 초과(true)면 >, 아니면 >= 로 비교
@@ -23,43 +25,43 @@ pot = 128.7
 pot_additional = 55.0
 star = 110.0
 
-# 총평 랭크. 비특수 장비 평균 점수가 min 이상인 첫 항목. weapon_keyword 가 장비 이름에 있으면 with_weapon 문구를 씁니다.
+# 총평 랭크. 칭호를 뺀 모든 아이템의 기준 대비 % 평균이 min 이상인 첫 항목. weapon_keyword 가 장비 이름에 있으면 with_weapon 문구를 씁니다.
 [[overall]]
-min = 390
+min = 100
 rank = "ABSOLUTE"
 comment = "전서버 최상위권 장비입니다. 컨텐츠가 없으시군요."
 
 [[overall]]
-min = 370
+min = 95
 rank = "ETERNAL"
 comment = "서버권 최상위권 장비입니다. 이제 2차 초월의 영역입니다."
 
 [[overall]]
-min = 350
+min = 90
 rank = "DESTINY"
 comment = "데스티니 초월에 충분히 도전할만한 스펙입니다.  당신의 가능성을 믿고 초월에 도전하세요!"
 weapon_keyword = "데스티니"
 with_weapon = "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 더 높은 곳으로의 성장을 준비하세요!"
 
 [[overall]]
-min = 330
+min = 85
 rank = "DESTINY"
 comment = "데스티니 초월이 가시권에 들어왔습니다.  천천히 부족한 부위를 강화하고 데스티니 초월에 도전하세요!"
 weapon_keyword = "데스티니"
 with_weapon = "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 더 높은 곳으로의 성장을 준비하세요!"
 
 [[overall]]
-min = 280
+min = 75
 rank = "ASTRA"
 comment = "본격적으로 아스트라 해방에 도전하세요.  2차 해방까지는 가성비의 영역으로 들어섰습니다."
 
 [[overall]]
-min = 220
+min = 65
 rank = "ASTRA"
 comment = "아스트라 보조 해방을 위한 준비를 할 때 입니다.  천천히 아스트라 해방 준비에 도전하세요."
 
 [[overall]]
-min = 200
+min = 55
 rank = "GENESIS"
 comment = "제네시스 해방을 위한 준비를 할 때 입니다.  해방 준비를 해 보세요."
 weapon_keyword = "제네시스"

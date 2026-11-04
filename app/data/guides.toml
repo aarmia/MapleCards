@@ -97,6 +97,7 @@ text = "💡 리스트레인트 링 또는 컨티뉴어스 링 고레벨로 교�
 text = "✅ 해당 부위는 표준 성능을 보여주고 있습니다."
 
 # ── 일반 장비 ──
+# 일반 규칙의 ratio 는 기준 만점 대비 % (등급·랭크와 같은 기준), *_ratio 는 축 점수 ÷ 축 기준점
 
 [[rule]]
 when = [["noljang", "==", true]]
@@ -104,12 +105,12 @@ text = "💎 [놀라운 장비 강화 아이템] 놀라운 장비 강화 아이�
 
 [[rule]]
 name_any = "upgrade_hearts"
-when = [["total", ">=", 125]]
+when = [["ratio", ">=", 34]]
 text = "🚨 [업그레이드 권장] 현재 하트는 성능 한계가 명확합니다. 플라즈마 하트로의 강화를 고려하세요."
 
 [[rule]]
 name_any = "target_hearts"
-when = [["total", ">=", 275]]
+when = [["ratio", ">=", 76]]
 text = "🚨 [교체 권장] 현재 하트는 성능 한계가 명확합니다. 컴플리트 언더컨트롤로의 교체를 고려해야할 시기입니다."
 
 [[rule]]
@@ -118,7 +119,7 @@ text = "🚨 [미지원] 블랙 하트는 점수 환산을 지원하지 않습�
 
 [[rule]]
 name_any = "superior"
-when = [["total", ">=", 280]]
+when = [["ratio", ">=", 77]]
 text = "✨ [교체 권장] 어느정도 완성된 슈페리얼 아이템입니다. 교체를 원하신다면 지금의 아이템보다 상위의 아이템으로 교체를 추천합니다."
 
 [[rule]]
@@ -127,103 +128,103 @@ text = "⚠️ [교체 권장] 하나에서 두개 정도 부분이 아쉬운 �
 
 # 350점 이상
 [[rule]]
-when = [["total", ">=", 350], ["at_cap", "==", true], ["add_evaluated", "==", true], ["add", "<", "target_add"]]
+when = [["ratio", ">=", 96], ["at_cap", "==", true], ["add_evaluated", "==", true], ["add", "<", "target_add"]]
 text = "✨ [추가옵션 강화 / 전승] 추가옵션이 완성되지 않았습니다. 강화하거나, 전승을 고려하세요."
 
 [[rule]]
-when = [["total", ">=", 350], ["at_cap", "==", true], ["pot", "<", 101]]
+when = [["ratio", ">=", 96], ["at_cap", "==", true], ["pot_ratio", "<", 0.94]]
 text = "✨ [잠재능력 강화 / 전승] 베이스는 완벽합니다. 잠재능력 수치를 극대화하기 위해 강화하거나, 전승을 고려하세요."
 
 [[rule]]
-when = [["total", ">=", 350], ["at_cap", "==", true], ["eddy", "<=", 43]]
+when = [["ratio", ">=", 96], ["at_cap", "==", true], ["eddy_ratio", "<=", 1.08]]
 text = "✨ [에디/교체 권장] 베이스는 완벽하지만, 에디셔널을 강화하거나 상위 매물로 교체하세요"
 
 [[rule]]
-when = [["total", ">=", 350], ["at_cap", "==", true]]
+when = [["ratio", ">=", 96], ["at_cap", "==", true]]
 text = "👑 [종결] 완벽한 장비입니다. {star_next}성 도전 외엔 투자가 무의미합니다."
 
 [[rule]]
-when = [["total", ">=", 350]]
+when = [["ratio", ">=", 96]]
 text = "🔍 [미세조정] 종결급이나 '{worst}'이(가) 평균보다 낮습니다."
 
 # 330점 이상
 [[rule]]
-when = [["total", ">=", 330], ["star", ">=", 23]]
+when = [["ratio", ">=", 91], ["star", ">=", 23]]
 text = "✨ [종결 / 상위매물 교체] 23성 이상 도달한 장비입니다. 추가 강화보다는 이대로 사용하시거나, 상위 등급의 베이스 아이템 매물로 교체하는 것을 추천합니다."
 
 [[rule]]
-when = [["total", ">=", 330], ["star_evaluated", "==", true], ["star", "<", "target_star_330"]]
+when = [["ratio", ">=", 91], ["star_evaluated", "==", true], ["star", "<", "target_star_330"]]
 text = "⭐ [스타포스 권장] 체급에 걸맞은 '{target_star_330}성' 달성이 시급합니다. 우선적으로 {star_next}성 강화를 최우선하세요."
 
 [[rule]]
-when = [["total", ">=", 330]]
+when = [["ratio", ">=", 91]]
 text = "💎 [준종결] 종결급 체급입니다. 마지막 퍼즐인 '{worst}' 수치 보완을 추천합니다."
 
 # 300점 이상
 [[rule]]
-when = [["total", ">=", 300], ["star_evaluated", "==", true], ["star", ">=", "max_star"]]
+when = [["ratio", ">=", 83], ["star_evaluated", "==", true], ["star", ">=", "max_star"]]
 text = "✅ [강화 한계] 최대치까지 강화되었습니다. 이제 부족한 '{worst}'에 집중하세요."
 
 [[rule]]
-when = [["total", ">=", 300], ["star_evaluated", "==", true], ["star", "<=", 18]]
+when = [["ratio", ">=", 83], ["star_evaluated", "==", true], ["star", "<=", 18]]
 text = "⚔️ [단계적 강화] 베이스가 훌륭합니다. 우선 '{target_star_21}성 안착'을 목표로 강화를 추천합니다."
 
 [[rule]]
-when = [["total", ">=", 300], ["star_evaluated", "==", true], ["star", "<", 22], ["min_ratio", "<", 0.25]]
+when = [["ratio", ">=", 83], ["star_evaluated", "==", true], ["star", "<", 22], ["min_ratio", "<", 0.25]]
 text = "🚨 [밸런스 보완] 스타포스보다 급한 것은 '{worst}'입니다. 밸런스를 먼저 맞춰주세요."
 
 [[rule]]
-when = [["total", ">=", 300], ["star_evaluated", "==", true], ["star", "<", 22]]
+when = [["ratio", ">=", 83], ["star_evaluated", "==", true], ["star", "<", 22]]
 text = "📈 [상위 강화] 22성 도전의 가치가 있는 베이스입니다. 22성 강화를 고려하세요."
 
 [[rule]]
-when = [["total", ">=", 300]]
+when = [["ratio", ">=", 83]]
 text = "🛠️ [강화 권장] 엘리트 장비입니다. 전체적인 밸런스를 위해 '{worst}'을 보완하세요."
 
 # 250점 이상
 [[rule]]
-when = [["total", ">=", 250], ["star_evaluated", "==", true], ["star", "<", "target_star_17"], ["max_star", "<", 17]]
+when = [["ratio", ">=", 69], ["star_evaluated", "==", true], ["star", "<", "target_star_17"], ["max_star", "<", 17]]
 text = "📦 [가성비 강화] 해당 아이템의 한계치인 {max_star}성 달성 후 잠재능력을 손보는 것이 효율적입니다."
 
 [[rule]]
-when = [["total", ">=", 250], ["star_evaluated", "==", true], ["star", "<", "target_star_17"]]
+when = [["ratio", ">=", 69], ["star_evaluated", "==", true], ["star", "<", "target_star_17"]]
 text = "📦 [가성비 강화] 최소 17 ~ 18성 달성 후 잠재능력을 손보는 것이 효율적입니다."
 
 [[rule]]
-when = [["total", ">=", 250]]
+when = [["ratio", ">=", 69]]
 text = "📈 [효율 투자 / 교체] '{worst}'부터 차근차근 올리거나, 상위 아이템으로 교체를 추천합니다."
 
 # 175점 이상
 [[rule]]
-when = [["total", ">=", 175], ["limited", "==", false], ["star_evaluated", "==", true], ["star", "<", "target_star_17"], ["max_star", "<", 17]]
+when = [["ratio", ">=", 48], ["limited", "==", false], ["star_evaluated", "==", true], ["star", "<", "target_star_17"], ["max_star", "<", 17]]
 text = "📦 [가성비 정체] 베이스는 나쁘지 않으나 스타포스가 낮습니다. {max_star}성(한계치) 강화 시 점수가 상승합니다."
 
 [[rule]]
-when = [["total", ">=", 175], ["limited", "==", false], ["star_evaluated", "==", true], ["star", "<", "target_star_17"]]
+when = [["ratio", ">=", 48], ["limited", "==", false], ["star_evaluated", "==", true], ["star", "<", "target_star_17"]]
 text = "📦 [가성비 정체] 베이스는 나쁘지 않으나 스타포스가 낮습니다. 17성 강화 시 점수가 대폭 상승합니다."
 
 [[rule]]
-when = [["total", ">=", 175], ["limited", "==", true]]
+when = [["ratio", ">=", 48], ["limited", "==", true]]
 text = "📈 [이벤트 아이템] 이벤트 아이템을 강화하기보다는, 무료 재화를 사용하거나 상위 아이템으로의 교체를 추천합니다."
 
 [[rule]]
-when = [["total", ">=", 175], ["pot", "<", 65], ["eddy", "<", 12.5]]
+when = [["ratio", ">=", 48], ["pot_ratio", "<", 0.6], ["eddy_ratio", "<", 0.31]]
 text = "🔮 [잠재 / 에디 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다."
 
 [[rule]]
-when = [["total", ">=", 175], ["pot", "<", 65]]
+when = [["ratio", ">=", 48], ["pot_ratio", "<", 0.6]]
 text = "🔮 [잠재 부족] 스타포스에 비해 잠재능력이 아쉽습니다. 더 높은 잠재능력을 위해 강화하거나 교체를 추천합니다."
 
 [[rule]]
-when = [["total", ">=", 175], ["eddy", "<", 12.5]]
+when = [["ratio", ">=", 48], ["eddy_ratio", "<", 0.31]]
 text = "🔮 [에디 부족] 스타포스에 비해 에디셔널 잠재능력이 아쉽습니다. 더 높은 에디셔널 잠재능력을 위해 강화를 추천합니다."
 
 [[rule]]
-when = [["total", ">=", 175], ["add_evaluated", "==", true], ["add", "<", 82.5]]
+when = [["ratio", ">=", 48], ["add_evaluated", "==", true], ["add_ratio", "<", 0.75]]
 text = "🌀 [베이스 부실] 추옵이 낮아 투자가 비효율적입니다. 추가옵션의 강화를 추천합니다."
 
 [[rule]]
-when = [["total", ">=", 175]]
+when = [["ratio", ">=", 48]]
 text = "✅ [다음 단계 준비] 전반적인 밸런스가 좋습니다. 다음 단계로 넘어가기 위한 상위 아이템 교체나 {next} 강화를 준비하세요."
 
 [[rule]]

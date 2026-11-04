@@ -94,13 +94,15 @@ main_stat = 15
 sub_stat = 15
 attack = 10
 
-[special.best."훈장"]               # 불멸의 유산 추옵 최대: 주스탯 182 · 부스탯 49 · 올스탯 7 (기본 옵션은 보지 않음)
+[special.best."훈장"]               # 불멸의 유산 추옵 최대: 주스탯 182 · 부스탯 49 · 올스탯 7 (기본 옵션은 보지 않음). 데몬어벤져는 최대 HP 4900
 main_stat = 182
+main_stat_hp = 4900
 sub_stat = 49
 all_stat = 7
 
-[special.best."포켓 아이템"]       # 저주받은 마도서 추옵 최대: 주스탯 133 · 부스탯 35 · 올스탯 7 (기본 옵션은 보지 않음)
+[special.best."포켓 아이템"]       # 저주받은 마도서 추옵 최대: 주스탯 133 · 부스탯 35 · 올스탯 7 (기본 옵션은 보지 않음). 데몬어벤져는 최대 HP 3360
 main_stat = 133
+main_stat_hp = 3360
 sub_stat = 35
 all_stat = 7
 
@@ -114,3 +116,21 @@ attack = 30
 [exceptional]
 parts = ["반지", "펜던트", "귀고리", "눈장식", "얼굴장식", "벨트", "포켓 아이템", "훈장"]
 points_per_upgrade = 10
+
+# ── 방어구·장신구 기준점 (app/potential.py best_armor_total) ──
+# 캐릭터별 최상 조합: 후보 중 이 캐릭터에게 환산값이 가장 큰 줄이 count 줄 모두에 붙은 것. "주스탯"·"공격력"은 직업에 맞게 바뀝니다
+[armor.best_lines]
+count = { potential = 3, additional_potential = 3 }
+potential = ["주스탯 +13%", "올스탯 +10%"]
+additional_potential = ["주스탯 +4%", "올스탯 +3%", "공격력 +12"]
+
+[armor.best_lines.parts."장갑"]
+potential = ["크리티컬 데미지 +8%", "주스탯 +13%", "올스탯 +10%"]
+
+[armor.best_lines.parts."모자"]
+potential = ["모든 스킬의 재사용 대기시간 -2초", "주스탯 +13%", "올스탯 +10%"]
+
+[weapon.add_best]                 # 무기 추옵 최상: 공격력 = 기본 공격력 × attack_ratio, 보공 %, 올스탯
+attack_ratio = 0.72
+boss_damage = 12
+all_stat = 6

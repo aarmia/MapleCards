@@ -23,7 +23,7 @@ class ScoringConfigTests(unittest.TestCase):
         targets = scoring.add_option.targets.default
         self.assertTrue(targets[160] < targets[200] < targets[250])  # 레벨 키가 정수로 바뀌고 값은 밸런스 수치라 순서만 확인
         self.assertEqual(scoring.weights.potential, 3.3)
-        self.assertEqual(grades.item_grade[0], [360, "SSS+"])
+        self.assertEqual(grades.item_grade[0], [99, "SSS+"])
         mins = [entry["min"] for entry in grades.overall]
         self.assertEqual(mins, sorted(mins, reverse=True))  # 첫 일치 규칙이라 내림차순
         self.assertEqual(grades.overall[-1]["min"], 0)  # 마지막 항목이 모든 평균을 받습니다

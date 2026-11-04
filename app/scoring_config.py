@@ -246,6 +246,7 @@ _POTENTIAL_SPEC = {
     "weapon": {
         "boss_defense": NUMBER,
         "buff": {k: NUMBER for k in ("attack_pct_extra", "boss_damage_extra", "ied_extra_pct")},
+        "add_best": {"attack_ratio": NUMBER, "boss_damage": NUMBER, "all_stat": NUMBER},
         "best_lines": {
             "count": dict, "destiny_keyword": str, "soul_option": list,
             "destiny": {"potential": list, "additional_potential": list, "soul": list},
@@ -254,6 +255,7 @@ _POTENTIAL_SPEC = {
     },
     "special": {"ignored_keys": list, "add_option_parts": list, "ring_part": str, "best": dict, "ring": {"max_level": NUMBER, "weights": dict, "default": NUMBER}},
     "exceptional": {"parts": list, "points_per_upgrade": NUMBER},
+    "armor": {"best_lines": {"count": dict, "potential": list, "additional_potential": list, "parts": dict}},
 }
 
 

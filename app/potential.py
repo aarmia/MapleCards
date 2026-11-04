@@ -387,3 +387,16 @@ def analyze_lines(options: list[str], context: StatContext, char_level: int) -> 
         total += value
         recognized.append({"option": option, "value": round(value, 2), "rule": rule})
     return score_detail(total, recognized, options, context.main_label)
+
+
+def best_armor_total(kind: str, part: str, context: StatContext, char_level: int) -> float:
+    """방어구·장신구의 캐릭터별 기준점: potential.toml [armor.best_lines] 의 후보 중 가장 좋은 줄 × count"""
+    config = POTENTIAL.armor.best_lines
+    candidates = (config.raw["parts"].get(part) or {}).get(kind) or config.raw[kind]
+    main = "최대 HP" if context.main_stat == "hp" else ("STR" if context.main_stat == "all_stat" else context.main_label)
+    attack = "마력" if context.main_stat == "int" else "공격력"
+    values = []
+    for text in candidates:
+        converted = convert_line(text.replace("주스탯", main).replace("공격력", attack), context, char_level)
+        values.append(converted[0] if converted else 0.0)
+    return round(max(values) * config.raw["count"][kind], 2)
