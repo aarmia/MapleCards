@@ -5,10 +5,9 @@ from collections import Counter
 
 from app.calculator import (
     analyze_potential_score,
-    analyze_weapon_potential_score,
     calculate_item_score,
     calculate_potential_score,
-    calculate_weapon_add_option_score,
+    final_stat_float,
     get_advanced_add_score,
     get_main_stat,
     get_potential_options,
@@ -19,6 +18,7 @@ from app.potential import StatContext, reference_context
 from app.preset_optimizer import optimize_presets
 from app.preset_projection import active_items, project_context
 from app.scoring_config import GRADES, SCORING, load_guides
+from app.weapon import WeaponContext, analyze_weapon_item, best_lines_total, part_group, weapon_add_value
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ def select_guide(rules: list, context: dict, names: dict, item_name: str, part_n
     raise ValueError("가이드 규칙에 기본 규칙이 없습니다")
 
 
-def build_guide_context(scores, star_val, part_name, item_name, total_score, item_req_level, is_noljang) -> dict:
+def build_guide_context(scores, star_val, part_name, item_name, total_score, item_req_level, is_noljang, benchmarks=None) -> dict:
     """규칙 표가 비교할 값들을 계산합니다. 파생값(최대 스타포스, 최저 축, 목표치)은 코드가 맡고 규칙 표는 조건과 문구만 가집니다."""
     cap = GUIDES.star_cap
     max_star = cap.default
@@ -159,7 +159,12 @@ def build_guide_context(scores, star_val, part_name, item_name, total_score, ite
     add_evaluated = not any(k in part_name for k in axes.no_add_parts)
     star_evaluated = not any(k in part_name for k in axes.no_star_parts)
     eval_indices = [1, 2] + ([0] if add_evaluated else []) + ([3] if star_evaluated else [])
-    ratios = [scores[i] / axes.benchmarks[i] for i in range(4)]
+    # 무기류는 캐릭터별 최상 조합(benchmarks)을 윗잠·에디 기준점으로 씁니다.
+    marks = list(axes.benchmarks)
+    for index, key in ((1, "pot"), (2, "pot_additional")):
+        if benchmarks and benchmarks.get(key):
+            marks[index] = benchmarks[key]
+    ratios = [scores[i] / marks[i] for i in range(4)]
     ranked = sorted(((ratios[i], axes.labels[i]) for i in eval_indices), key=lambda entry: entry[0])
 
     targets = GUIDES.targets
@@ -185,8 +190,8 @@ def get_special_part_guide(total_score, part_name, item_name):
     return select_guide(GUIDES.special_rule, {"total": total_score}, GUIDES.names.raw, item_name, part_name)
 
 
-def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_req_level, is_noljang=False):
-    context = build_guide_context(scores, star_val, part_name, item_name, total_score, item_req_level, is_noljang)
+def get_dynamic_guide(scores, star_val, part_name, total_score, item_name, item_req_level, is_noljang=False, benchmarks=None):
+    context = build_guide_context(scores, star_val, part_name, item_name, total_score, item_req_level, is_noljang, benchmarks)
     return select_guide(GUIDES.rule, context, GUIDES.names.raw, item_name)
 
 
@@ -201,6 +206,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
     # 잠재 환산 기준. build_report 가 캐릭터 스탯으로 만든 것이 없으면 기준 캐릭터(potential.toml reference)를 씁니다.
     context = profile["context"] if profile else reference_context(char_class, main_stat)
     target_multiplier = profile["add_target_multiplier"] if profile else 1.0
+    weapon_context = (profile or {}).get("weapon") or WeaponContext(context)
 
     def weight_notes(item_req_level):
         star_weight = round(1.0 + (item_req_level - SCORING.starforce.reference_level) / SCORING.starforce.level_weight_divisor, 3)
@@ -305,20 +311,31 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         elif is_superior: adv_star_score = get_starforce_score(star, item_req_level) * weights.superior_star
         else: adv_star_score = get_starforce_score(star, item_req_level)
 
+        soul_analysis, soul_val, soul_score, benchmarks, add_recognized = None, 0.0, 0.0, None, []
         if is_weapon:
-            if any(k in slot for k in special_items.secondary_slots):
-                add_score = weights.fixed_secondary_emblem
-                add_raw_score = weights.fixed_secondary_emblem
-                adv_star_score = weights.fixed_secondary_emblem
-            else:
-                add_raw_score = calculate_weapon_add_option_score(item, char_class, main_stat=main_stat)
+            # 무기류는 공격력% 단위(app/weapon.py). 무기는 추옵·스타포스·윗잠·에디·소울, 보조무기·엠블렘은 윗잠·에디만 평가합니다.
+            group = part_group(slot, part)
+            if group == "weapon":
+                add_raw_score, add_recognized = weapon_add_value(item.get("item_add_option"), weapon_context, char_level)
                 add_score = add_raw_score * weights.weapon_add
-            pot_analysis = analyze_weapon_potential_score(item, "potential", char_class, main_stat=main_stat)
+                soul_analysis = analyze_weapon_item(item, "soul", weapon_context, char_level)
+                soul_val = soul_analysis["score"]
+                soul_score = (soul_val * weights.soul) if soul_val > 0 else 0
+            else:
+                add_raw_score = add_score = adv_star_score = 0.0
+            pot_analysis = analyze_weapon_item(item, "potential", weapon_context, char_level)
             pot_val = pot_analysis["score"]
             pot_score = (pot_val * weights.potential) if pot_val > 0 else 0
-            eddy_analysis = analyze_weapon_potential_score(item, "additional_potential", char_class, main_stat=main_stat)
+            eddy_analysis = analyze_weapon_item(item, "additional_potential", weapon_context, char_level)
             eddy_val = eddy_analysis["score"]
             eddy_score = (eddy_val * weights.additional) if eddy_val > 0 else 0
+            # 캐릭터별 최상 조합을 기준점으로 둡니다 (가이드의 축 비율과 이후 등급 컷에 사용).
+            benchmarks = {
+                "pot": round(best_lines_total("potential", group, weapon_context, char_level) * weights.potential, 2),
+                "pot_additional": round(best_lines_total("additional_potential", group, weapon_context, char_level) * weights.additional, 2),
+            }
+            if group == "weapon":
+                benchmarks["soul"] = round(best_lines_total("soul", group, weapon_context, char_level) * weights.soul, 2)
         else:
             actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class, main_stat=main_stat)
             add_raw_score = actual_add_급수
@@ -348,6 +365,8 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         recognized_options = (
             with_weighted_values(pot_analysis, "윗잠재", pot_score)
             + with_weighted_values(eddy_analysis, "에디셔널", eddy_score)
+            + (with_weighted_values(soul_analysis, "소울", soul_score) if soul_analysis else [])
+            + with_weighted_values({"recognized": add_recognized}, "추가옵션", add_score)
         )
 
         def unrecognized_entries(analysis, category):
@@ -357,11 +376,26 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             ] + [{"category": category, "option": option, "reason": "unsupported"} for option in analysis["unsupported"]]
 
         unrecognized_options = unrecognized_entries(pot_analysis, "윗잠재") + unrecognized_entries(eddy_analysis, "에디셔널")
+        if soul_analysis:
+            unrecognized_options += unrecognized_entries(soul_analysis, "소울")
 
-        total_item_score = add_score + pot_score + eddy_score + adv_star_score
+        total_item_score = add_score + pot_score + eddy_score + adv_star_score + soul_score
+        group = part_group(slot, part) if is_weapon else None
+        detail = {"pot": round(pot_score, 1), "pot_additional": round(eddy_score, 1)}
+        breakdown = [
+            {"key": "pot", "label": "윗잠재", "raw_score": round(max(pot_val, 0), 2), "weighted_score": round(pot_score, 2)},
+            {"key": "pot_additional", "label": "에디셔널", "raw_score": round(max(eddy_val, 0), 2), "weighted_score": round(eddy_score, 2)},
+        ]
+        if group != "secondary" and group != "emblem":
+            detail.update(add=round(add_score, 1), star=round(adv_star_score, 1))
+            breakdown.insert(0, {"key": "add", "label": "추가옵션", "raw_score": round(add_raw_score, 2), "weighted_score": round(add_score, 2)})
+            breakdown.append({"key": "star", "label": "스타포스", "raw_score": star, "weighted_score": round(adv_star_score, 2), "star": star})
+        if group == "weapon":
+            detail["soul"] = round(soul_score, 1)
+            breakdown.insert(3, {"key": "soul", "label": "소울", "raw_score": round(max(soul_val, 0), 2), "weighted_score": round(soul_score, 2)})
 
         if pot_val != -1 and not any(k in name for k in special_rings):
-            guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part, total_item_score, name, item_req_level, is_noljang)
+            guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part, total_item_score, name, item_req_level, is_noljang, benchmarks)
             guide_tag, guide_message = split_guide(guide_text)
             evaluate_list.append({
                 "is_wse": is_weapon, "is_special": False, "is_noljang": is_noljang, "slot": slot, "part": part, "name": name, "icon": icon, "star": star, "level": item_req_level,
@@ -369,19 +403,15 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                 "guide": guide_text,
                 "guide_tag": guide_tag,
                 "guide_message": guide_message,
-                "detail": {"add": round(add_score, 1), "star": round(adv_star_score, 1), "pot": round(pot_score, 1), "pot_additional": round(eddy_score, 1)},
-                "raw_options": raw_options_dict,
+                "detail": detail,
+                "raw_options": {**raw_options_dict, "soul_options": [e["option"] for e in (soul_analysis or {}).get("recognized", [])] + (soul_analysis or {}).get("unsupported", [])},
                 "scoring_basis": {
                     "main_stat": main_stat_label,
                     "recognized_options": recognized_options,
                     "unrecognized_options": unrecognized_options,
-                    "weights": weight_notes(item_req_level),
-                    "breakdown": [
-                        {"key": "add", "label": "추가옵션", "raw_score": round(add_raw_score, 2), "weighted_score": round(add_score, 2)},
-                        {"key": "pot", "label": "윗잠재", "raw_score": round(max(pot_val, 0), 2), "weighted_score": round(pot_score, 2)},
-                        {"key": "pot_additional", "label": "에디셔널", "raw_score": round(max(eddy_val, 0), 2), "weighted_score": round(eddy_score, 2)},
-                        {"key": "star", "label": "스타포스", "raw_score": star, "weighted_score": round(adv_star_score, 2), "star": star},
-                    ],
+                    "weights": weight_notes(item_req_level) + ([f"무기류 공격력% 단위 환산 · 보공 1% = 공 {weapon_context.boss_per_pct:.3g}%, 유효 스탯 1% = 공 {weapon_context.stat_pct_unit:.3g}%, 기준점은 캐릭터별 최상 조합"] if is_weapon else []),
+                    "breakdown": breakdown,
+                    "benchmarks": benchmarks,
                     "star_score": round(adv_star_score, 2),
                 },
             })
@@ -481,6 +511,13 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
             "limitations": ["필수 스탯 누락 또는 특수 직업·복수 부스탯은 조합 최적화 미지원: 기존 장비 점수 기준 유지"]}
     profile["context"].sources["equipment_basis"] = "selected_preset"
     profile["context"].sources["final_stats_basis"] = "projected_saved_presets" if optimized else "currently_equipped"
+    # 무기류 환산(공격력% 단위)에 쓰는 보공·데미지·방무는 스탯 응답에서 읽습니다.
+    profile["weapon"] = WeaponContext(
+        profile["context"],
+        damage=final_stat_float(stat_data, "데미지") or 0.0,
+        boss_damage=final_stat_float(stat_data, "보스 몬스터 데미지") or 0.0,
+        ignore_defense=final_stat_float(stat_data, "방어율 무시") or 0.0,
+    )
 
     evaluate_list = evaluate_equipment(items, char_class, char_level, unsupported=unsupported, main_stat=main_stat, profile=profile)
     overall_review, all_sorted_results = generate_overall_review(evaluate_list)
@@ -492,7 +529,11 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
         "character_image": char_image,
         "combat_power": extract_combat_power(stat_data),
         "best_preset": best_preset_idx,
-        "profile": {**{key: value for key, value in profile.items() if key != "context"}, "context": profile["context"].as_dict()},
+        "profile": {
+            **{key: value for key, value in profile.items() if key not in ("context", "weapon")},
+            "context": profile["context"].as_dict(),
+            "weapon": profile["weapon"].as_dict(),
+        },
         "overall": overall_review,
         "results": all_sorted_results,
     }

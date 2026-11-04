@@ -47,18 +47,7 @@ LUK = ["LUK", "공격력"]
 HP = ["HP", "공격력"]
 ALL_STAT = ["STR", "DEX", "LUK", "공격력"]
 
-# ── 무기 · 보조무기 · 엠블렘 ──────────────────────────────
-[weapon.add]                  # 무기 추옵: 공격력 비율(%) + 보공 + 데미지 + 올스탯 + 주스탯
-boss_damage = 0.275
-damage = 0.275
-all_stat = 0.2475
-main_stat = 0.05
-
-[weapon.potential]
-damage = 0.275
-ignore_defense = 0.1875
-all_stat_pct = 0.2475
-main_stat_pct = 0.225
+# 무기 · 보조무기 · 엠블렘의 환산 규칙과 상수는 potential.toml 의 [weapon] 에 있습니다.
 
 # ── 스타포스 ─────────────────────────────────────────────
 [starforce]                   # 100 × (min(star, 22) / 22)² × (1 + (level − 200) / 600), 22성 초과분은 3 × ln(star − 21)
@@ -71,9 +60,9 @@ over_star_log_weight = 3.0
 [weights]
 potential = 3.3               # 윗잠재 환산값 × 3.3
 additional = 2.5              # 에디셔널 환산값 × 2.5
+soul = 2.5                    # 무기 소울(소울 옵션 + 소울 잠재) 환산값 × 2.5
 superior_star = 3.0           # 슈페리얼(타일런트) 스타포스 × 3
-weapon_add = 2.0              # 무기 추옵 점수 × 2
-fixed_secondary_emblem = 100.0   # 보조무기·엠블렘의 추옵·스타포스 고정 점수
+weapon_add = 2.0              # 무기 추옵 유효 급수(공% 단위) × 2
 
 [noljang]                     # 놀라운 장비 강화 판정 (별 8~15, 150제 이하, 슈페리얼 제외)
 star_min = 8

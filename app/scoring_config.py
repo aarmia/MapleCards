@@ -96,12 +96,8 @@ _SCORING_SPEC = {
         "tiers": {"bands": list},
     },
     "potential": {"excluded_slots": list, "ignored_keywords": list, "stat_keywords": list, "relevant_keywords": dict},
-    "weapon": {
-        "add": {k: NUMBER for k in ("boss_damage", "damage", "all_stat", "main_stat")},
-        "potential": {k: NUMBER for k in ("damage", "ignore_defense", "all_stat_pct", "main_stat_pct")},
-    },
     "starforce": {k: NUMBER for k in ("reference_level", "level_weight_divisor", "base_star", "over_star_log_weight")},
-    "weights": {k: NUMBER for k in ("potential", "additional", "superior_star", "weapon_add", "fixed_secondary_emblem")},
+    "weights": {k: NUMBER for k in ("potential", "additional", "soul", "superior_star", "weapon_add")},
     "noljang": {k: NUMBER for k in ("star_min", "star_max", "max_level", "etc_stat_strong", "etc_attack_strong", "etc_stat_weak", "etc_attack_weak")},
     "special_items": {
         "wse_slots": list, "special_parts": list, "secondary_slots": list, "excluded_rings": list, "superior_keyword": str,
@@ -253,6 +249,11 @@ _POTENTIAL_SPEC = {
     "exempt_estimate": {"bands": list},
     "hyper_stat": {"main_stat_per_level": NUMBER},
     "crit_rate": {"zero_threshold": NUMBER, "reinforce_ratio": NUMBER, "reinforce_uptime": NUMBER},
+    "weapon": {
+        "boss_defense": NUMBER,
+        "buff": {k: NUMBER for k in ("attack_pct_extra", "boss_damage_extra", "ied_extra_pct")},
+        "best_lines": {"count": dict, "potential": list, "additional_potential": list, "soul": list},
+    },
 }
 
 
