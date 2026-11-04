@@ -253,7 +253,7 @@ _POTENTIAL_SPEC = {
         "boss_defense": NUMBER,
         "buff": {k: NUMBER for k in ("attack_pct_extra", "boss_damage_extra", "ied_extra_pct")},
         "best_lines": {
-            "count": dict, "destiny_keyword": str,
+            "count": dict, "destiny_keyword": str, "soul_option": list,
             "destiny": {"potential": list, "additional_potential": list, "soul": list},
             "default": {"potential": list, "additional_potential": list, "soul": list},
         },

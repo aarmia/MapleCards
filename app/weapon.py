@@ -174,14 +174,17 @@ def best_lines_total(kind: str, part_group: str, context: WeaponContext, char_le
     candidates = config.raw[tier][kind]
     if part_group == "emblem":
         candidates = [text for text in candidates if "보스" not in text]  # 엠블렘에는 보공 줄이 없습니다
-    values = []
-    for text in candidates:
+
+    def value_of(text):
         text = text.replace("공격력", context.attack_label) if context.attack_label == "마력" else text
         converted = convert_weapon_line(text, context, char_level)
-        values.append(converted[0] if converted else 0.0)
-    count = config.raw["count"].get(kind)
-    # 윗잠·에디는 가장 좋은 줄이 count 줄 모두에 붙은 조합, 소울은 표에 적힌 줄 전부의 합
-    return round(max(values) * count if count else sum(values), 2)
+        return converted[0] if converted else 0.0
+
+    # 캐릭터에게 가장 좋은 줄이 count 줄 모두에 붙은 조합. 소울은 여기에 소울 옵션 1줄을 더합니다
+    total = max(value_of(text) for text in candidates) * config.raw["count"][kind]
+    if kind == "soul":
+        total += sum(value_of(text) for text in config.raw["soul_option"])
+    return round(total, 2)
 
 
 def part_group(slot: str, part: str) -> str:
