@@ -94,8 +94,8 @@ main_stat = 15
 sub_stat = 15
 attack = 10
 
-[special.best."훈장"]               # 불멸의 유산 추옵 최대: 주스탯 161 · 부스탯 49 · 올스탯 7 (기본 옵션은 보지 않음)
-main_stat = 161
+[special.best."훈장"]               # 불멸의 유산 추옵 최대: 주스탯 182 · 부스탯 49 · 올스탯 7 (기본 옵션은 보지 않음)
+main_stat = 182
 sub_stat = 49
 all_stat = 7
 

@@ -24,11 +24,11 @@ class SpecialPartTests(unittest.TestCase):
         self.assertEqual(result["scoring_basis"]["benchmarks"]["special"], best_total("뱃지", context, 285))
         self.assertEqual([e["reason"] for e in result["scoring_basis"]["unrecognized_options"]], ["other_stat", "other_stat"])  # INT · LUK
 
-        # 훈장·포켓은 기본 옵션을 빼고 추가옵션만 봅니다. 불멸의 유산 추옵 최대(161/49/7)가 100
+        # 훈장·포켓은 기본 옵션을 빼고 추가옵션만 봅니다. 불멸의 유산 추옵 최대(182/49/7)가 100
         medal = {
             "item_equipment_part": "훈장", "item_equipment_slot": "훈장", "item_name": "불멸의 유산",
-            "item_total_option": {"str": "171", "dex": "59", "attack_power": "10", "boss_damage": "10", "all_stat": "7"},
-            "item_add_option": {"str": "161", "dex": "49", "all_stat": "7"}, "item_base_option": {},
+            "item_total_option": {"str": "192", "dex": "59", "attack_power": "10", "boss_damage": "10", "all_stat": "7"},
+            "item_add_option": {"str": "182", "dex": "49", "all_stat": "7"}, "item_base_option": {},
         }
         medal_result = evaluate_equipment([medal], "히어로", 285)[0]
         self.assertEqual(medal_result["total_score"], 100.0)
