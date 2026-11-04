@@ -204,7 +204,7 @@ class PotentialOptionTests(unittest.TestCase):
         )[0]
 
         self.assertEqual(result["detail"]["pot"], 49.5)
-        self.assertEqual(result["detail"]["pot_additional"], 13.0)  # 5.19 × 2.5
+        self.assertEqual(result["detail"]["pot_additional"], 13.0)  # round(12.98, 1)
         self.assertEqual(
             result["raw_options"]["potential_options"],
             ["INT +9%", "INT +6%"],
@@ -220,7 +220,7 @@ class PotentialOptionTests(unittest.TestCase):
         )
         self.assertEqual(
             [entry["weighted_score"] for entry in result["scoring_basis"]["breakdown"]],
-            [0, 49.5, 13.0, 100.0],
+            [0, 49.5, 12.98, 100.0],
         )
         self.assertEqual(result["scoring_basis"]["star_score"], 100.0)
 
