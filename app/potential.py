@@ -80,26 +80,42 @@ class StatContext:
     def main_label(self) -> str:
         return self.main_stat.upper()
 
+    # ── 효율 계산은 전투 중 상태(도핑·버프 포함)를 기준으로 합니다. 가정값은 potential.toml [buff] ──
+    @property
+    def base_stat_effective(self) -> float:
+        """a' = 깡스탯 + 주스탯 도핑"""
+        return self.base_stat + POTENTIAL.buff.main_stat_flat
+
     @property
     def stat_attack(self) -> float:
-        """A = w × S + d"""
-        return self.stat_weight * self.final_main + self.final_sub
+        """A = w × (S + 도핑 주스탯 × b) + d"""
+        return self.stat_weight * (self.final_main + POTENTIAL.buff.main_stat_flat * self.stat_pct) + self.final_sub
+
+    @property
+    def attack_multiplier_effective(self) -> float:
+        """공격력 % 배율 + 버프 공격력 %"""
+        return self.attack_multiplier + POTENTIAL.buff.attack_pct / 100
+
+    @property
+    def attack_effective(self) -> float:
+        """공' = (기본 공격력 + 도핑 고정 공격력) × 배율'"""
+        return (self.attack / self.attack_multiplier + POTENTIAL.buff.attack_flat) * self.attack_multiplier_effective
 
     @property
     def pct_per_flat(self) -> float:
         """고정 주스탯 1 (% 적용) 의 유효 스탯%"""
-        return _clamp(100 * self.stat_pct / self.base_stat, POTENTIAL.bounds.pct_per_flat)
+        return _clamp(100 * self.stat_pct / self.base_stat_effective, POTENTIAL.bounds.pct_per_flat)
 
     @property
     def pct_per_attack(self) -> float:
         """공격력·마력 1 의 유효 스탯%"""
-        value = 100 * self.stat_attack * self.attack_multiplier / (self.stat_weight * self.base_stat * self.attack)
+        value = 100 * self.stat_attack * self.attack_multiplier_effective / (self.stat_weight * self.base_stat_effective * self.attack_effective)
         return _clamp(value, POTENTIAL.bounds.pct_per_attack)
 
     @property
     def crit_damage_effective(self) -> float:
-        """효율 계산에 쓰는 크뎀: 스탯창 값 + 전투 중 켜지는 버프 가정 (potential.toml crit_damage_buff_pct)"""
-        return self.crit_damage + POTENTIAL.crit_damage_buff_pct
+        """효율 계산에 쓰는 크뎀: 스탯창 값 + 전투 중 켜지는 버프 가정"""
+        return self.crit_damage + POTENTIAL.buff.crit_damage_pct
 
     @property
     def crit_bonus(self) -> float:
@@ -109,7 +125,7 @@ class StatContext:
     @property
     def pct_per_crit_damage(self) -> float:
         """크리티컬 데미지 1% 의 유효 스탯%"""
-        value = self.stat_attack / ((POTENTIAL.crit_base + self.crit_damage_effective / 100) * self.stat_weight * self.base_stat)
+        value = self.stat_attack / ((POTENTIAL.crit_base + self.crit_damage_effective / 100) * self.stat_weight * self.base_stat_effective)
         return _clamp(value, POTENTIAL.bounds.pct_per_crit_damage)
 
     @property
@@ -118,7 +134,7 @@ class StatContext:
         if self.crit_rate is None or self.crit_rate >= POTENTIAL.crit_rate.zero_threshold:
             return 0.0
         rate = self.crit_rate / 100
-        return self.stat_attack * self.crit_bonus / (self.stat_weight * self.base_stat * (1 + rate * self.crit_bonus))
+        return self.stat_attack * self.crit_bonus / (self.stat_weight * self.base_stat_effective * (1 + rate * self.crit_bonus))
 
     @property
     def pct_per_excess_crit_rate(self) -> float:
@@ -186,7 +202,7 @@ class StatContext:
             "sub_base_estimate": round(self.sources["sub_base_estimate"]) if "sub_base_estimate" in self.sources else None,
             "sub_exempt": self.sources.get("sub_exempt"),
             "crit_damage": self.crit_damage,
-            "crit_damage_buff": POTENTIAL.crit_damage_buff_pct,
+            "buff": POTENTIAL.buff.raw,
             "crit_rate": self.crit_rate,
             "pct_per_flat": round(self.pct_per_flat, 4),
             "pct_per_attack": round(self.pct_per_attack, 4),
