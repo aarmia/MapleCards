@@ -163,12 +163,19 @@ def weapon_add_value(add_option: dict, context: WeaponContext, char_level: int) 
     return round(total, 2), recognized
 
 
-def best_lines_total(kind: str, part_group: str, context: WeaponContext, char_level: int) -> float:
-    """캐릭터별 기준점: potential.toml [weapon.best_lines] 의 후보 중 환산값이 큰 줄 n개의 합"""
+def tier_of(item_name: str) -> str:
+    """최상 줄 표의 단계: 이름에 destiny_keyword 가 있으면 destiny, 아니면 default"""
+    return "destiny" if POTENTIAL.weapon.best_lines.destiny_keyword in (item_name or "") else "default"
+
+
+def best_lines_total(kind: str, part_group: str, context: WeaponContext, char_level: int, tier: str = "default") -> float:
+    """캐릭터별 기준점: potential.toml [weapon.best_lines] 표의 최상 조합을 공% 단위로 환산한 값"""
     config = POTENTIAL.weapon.best_lines
-    key = f"{kind}_{part_group}" if f"{kind}_{part_group}" in config.raw else kind
+    candidates = config.raw[tier][kind]
+    if part_group == "emblem":
+        candidates = [text for text in candidates if "보스" not in text]  # 엠블렘에는 보공 줄이 없습니다
     values = []
-    for text in config.raw[key]:
+    for text in candidates:
         text = text.replace("공격력", context.attack_label) if context.attack_label == "마력" else text
         converted = convert_weapon_line(text, context, char_level)
         values.append(converted[0] if converted else 0.0)

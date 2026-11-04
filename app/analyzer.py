@@ -18,7 +18,7 @@ from app.potential import StatContext, reference_context
 from app.preset_optimizer import optimize_presets
 from app.preset_projection import active_items, project_context
 from app.scoring_config import GRADES, SCORING, load_guides
-from app.weapon import WeaponContext, analyze_weapon_item, best_lines_total, part_group, weapon_add_value
+from app.weapon import WeaponContext, analyze_weapon_item, best_lines_total, part_group, tier_of, weapon_add_value
 
 logger = logging.getLogger(__name__)
 
@@ -330,12 +330,14 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             eddy_val = eddy_analysis["score"]
             eddy_score = (eddy_val * weights.additional) if eddy_val > 0 else 0
             # 캐릭터별 최상 조합을 기준점으로 둡니다 (가이드의 축 비율과 이후 등급 컷에 사용).
+            tier = tier_of(name)
             benchmarks = {
-                "pot": round(best_lines_total("potential", group, weapon_context, char_level) * weights.potential, 2),
-                "pot_additional": round(best_lines_total("additional_potential", group, weapon_context, char_level) * weights.additional, 2),
+                "tier": tier,
+                "pot": round(best_lines_total("potential", group, weapon_context, char_level, tier) * weights.potential, 2),
+                "pot_additional": round(best_lines_total("additional_potential", group, weapon_context, char_level, tier) * weights.additional, 2),
             }
             if group == "weapon":
-                benchmarks["soul"] = round(best_lines_total("soul", group, weapon_context, char_level) * weights.soul, 2)
+                benchmarks["soul"] = round(best_lines_total("soul", group, weapon_context, char_level, tier) * weights.soul, 2)
         else:
             actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class, main_stat=main_stat)
             add_raw_score = actual_add_급수

@@ -56,7 +56,8 @@ class WeaponConversionTests(unittest.TestCase):
         self.assertGreater(c.ied_value(40), 0)
         # 엠블렘 기준점은 보공 줄이 없어 무기보다 작습니다
         self.assertLessEqual(best_lines_total("potential", "emblem", c, 285), best_lines_total("potential", "weapon", c, 285))
-        self.assertFalse(any("보스" in line for line in POTENTIAL.weapon.best_lines.potential_emblem))
+        # 데스티니 표(공 13%)는 제네시스·보조·엠블렘 표(공 12%)보다 기준점이 높습니다
+        self.assertGreater(best_lines_total("potential", "weapon", c, 285, "destiny"), best_lines_total("potential", "weapon", c, 285, "default"))
 
     def test_weapon_secondary_and_emblem_use_their_own_axes(self):
         weapon = weapon_item("무기", "한손검", soul_option="공격력 +3%", soul_potential_option_1="보스 몬스터 데미지 +2%")
