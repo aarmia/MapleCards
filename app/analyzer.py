@@ -17,8 +17,8 @@ from app.character_profile import build_character_profile
 from app.potential import StatContext, reference_context
 from app.preset_optimizer import optimize_presets
 from app.preset_projection import active_items, project_context
-from app.scoring_config import GRADES, SCORING, load_guides
-from app.special import analyze_special_lines, best_total, special_lines, title_item
+from app.scoring_config import GRADES, POTENTIAL, SCORING, load_guides
+from app.special import analyze_special_lines, best_total, is_seed_ring, ring_score, special_lines, title_item
 from app.weapon import WeaponContext, analyze_weapon_item, best_lines_total, part_group, tier_of, weapon_add_value
 
 logger = logging.getLogger(__name__)
@@ -201,7 +201,6 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
     special_items = SCORING.special_items
     weights = SCORING.weights
     noljang = SCORING.noljang
-    special_rings = special_items.excluded_rings
     # 주스탯은 호출자(build_report)가 스탯 응답까지 보고 정해 넘깁니다. 없으면 직업명으로 정합니다.
     main_stat = main_stat or get_main_stat(char_class)
     # 잠재 환산 기준. build_report 가 캐릭터 스탯으로 만든 것이 없으면 기준 캐릭터(potential.toml reference)를 씁니다.
@@ -249,18 +248,28 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             "exceptional": item.get("item_exceptional_option")
         }
 
-        if is_special:
+        if is_special or is_seed_ring(item):
             # 훈장·뱃지·포켓·칭호: 고정 옵션을 유효 스탯% 로 환산하고 부위별 최상(캐릭터별 환산)을 100 으로 둡니다 (app/special.py).
-            lines, expired = special_lines(item, weapon_context)
-            analysis = analyze_special_lines(lines, weapon_context, char_level)
-            value = analysis["score"]
-            benchmark = best_total(part, weapon_context, char_level)
-            total_item_score = round(100 * value / benchmark, 2) if benchmark > 0 else 0.0
-            _log_unsupported_options(name, "special", analysis, unsupported)
+            # 시드링(특수 반지·예비 특수 반지): 종류와 레벨로 점수를 냅니다.
+            expired, benchmark, lines = False, 0.0, []
+            if is_seed_ring(item):
+                part = POTENTIAL.special.ring_part
+                total_item_score, entry = ring_score(item)
+                value, analysis = total_item_score, {"recognized": [entry], "ignored": [], "unsupported": []}
+                notes = [f"시드링 · 종류 가중치 × 레벨 ÷ {POTENTIAL.special.ring.max_level} (리스트레인트·컨티뉴어스 만렙 = 100)"]
+            else:
+                lines, expired = special_lines(item, weapon_context)
+                analysis = analyze_special_lines(lines, weapon_context, char_level)
+                value = analysis["score"]
+                benchmark = best_total(part, weapon_context, char_level)
+                total_item_score = round(100 * value / benchmark, 2) if benchmark > 0 else 0.0
+                _log_unsupported_options(name, "special", analysis, unsupported)
+                notes = [f"고유 옵션 유효 스탯% 합 ÷ 이 캐릭터의 부위 최상({benchmark:.2f}) × 100"] + context.notes()
+                if part in POTENTIAL.special.add_option_parts:
+                    notes.insert(0, "기본 옵션은 보지 않고 추가옵션(환생의 불꽃)만 환산합니다")
             factor = (total_item_score / value) if value else 0
             special_guide = get_special_part_guide(total_item_score, part, name, expired)
             special_guide_tag, special_guide_message = split_guide(special_guide)
-            notes = [f"고유 옵션 유효 스탯% 합 ÷ 이 캐릭터의 부위 최상({benchmark:.2f}) × 100"] + context.notes()
             if expired:
                 notes.insert(0, "칭호 옵션 적용 기간 만료 · 스탯을 인정하지 않습니다")
             evaluate_list.append({
@@ -270,7 +279,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                 "guide_tag": special_guide_tag,
                 "guide_message": special_guide_message,
                 "detail": {"special": round(total_item_score, 1)},
-                "raw_options": {**raw_options_dict, "fixed_options": lines, "expired": expired},
+                "raw_options": {**raw_options_dict, "fixed_options": lines, "expired": expired, "special_ring_level": item.get("special_ring_level")},
                 "scoring_basis": {
                     "main_stat": main_stat_label,
                     "recognized_options": [
@@ -396,7 +405,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             detail["soul"] = round(soul_score, 1)
             breakdown.insert(3, {"key": "soul", "label": "소울", "raw_score": round(max(soul_val, 0), 2), "weighted_score": round(soul_score, 2)})
 
-        if pot_val != -1 and not any(k in name for k in special_rings):
+        if pot_val != -1:
             guide_text = get_dynamic_guide([add_score, pot_score, eddy_score, adv_star_score], star, part, total_item_score, name, item_req_level, is_noljang, benchmarks)
             guide_tag, guide_message = split_guide(guide_text)
             evaluate_list.append({
@@ -521,9 +530,11 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
         ignore_defense=final_stat_float(stat_data, "방어율 무시") or 0.0,
     )
 
-    # 칭호는 장비 목록이 아니라 응답의 title 필드에 있으므로 평가 목록에 따로 넣습니다.
+    # 칭호는 장비 목록이 아니라 응답의 title 필드에 있고, 예비 특수 반지는 프리셋 투영에서 빠지므로 평가 목록에 따로 넣습니다.
     title = title_item(item_data.get("title") or {})
-    evaluate_list = evaluate_equipment([*items, *([title] if title else [])], char_class, char_level, unsupported=unsupported, main_stat=main_stat, profile=profile)
+    spare_rings = [item for item in select_preset_items(item_data, best_preset_idx) if item.get("item_equipment_slot") == "예비 특수 반지"]
+    extra_items = [item for item in spare_rings if item not in items] + ([title] if title else [])
+    evaluate_list = evaluate_equipment([*items, *extra_items], char_class, char_level, unsupported=unsupported, main_stat=main_stat, profile=profile)
     overall_review, all_sorted_results = generate_overall_review(evaluate_list)
 
     return {

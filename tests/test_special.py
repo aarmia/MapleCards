@@ -24,6 +24,23 @@ class SpecialPartTests(unittest.TestCase):
         self.assertEqual(result["scoring_basis"]["benchmarks"]["special"], best_total("뱃지", context, 285))
         self.assertEqual([e["reason"] for e in result["scoring_basis"]["unrecognized_options"]], ["other_stat", "other_stat"])  # INT · LUK
 
+        # 훈장·포켓은 기본 옵션을 빼고 추가옵션만 봅니다. 불멸의 유산 추옵 최대(161/49/7)가 100
+        medal = {
+            "item_equipment_part": "훈장", "item_equipment_slot": "훈장", "item_name": "불멸의 유산",
+            "item_total_option": {"str": "171", "dex": "59", "attack_power": "10", "boss_damage": "10", "all_stat": "7"},
+            "item_add_option": {"str": "161", "dex": "49", "all_stat": "7"}, "item_base_option": {},
+        }
+        medal_result = evaluate_equipment([medal], "히어로", 285)[0]
+        self.assertEqual(medal_result["total_score"], 100.0)
+        self.assertNotIn("보스 몬스터 데미지 +10%", [e["option"] for e in medal_result["scoring_basis"]["recognized_options"]])
+
+        # 시드링은 종류 × 레벨, 예비 특수 반지 자리도 같은 규칙
+        ring = {"item_equipment_part": "반지", "item_equipment_slot": "반지1", "item_name": "리스트레인트 링", "special_ring_level": 6, "item_base_option": {}, "item_add_option": {}}
+        spare = {**ring, "item_equipment_slot": "예비 특수 반지", "item_name": "컨티뉴어스 링", "special_ring_level": 3}
+        ring_results = {r["slot"]: r for r in evaluate_equipment([ring, spare], "히어로", 285)}
+        self.assertEqual((ring_results["반지1"]["total_score"], ring_results["반지1"]["part"]), (100.0, "특수 반지"))
+        self.assertEqual(ring_results["예비 특수 반지"]["total_score"], 50.0)
+
     def test_title_options_are_parsed_and_expired_titles_score_zero(self):
         description = "깊은 어둠이 걸어온 마법의 주문\n\n보스 몬스터 데미지 +30%\n몬스터 방어율 무시+30%\n일반 몬스터 데미지 +30%\n추가 경험치 +100%\n공격력/마력+30\n옵션 적용 기간: 90일"
         self.assertEqual(title_lines(description, "마력"), ["마력 +30", "보스 몬스터 데미지 +30%", "몬스터 방어율 무시 +30%"])

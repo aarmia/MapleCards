@@ -121,11 +121,29 @@ def best_total(part: str, context: WeaponContext, char_level: int) -> float:
 
 
 def special_lines(item: dict, context: WeaponContext) -> tuple[list[str], bool]:
-    """아이템의 고정 옵션 줄과 만료 여부. 칭호는 설명 문구에서 읽고, 만료되면 줄을 비웁니다."""
-    if item.get("item_equipment_part") == TITLE_PART:
+    """아이템의 고정 옵션 줄과 만료 여부. 칭호는 설명 문구에서, 훈장·포켓은 추가옵션만, 나머지는 전체 옵션에서 읽습니다."""
+    part = item.get("item_equipment_part")
+    if part == TITLE_PART:
         expired = title_expired(item)
         return ([] if expired else title_lines(item.get("title_description", ""), context.attack_label)), expired
-    return option_lines(item.get("item_total_option"), context.attack_label), False
+    source = item.get("item_add_option") if part in POTENTIAL.special.add_option_parts else item.get("item_total_option")
+    return option_lines(source, context.attack_label), False
+
+
+def is_seed_ring(item: dict) -> bool:
+    """시드링(특수 반지): special_ring_level 이 있거나 예비 특수 반지 자리에 있는 아이템"""
+    return _number(item.get("special_ring_level")) > 0 or item.get("item_equipment_slot") == "예비 특수 반지"
+
+
+def ring_score(item: dict) -> tuple[float, dict]:
+    """시드링 점수(최상 100): 종류 가중치 × 레벨 ÷ max_level. 리스트레인트·컨티뉴어스 만렙이 100"""
+    config = POTENTIAL.special.ring
+    name = item.get("item_name") or ""
+    weight = next((value for keyword, value in config.weights.raw.items() if keyword in name), config.default)
+    level = _number(item.get("special_ring_level"))
+    score = round(weight * min(level, config.max_level) / config.max_level, 2)
+    rule = f"{name} Lv.{level:g} · 종류 {weight:g} × {level:g}/{config.max_level}"
+    return score, {"option": f"{name} Lv.{level:g}", "value": score, "rule": rule}
 
 
 def title_item(title: dict) -> dict | None:

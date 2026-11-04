@@ -99,7 +99,7 @@ _SCORING_SPEC = {
     "starforce": {k: NUMBER for k in ("reference_level", "level_weight_divisor", "base_star", "over_star_log_weight")},
     "weights": {k: NUMBER for k in ("potential", "additional", "soul", "superior_star", "weapon_add")},
     "noljang": {k: NUMBER for k in ("star_min", "star_max", "max_level", "etc_stat_strong", "etc_attack_strong", "etc_stat_weak", "etc_attack_weak")},
-    "special_items": {"wse_slots": list, "special_parts": list, "secondary_slots": list, "excluded_rings": list, "superior_keyword": str},
+    "special_items": {"wse_slots": list, "special_parts": list, "secondary_slots": list, "superior_keyword": str},
 }
 
 
@@ -252,7 +252,7 @@ _POTENTIAL_SPEC = {
             "default": {"potential": list, "additional_potential": list, "soul": list},
         },
     },
-    "special": {"ignored_keys": list, "best": dict},
+    "special": {"ignored_keys": list, "add_option_parts": list, "ring_part": str, "best": dict, "ring": {"max_level": NUMBER, "weights": dict, "default": NUMBER}},
 }
 
 

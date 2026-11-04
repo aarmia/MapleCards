@@ -81,24 +81,28 @@ soul = ["공격력 +8%", "보스 몬스터 데미지 +12%", "몬스터 방어율
 # 환산한 값을 100 으로 두는 점수입니다. 표의 값은 item_total_option 과 같은 형태(기본 옵션 + 추옵 합계)입니다.
 [special]
 ignored_keys = ["speed", "jump", "max_mp", "armor", "equipment_level_decrease"]
+add_option_parts = ["훈장", "포켓 아이템"]   # 기본 옵션은 빼고 추가옵션(환생의 불꽃)만 환산하는 부위
+ring_part = "특수 반지"                     # 시드링(리스트레인트·컨티뉴어스 등)과 예비 특수 반지 자리의 아이템
+
+[special.ring]                    # 시드링: 점수 = 종류 가중치 × 레벨 ÷ max_level. 이름에 키워드가 있으면 그 가중치, 없으면 default
+max_level = 6
+weights = { "리스트레인트" = 100, "컨티뉴어스" = 100, "웨폰퍼프" = 80, "리스크테이커" = 60, "링 오브 썸" = 60 }
+default = 50
 
 [special.best."뱃지"]               # 창세의 뱃지: 올스탯 15 (각 스탯에 포함), 공/마 10
 main_stat = 15
 sub_stat = 15
 attack = 10
 
-[special.best."훈장"]               # 불멸의 유산: 기본 올스탯 10 · 공/마 10 · 보공 10% + 추옵 최대 주스탯 161 · 부스탯 49 · 올스탯 7
-main_stat = 171
-sub_stat = 59
+[special.best."훈장"]               # 불멸의 유산 추옵 최대: 주스탯 161 · 부스탯 49 · 올스탯 7 (기본 옵션은 보지 않음)
+main_stat = 161
+sub_stat = 49
 all_stat = 7
-attack = 10
-boss_damage = 10
 
-[special.best."포켓 아이템"]       # 저주받은 마도서: 기본 주스탯 20 · 부스탯 10 · 공/마 10 + 추옵 최대 주스탯 133 · 부스탯 35 · 올스탯 7
-main_stat = 153
-sub_stat = 45
+[special.best."포켓 아이템"]       # 저주받은 마도서 추옵 최대: 주스탯 133 · 부스탯 35 · 올스탯 7 (기본 옵션은 보지 않음)
+main_stat = 133
+sub_stat = 35
 all_stat = 7
-attack = 10
 
 [special.best."칭호"]               # 보공 30% · 방무 30% · 공/마 30. 옵션은 검색 때마다 설명 문구에서 읽고 만료되면 인정하지 않습니다
 boss_damage = 30

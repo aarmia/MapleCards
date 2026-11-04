@@ -77,6 +77,5 @@ etc_attack_weak = 15
 wse_slots = ["무기", "보조무기", "엠블렘"]
 special_parts = ["훈장", "뱃지", "포켓 아이템", "칭호"]
 secondary_slots = ["보조무기", "엠블렘"]                  # 추옵·스타포스를 고정 점수로 두는 슬롯
-excluded_rings = ["리스트레인트", "컨티뉴어스", "웨폰퍼프"]   # 시드링은 평가에서 제외
 superior_keyword = "타일런트"
 # 훈장·뱃지·포켓·칭호의 환산과 최상 기준은 potential.toml 의 [special] 에 있습니다.
