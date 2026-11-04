@@ -15,6 +15,8 @@ from app.calculator import (
     max_starforce,
 )
 from app.character_profile import build_character_profile
+from app.combat_power import adjust_combat_power
+from app.crit_damage import boss_crit_damage
 from app.potential import StatContext, best_armor_total, reference_context
 from app.preset_optimizer import optimize_presets
 from app.preset_projection import active_items, project_context
@@ -541,6 +543,32 @@ def generate_overall_review(evaluate_list):
     return overall_review, all_sorted_results
 
 
+def build_combat_power_basis(stat_data, current_context, optimal_context, optimization, char_class, equipped_items, extras) -> dict:
+    """API 전투력을 최적 세팅 기준으로 보정합니다 (app/combat_power.py). 최적화 미지원이면 API 값을 그대로 둡니다.
+
+    크뎀은 API 값 대신 출처별 직접 합산(app/crit_damage.py, 보스 세팅 버프 포함)을 쓰고,
+    최적 세팅은 그 값에 최적화기가 계산한 크뎀 차이(장비·하이퍼·유니온·세트 등)를 더합니다.
+    """
+    api_power = final_stat_float(stat_data, "전투력") or 0.0
+    boss = final_stat_float(stat_data, "보스 몬스터 데미지") or 0.0
+    supported = optimization.get("method") == "saved_presets_boss_stat_index" and current_context.main_stat in ("str", "dex", "int", "luk")
+    if not supported:
+        return {"api": api_power, "adjusted": api_power, "status": "unsupported", "ratio": 1.0}
+
+    def inputs(context, boss_damage):
+        return {"main_stat": context.final_main, "sub_stat": context.final_sub, "attack": context.attack,
+                "boss_damage_pct": boss_damage, "crit_damage_pct": context.crit_damage}
+
+    # 링크 스킬은 전투력에 반영되지 않으므로 최적화기가 링크만 현재로 고정해 투영한 값을 씁니다.
+    optimal = dict(optimization.get("combat_power_inputs") or inputs(optimal_context, optimization.get("boss_damage", boss)))
+    current = inputs(current_context, boss)
+    crit, crit_breakdown = boss_crit_damage(char_class, equipped_items, extras)
+    optimal["crit_damage_pct"] = crit + optimal["crit_damage_pct"] - current["crit_damage_pct"]
+    current["crit_damage_pct"] = crit
+    basis = adjust_combat_power(api_power, current, optimal, bool(optimization.get("combat_power_is_current", True)))
+    return {**basis, "crit_damage": {"current": crit, "optimal": round(optimal["crit_damage_pct"], 2), "breakdown": crit_breakdown}}
+
+
 def extract_combat_power(stat_data):
     """스탯 응답에서 전투력 값을 꺼냅니다. 없으면 0을 돌려줍니다."""
     for stat in (stat_data or {}).get("final_stat") or []:
@@ -608,9 +636,11 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
         profile["optimization"] = optimization
     else:
         profile["optimization"] = {"method": "legacy_equipment_score_fallback",
-            "limitations": ["필수 스탯 누락 또는 특수 직업·복수 부스탯은 조합 최적화 미지원: 기존 장비 점수 기준 유지"]}
+            "limitations": ["필수 스탯 누락 또는 특수 직업은 조합 최적화 미지원: 기존 장비 점수 기준 유지"]}
     profile["context"].sources["equipment_basis"] = "selected_preset"
     profile["context"].sources["final_stats_basis"] = "projected_saved_presets" if optimized else "currently_equipped"
+    combat_power_basis = build_combat_power_basis(stat_data, equipped_context, profile["context"], profile["optimization"],
+                                                  char_class, equipped_items, extras)
     # 무기류 환산(공격력% 단위)에 쓰는 보공·데미지·방무는 스탯 응답에서 읽습니다.
     profile["weapon"] = WeaponContext(
         profile["context"],
@@ -632,6 +662,8 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
         "level": char_level,
         "character_image": char_image,
         "combat_power": extract_combat_power(stat_data),
+        "combat_power_adjusted": combat_power_basis["adjusted"],
+        "combat_power_basis": combat_power_basis,
         "best_preset": best_preset_idx,
         "profile": {
             **{key: value for key, value in profile.items() if key not in ("context", "weapon")},

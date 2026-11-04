@@ -281,7 +281,19 @@ def load_potential(path: Path = DATA_DIR / "potential.toml") -> Section:
     return Section(data, path.name)
 
 
+def load_class_skills(path: Path = DATA_DIR / "class_skills.toml") -> Section:
+    """직업별 스킬 크리티컬 데미지 표 (scripts/build_class_skills.py 가 생성)"""
+    data = load_toml(path)
+    validate(data, {"common": {"useful_sharp_eyes": NUMBER}, "crit_damage": dict}, path.name)
+    for name, row in data["crit_damage"].items():
+        if not (isinstance(row, dict) and isinstance(row.get("passive"), NUMBER) and isinstance(row.get("boss_buff"), NUMBER)
+                and isinstance(row.get("sharp_eyes"), bool)):
+            raise ConfigError(f"{path.name}: crit_damage.{name} 에는 passive·boss_buff 숫자와 sharp_eyes 참거짓이 필요합니다")
+    return Section(data, path.name)
+
+
 CLASSES = load_classes()
 SCORING = load_scoring()
 POTENTIAL = load_potential()
 GRADES = load_grades()
+CLASS_SKILLS = load_class_skills()

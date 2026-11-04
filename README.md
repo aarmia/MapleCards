@@ -79,7 +79,8 @@ app/
 │   ├── classes.toml        # 직업 → 주스탯 표
 │   ├── scoring.toml        # 점수 공식 상수 (계수, 목표 급수, 가중치, 판정값)
 │   ├── grades.toml         # 등급 · 색 · 총평 랭크 컷오프. 페이지와 응답에 실려 화면이 같은 값을 씀
-│   └── guides.toml         # 장비 가이드 규칙 표 (조건 → 태그와 문구, 위에서부터 첫 일치)
+│   ├── guides.toml         # 장비 가이드 규칙 표 (조건 → 태그와 문구, 위에서부터 첫 일치)
+│   └── class_skills.toml   # 직업별 스킬 크뎀 (전투력 보정용). scripts/build_class_skills.py 로 생성, 패치 후 다시 생성
 ├── request_tracker.py      # 동시 진단 제한, 대기열 상한 · 타임아웃, 진행 상태 추적
 ├── static/
 │   ├── images/             # logo.png, favicon.ico

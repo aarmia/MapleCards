@@ -5,7 +5,7 @@ from dataclasses import replace
 from app.character_profile import build_stat_context
 from app.potential import reference_context
 from app.preset_optimizer import optimize_presets
-from app.set_projection import DAWN, DAWN_TABLE, PITCHED, analyze_sets, apply_sets, membership
+from app.set_projection import DAWN, DAWN_TABLE, PITCHED, analyze_sets, apply_sets, count_sets, membership
 
 
 def item(name, slot):
@@ -91,7 +91,7 @@ class SetProjectionTests(unittest.TestCase):
         self.assertEqual(report["delta"]["attack"], -80)
         self.assertAlmostEqual(report["delta"]["ied_ratio"], 1 / .9)
 
-    def test_bad_count_and_bad_active_effect_fail_closed(self):
+    def test_bad_count_and_bad_active_effect_skip_that_set_only(self):
         for mode in ("count", "effect"):
             before, after, data = pitched_fixture()
             if mode == "count":
@@ -99,15 +99,16 @@ class SetProjectionTests(unittest.TestCase):
             else:
                 data["set_effect"][0]["set_effect_info"] = []
             report = analyze_sets(before, after, data)
-            self.assertEqual(report["status"], "unresolved")
+            self.assertEqual(report["status"], "unresolved")  # 바뀌는 세트가 칠흑 하나뿐이라 적용할 세트가 없습니다
+            self.assertEqual([s["set"] for s in report["skipped"]], [PITCHED])
             self.assertEqual(report["delta"]["attack"], 0)
 
-    def test_unknown_changed_item_is_not_a_non_set_item(self):
+    def test_unlisted_item_counts_as_no_set_and_other_sets_still_apply(self):
         before, after, data = pitched_fixture()
         after += [item("알 수 없는 럭키 아이템", "모자")]
+        self.assertEqual(membership(item("알 수 없는 럭키 아이템", "모자")), "")
         report = analyze_sets(before, after, data)
-        self.assertEqual(report["status"], "unresolved")
-        self.assertIn("미등록 교체 장비", report["reasons"][0])
+        self.assertEqual((report["status"], report["applied_sets"]), ("applied", [PITCHED]))
 
     def test_missing_api_or_missing_stage_blocks_correction(self):
         before, after, data = pitched_fixture()
@@ -116,6 +117,20 @@ class SetProjectionTests(unittest.TestCase):
         report = analyze_sets(before, after, data)
         self.assertEqual(report["status"], "unresolved")
         self.assertTrue(any("단계 누락" in x for x in report["reasons"]))
+
+    def test_armor_families_and_weapons_count_by_api_set_name(self):
+        self.assertEqual(membership(item("아케인셰이드 아처후드", "상의")), "아케인셰이드 세트(궁수)")
+        self.assertEqual(membership(item("앱솔랩스 파이렛코트", "상의")), "앱솔랩스 세트(해적)")
+        self.assertEqual(membership(item("하이네스 레인저베레", "모자")), "루타비스 세트(궁수)")
+        api = {"아케인셰이드 세트(궁수)", "에테르넬 세트(궁수)"}
+        arcane = [item("아케인셰이드 아처후드", "상의"), item("아케인셰이드 아처햇", "모자"), item("아케인셰이드 아처글러브", "장갑")]
+        self.assertEqual(count_sets(arcane + [item("아케인셰이드 보우", "무기")], api)["아케인셰이드 세트(궁수)"], 4)
+        # 제네시스·데스티니 무기는 에테르넬 세트에 들어가고, 3개 이상 착용한 하위 세트에는 럭키 아이템으로 1개 더 셉니다
+        counts = count_sets(arcane + [item("데스티니 보우", "무기")], api)
+        self.assertEqual((counts["에테르넬 세트(궁수)"], counts["아케인셰이드 세트(궁수)"]), (1, 4))
+        counts = count_sets(arcane[:2] + [item("제네시스 보우", "무기")], api)
+        self.assertEqual((counts["에테르넬 세트(궁수)"], counts["아케인셰이드 세트(궁수)"]), (1, 2))  # 2개뿐이면 럭키 미적용
+        self.assertEqual(count_sets([item("파프니르 윈드체이서", "무기")], api)["루타비스 세트(궁수)"], 0)  # API 세트명이 없으면 셀 수 없습니다
 
     def test_guardian_conversion_and_reserve_ring(self):
         self.assertNotEqual(membership(item("가디언 엔젤 링", "반지1")), membership(item("여명의 가디언 엔젤 링", "반지1")))

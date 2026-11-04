@@ -121,7 +121,7 @@ def boss_index(context, damage, boss, remaining_defense, defense=BOSS_DEFENSE):
 
 def optimize_presets(char_class, main_stat, level, item_data, stat_data, extras, current):
     required = [final_stat_float(stat_data, key) for key in ("데미지", "보스 몬스터 데미지", "방어율 무시", "크리티컬 확률", "크리티컬 데미지")]
-    if current.basis == "reference" or main_stat not in ("str", "dex", "int", "luk") or len(current.sub_names) != 1 or any(v is None for v in required):
+    if current.basis == "reference" or main_stat not in ("str", "dex", "int", "luk") or not current.sub_names or any(v is None for v in required):
         return None
     extras = extras or {}
     damage, boss, ied, _, _ = required
@@ -151,35 +151,47 @@ def optimize_presets(char_class, main_stat, level, item_data, stat_data, extras,
         equipment_options.append((n, items, projected))
     baseline_remaining = min(1, max(0, 1 - ied / 100))
     baseline_score = boss_index(current, damage, boss, baseline_remaining)
+    def project(equipment_context, equipment, set_delta, combination):
+        """장비 프리셋 투영 위에 저장 프리셋 조합의 효과 차이를 얹은 StatContext 와 데미지·보공·남은 방어율"""
+        delta = {key: sum(option[1][key] - old[key] for option, old in zip(combination, current_effects)) for key in FIELDS}
+        base = equipment_context.base_stat + delta["main_flat"]
+        mult = equipment_context.stat_pct + delta["main_pct"] / 100
+        exempt = equipment_context.exempt_stat + delta["main_exempt"]
+        attack_mult = equipment_context.attack_multiplier + delta["attack_pct"] / 100
+        attack = (equipment_context.attack / equipment_context.attack_multiplier + delta["attack"]) * attack_mult
+        # 부스탯은 단일 부스탯 직업만 모델링합니다. 복수 부스탯(섀도어·듀블·카데나)은 현재 값을 그대로 둡니다.
+        modeled_sub = "sub_base_estimate" in equipment_context.sources
+        sub_base = equipment_context.sources.get("sub_base_estimate", 0) + delta["sub_flat"]
+        sub_mult = equipment_context.sources.get("sub_multiplier", 1) + delta["sub_pct"] / 100
+        sub_exempt = equipment_context.sources.get("sub_exempt", 0) + delta["sub_exempt"]
+        if min(base, mult, attack_mult, attack, sub_mult if modeled_sub else 1) <= 0:
+            return None
+        crit = equipment_context.crit_damage + equipment["crit"] - equip_current["crit"] + delta["crit"]
+        rate = equipment_context.crit_rate + equipment["rate"] - equip_current["rate"] + delta["rate"]
+        sub_fields = {
+            "final_sub": max(0, sub_base * sub_mult + sub_exempt),
+            "sub_pct_ratio": sub_base / (current.stat_weight * base), "sub_flat_ratio": sub_mult / (current.stat_weight * mult),
+            "sources": {**equipment_context.sources, "sub_base_estimate": sub_base, "sub_multiplier": sub_mult, "sub_exempt": sub_exempt},
+        } if modeled_sub else {}
+        candidate = replace(equipment_context, base_stat=base, stat_pct=mult, exempt_stat=exempt,
+            final_main=base * mult + exempt, attack=attack, attack_multiplier=attack_mult, crit_damage=crit, crit_rate=rate, **sub_fields)
+        old_ied = math.prod([equip_current["ied"], *(old["ied"] for old in current_effects)])
+        new_ied = math.prod([equipment["ied"], *(option[1]["ied"] for option in combination)])
+        remaining = min(1, max(0, baseline_remaining * new_ied / old_ied * set_delta.get("ied_ratio", 1))) if old_ied > 0 else baseline_remaining
+        new_damage = damage + equipment["damage"] - equip_current["damage"] + delta["damage"] + set_delta.get("damage", 0)
+        new_boss = boss + equipment["boss"] - equip_current["boss"] + delta["boss"] + set_delta.get("boss", 0)
+        return candidate, new_damage, new_boss, remaining
+
     best, count = None, 0
     for equipment_no, items, equipment_context in equipment_options:
         equipment = equipment_effects(items, current)
         set_delta = equipment_context.sources.get("set_projection", {}).get("delta", {})
         for combination in itertools.product(*(options for _, options in dimensions)):
             count += 1
-            delta = {key: sum(option[1][key] - old[key] for option, old in zip(combination, current_effects)) for key in FIELDS}
-            base = equipment_context.base_stat + delta["main_flat"]
-            mult = equipment_context.stat_pct + delta["main_pct"] / 100
-            exempt = equipment_context.exempt_stat + delta["main_exempt"]
-            attack_mult = equipment_context.attack_multiplier + delta["attack_pct"] / 100
-            attack = (equipment_context.attack / equipment_context.attack_multiplier + delta["attack"]) * attack_mult
-            sub_base = equipment_context.sources.get("sub_base_estimate", 0) + delta["sub_flat"]
-            sub_mult = equipment_context.sources.get("sub_multiplier", 1) + delta["sub_pct"] / 100
-            sub_exempt = equipment_context.sources.get("sub_exempt", 0) + delta["sub_exempt"]
-            if min(base, mult, attack_mult, attack, sub_mult) <= 0:
+            projected = project(equipment_context, equipment, set_delta, combination)
+            if projected is None:
                 continue
-            crit = equipment_context.crit_damage + equipment["crit"] - equip_current["crit"] + delta["crit"]
-            rate = equipment_context.crit_rate + equipment["rate"] - equip_current["rate"] + delta["rate"]
-            candidate = replace(equipment_context, base_stat=base, stat_pct=mult, exempt_stat=exempt,
-                final_main=base * mult + exempt, final_sub=max(0, sub_base * sub_mult + sub_exempt),
-                attack=attack, attack_multiplier=attack_mult, crit_damage=crit, crit_rate=rate,
-                sub_pct_ratio=sub_base / (current.stat_weight * base), sub_flat_ratio=sub_mult / (current.stat_weight * mult),
-                sources={**equipment_context.sources, "sub_base_estimate": sub_base, "sub_multiplier": sub_mult, "sub_exempt": sub_exempt})
-            old_ied = math.prod([equip_current["ied"], *(old["ied"] for old in current_effects)])
-            new_ied = math.prod([equipment["ied"], *(option[1]["ied"] for option in combination)])
-            remaining = min(1, max(0, baseline_remaining * new_ied / old_ied * set_delta.get("ied_ratio", 1))) if old_ied > 0 else baseline_remaining
-            new_damage = damage + equipment["damage"] - equip_current["damage"] + delta["damage"] + set_delta.get("damage", 0)
-            new_boss = boss + equipment["boss"] - equip_current["boss"] + delta["boss"] + set_delta.get("boss", 0)
+            candidate, new_damage, new_boss, remaining = projected
             score = boss_index(candidate, new_damage, new_boss, remaining)
             if not math.isfinite(score) or best and score <= best[0] * (1 + 1e-12):
                 continue
@@ -189,11 +201,25 @@ def optimize_presets(char_class, main_stat, level, item_data, stat_data, extras,
             )
             ignored = sorted(set(text for source in [*(option[1] for option in combination), *current_effects]
                                  for text in source["ignored"]))
-            best = (score, equipment_no, items, candidate, selected_ids, ignored, new_damage, new_boss, remaining, is_current)
+            best = (score, equipment_no, items, candidate, selected_ids, ignored, new_damage, new_boss, remaining, is_current,
+                    (equipment_context, equipment, set_delta, combination))
     if best is None:
         return None
-    score, equipment_no, items, context, ids, ignored, new_damage, new_boss, remaining, is_current = best
-    metadata = {"method": "saved_presets_boss_stat_index", "boss_defense_percent": BOSS_DEFENSE,
+    score, equipment_no, items, context, ids, ignored, new_damage, new_boss, remaining, is_current, chosen = best
+    # 전투력 보정용 투영: 링크 스킬은 전투력에 반영되지 않으므로 링크만 현재 프리셋으로 고정한 조합을 따로 계산합니다.
+    equipment_context, equipment, set_delta, combination = chosen
+    link_fixed = tuple(options[0] if key == "link" else option for (key, options), option in zip(dimensions, combination))
+    combat_projected = project(equipment_context, equipment, set_delta, link_fixed)
+    combat_is_current = str(equipment_no) == str(current_no) and all(
+        option[0] == options[0][0] for option, (key, options) in zip(combination, dimensions) if key != "link"
+    )
+    combat_inputs = None
+    if combat_projected is not None:
+        combat_context, _, combat_boss, _ = combat_projected
+        combat_inputs = {"main_stat": combat_context.final_main, "sub_stat": combat_context.final_sub, "attack": combat_context.attack,
+                         "boss_damage_pct": combat_boss, "crit_damage_pct": combat_context.crit_damage}
+    metadata = {"method": "saved_presets_boss_stat_index", "boss_defense_percent": BOSS_DEFENSE, "is_current": is_current,
+        "combat_power_inputs": combat_inputs, "combat_power_is_current": combat_is_current,
         "selected": ids, "combinations_evaluated": count, "unavailable": unavailable,
         "relative_index": round(score / baseline_score, 6) if baseline_score > 0 else None,
         "damage": new_damage, "boss_damage": new_boss, "ignore_defense": (1 - remaining) * 100,

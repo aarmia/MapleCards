@@ -18,7 +18,10 @@
                 <div class="flex flex-col gap-4 text-left md:text-right w-full md:w-auto">
                     <div class="flex flex-col md:items-end">
                         <span class="text-[10px] font-black text-red-400 uppercase tracking-widest block mb-1">Combat Power</span>
-                        <span class="text-3xl md:text-4xl font-black text-red-500 tracking-tighter" x-text="report?.combat_power ? Number(report.combat_power).toLocaleString() : 'N/A'"></span>
+                        <span class="text-3xl md:text-4xl font-black text-red-500 tracking-tighter" x-text="report?.combat_power ? Number(report.combat_power_adjusted || report.combat_power).toLocaleString() : 'N/A'"></span>
+                        <!-- 조회 시점 세팅이 최적이 아니면 최적 프리셋으로 투영한 보정값을 보여줍니다 -->
+                        <span x-show="report?.combat_power_basis?.status === 'adjusted'" class="text-[10px] font-bold text-slate-400 mt-1"
+                              x-text="'최적 프리셋 기준 보정값으로 실제와 다를 수 있습니다'"></span>
                     </div>
                     <div class="flex flex-col md:items-end">
                         <span class="text-[10px] font-black text-blue-400 uppercase tracking-widest block mb-1">Total Score</span>
