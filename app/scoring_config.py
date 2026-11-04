@@ -246,7 +246,8 @@ def load_guides(path: Path = DATA_DIR / "guides.toml", rule_fields: set | None =
 
 _POTENTIAL_SPEC = {
     "sub_stat_ratio": NUMBER, "cooldown_per_second": NUMBER, "crit_base": NUMBER,
-    "buff": {k: NUMBER for k in ("main_stat_flat", "attack_flat", "attack_pct", "crit_damage_pct")},
+    "buff": {k: NUMBER for k in ("main_stat_flat", "attack_flat", "attack_pct", "ap_stat_pct", "crit_damage_pct")},
+    "ap": {"base": NUMBER, "per_level": NUMBER},
     "bounds": {"pct_per_flat": list, "pct_per_attack": list, "pct_per_crit_damage": list},
     "reference": {k: NUMBER for k in ("level", "base_stat", "stat_pct", "attack", "crit_damage", "crit_rate")},
     "exempt_estimate": {"bands": list},

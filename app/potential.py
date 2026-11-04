@@ -70,6 +70,7 @@ class StatContext:
     crit_damage: float  # 크리티컬 데미지 %
     crit_rate: float | None  # 크리티컬 확률 %. 모르면 None
     is_archer: bool
+    ap_stat: float = 0.0  # AP 로 올린 주스탯 (메이플 용사류 버프 가정의 기준)
     basis: str = "stat"
     sources: dict = field(default_factory=dict)
     attack_multiplier: float = 1.0
@@ -82,14 +83,19 @@ class StatContext:
 
     # ── 효율 계산은 전투 중 상태(도핑·버프 포함)를 기준으로 합니다. 가정값은 potential.toml [buff] ──
     @property
+    def buff_stat(self) -> float:
+        """전투 중 깡스탯에 더해지는 가정치: 주스탯 도핑 + 메이플 용사류(AP 스탯 × ap_stat_pct)"""
+        return POTENTIAL.buff.main_stat_flat + self.ap_stat * POTENTIAL.buff.ap_stat_pct / 100
+
+    @property
     def base_stat_effective(self) -> float:
-        """a' = 깡스탯 + 주스탯 도핑"""
-        return self.base_stat + POTENTIAL.buff.main_stat_flat
+        """a' = 깡스탯 + 버프 가정치"""
+        return self.base_stat + self.buff_stat
 
     @property
     def stat_attack(self) -> float:
-        """A = w × (S + 도핑 주스탯 × b) + d"""
-        return self.stat_weight * (self.final_main + POTENTIAL.buff.main_stat_flat * self.stat_pct) + self.final_sub
+        """A = w × (S + 버프 가정치 × b) + d"""
+        return self.stat_weight * (self.final_main + self.buff_stat * self.stat_pct) + self.final_sub
 
     @property
     def attack_multiplier_effective(self) -> float:
@@ -213,6 +219,11 @@ class StatContext:
         }
 
 
+def ap_stat(char_level: int) -> float:
+    """AP 로 올린 주스탯 추정 (potential.toml [ap])"""
+    return float(POTENTIAL.ap.base + POTENTIAL.ap.per_level * max(0, char_level - 1))
+
+
 def reference_context(char_class, main_stat: str) -> StatContext:
     """스탯 응답이 없을 때(테스트·단독 호출) 쓰는 기준 캐릭터. 값은 potential.toml 의 reference"""
     ref = POTENTIAL.reference
@@ -230,6 +241,7 @@ def reference_context(char_class, main_stat: str) -> StatContext:
         crit_damage=float(ref.crit_damage),
         crit_rate=float(ref.crit_rate),
         is_archer=is_archer(char_class),
+        ap_stat=ap_stat(ref.level),
         basis="reference",
     )
 
