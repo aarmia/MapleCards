@@ -21,7 +21,7 @@ from app.character_profile import (
     build_stat_context,
 )
 from app.potential import convert_line, reference_context
-from app.scoring_config import CLASSES
+from app.scoring_config import CLASSES, POTENTIAL
 
 
 class PotentialOptionTests(unittest.TestCase):
@@ -52,7 +52,7 @@ class PotentialOptionTests(unittest.TestCase):
         new = replace(current, base_stat=current.base_stat + 1259, stat_pct=9.38)
         option = "캐릭터 기준 9레벨 당 LUK +2"
         # 66 고정 × 100 × b ÷ (a + 도핑 주스탯 30)
-        self.assertAlmostEqual(convert_line(option, new, 298)[0], 66 * 100 * 9.38 / (new.base_stat + 30), places=2)
+        self.assertAlmostEqual(convert_line(option, new, 298)[0], 66 * 100 * 9.38 / (new.base_stat + POTENTIAL.buff.main_stat_flat), places=2)
         self.assertLess(convert_line(option, new, 298)[0], convert_line(option, old, 298)[0])
         self.assertEqual(convert_line(option, new, 298)[0], convert_line("LUK +66", new, 298)[0])
 
@@ -194,7 +194,8 @@ class PotentialOptionTests(unittest.TestCase):
     def test_two_line_potential_is_scored(self):
         # 스탯 응답이 없으면 기준 캐릭터(potential.toml reference)로 환산합니다. 도핑 가정([buff])까지 더해 마력 1 = 0.1186%
         self.assertEqual(calculate_potential_score(self.challenger_top, "potential", "레테", 285), 15.0)
-        self.assertEqual(calculate_potential_score(self.challenger_top, "additional_potential", "레테", 285), 5.19)
+        magic = reference_context("레테", "int").pct_per_attack  # 도핑 가정([buff])에 따라 달라지므로 기준 캐릭터에서 읽습니다
+        self.assertEqual(calculate_potential_score(self.challenger_top, "additional_potential", "레테", 285), round(4 + 10 * magic, 2))
 
     def test_analyzer_keeps_two_line_scores_and_raw_options(self):
         result = evaluate_equipment(
@@ -204,7 +205,9 @@ class PotentialOptionTests(unittest.TestCase):
         )[0]
 
         self.assertEqual(result["detail"]["pot"], 49.5)
-        self.assertEqual(result["detail"]["pot_additional"], 13.0)  # round(12.98, 1)
+        magic = reference_context("레테", "int").pct_per_attack
+        eddy_raw = round(4 + 10 * magic, 2)
+        self.assertEqual(result["detail"]["pot_additional"], round(eddy_raw * 2.5, 1))
         self.assertEqual(
             result["raw_options"]["potential_options"],
             ["INT +9%", "INT +6%"],
@@ -216,11 +219,11 @@ class PotentialOptionTests(unittest.TestCase):
         )
         self.assertEqual(
             [entry["weighted_value"] for entry in result["scoring_basis"]["recognized_options"]],
-            [29.7, 19.8, 10.0, 2.98],
+            [29.7, 19.8, 10.0, round(round(10 * magic, 2) * 2.5, 2)],
         )
         self.assertEqual(
             [entry["weighted_score"] for entry in result["scoring_basis"]["breakdown"]],
-            [0, 49.5, 12.98, 100.0],
+            [0, 49.5, round(eddy_raw * 2.5, 2), 100.0],
         )
         self.assertEqual(result["scoring_basis"]["star_score"], 100.0)
 
@@ -331,9 +334,12 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertAlmostEqual(context.stat_pct, 1.38, places=9)  # b = 1 + (장비 28 + 링크 10) ÷ 100
         self.assertAlmostEqual(context.base_stat, (40000 - 4405) / 1.38, places=6)
         # 효율은 도핑 가정(주스탯 +30, 공격력 +30, 공격력 4%)을 더한 전투 중 상태 기준입니다
-        a, stat_attack, attack = context.base_stat + 30, 4 * (40000 + 30 * 1.38) + 4000, (2000 + 30) * 1.04
+        buff = POTENTIAL.buff
+        a = context.base_stat + buff.main_stat_flat
+        stat_attack = 4 * (40000 + buff.main_stat_flat * 1.38) + 4000
+        attack = (2000 + buff.attack_flat) * (1 + buff.attack_pct / 100)
         self.assertAlmostEqual(context.pct_per_flat, 100 * 1.38 / a, places=9)
-        self.assertAlmostEqual(context.pct_per_attack, 100 * stat_attack * 1.04 / (4 * a * attack), places=9)
+        self.assertAlmostEqual(context.pct_per_attack, 100 * stat_attack * (1 + buff.attack_pct / 100) / (4 * a * attack), places=9)
         self.assertAlmostEqual(context.pct_per_crit_damage, stat_attack / (2.77 * 4 * a), places=9)  # 1.35 + 크뎀 0.85 + 버프 0.57
 
         estimated = build_stat_context("레테", "int", 285, [item], stats, {"hyper_stat": extras["hyper_stat"]})
@@ -342,6 +348,7 @@ class PotentialOptionTests(unittest.TestCase):
 
     def test_lines_convert_to_effective_stat_pct(self):
         # 기준 캐릭터: a = 12000, b = 3 → 고정 스탯 1 = 0.025%, 공/마 1 = 0.12%, 크뎀 1% = 144000 ÷ ((1.35 + 0.9 + 0.57) × 48000) = 1.064%
+        attack12 = round(12 * reference_context("히어로", "str").pct_per_attack, 2)  # 공/마 1 의 가치는 [buff] 도핑 가정에 따라 달라집니다
         cases = [
             ("히어로", "str", "STR +12%", 12.0),
             ("히어로", "str", "올스탯 +9%", 9.9),  # 주스탯 1 + 부스탯 1 × 0.1
@@ -349,7 +356,7 @@ class PotentialOptionTests(unittest.TestCase):
             ("히어로", "str", "DEX +9%", 0.9),
             ("히어로", "str", "STR +40", 1.0),
             ("히어로", "str", "DEX +40", 0.1),
-            ("히어로", "str", "공격력 +12", 1.42),
+            ("히어로", "str", "공격력 +12", attack12),
             ("히어로", "str", "마력 +12", None),
             ("히어로", "str", "크리티컬 데미지 +8%", 8.51),
             ("히어로", "str", "모든 스킬의 재사용 대기시간 -2초(10초 이하는 10%감소, 5초 미만으로 감소 불가)", 14.0),
@@ -360,7 +367,7 @@ class PotentialOptionTests(unittest.TestCase):
             ("데몬어벤져", "hp", "최대 HP +12%", 12.0),
             ("데몬어벤져", "hp", "STR +12%", 1.2),
             ("데몬어벤져", "hp", "올스탯 +9%", 0.9),
-            ("데몬어벤져", "hp", "공격력 +12", 1.42),
+            ("데몬어벤져", "hp", "공격력 +12", attack12),
         ]
         for class_name, main_stat, option, expected in cases:
             with self.subTest(option=f"{class_name} {option}"):
@@ -376,7 +383,8 @@ class PotentialOptionTests(unittest.TestCase):
         below, context = points("캡틴", 80.0)  # 100% 까지 20% 여유 → 9% 전부 유효
         self.assertAlmostEqual(below, 9 * context.pct_per_crit_rate, places=9)
         # A × (0.35 + 크뎀 + 버프 0.57) ÷ (w × a × (1 + 크확 × (0.35 + 크뎀 + 버프)))
-        self.assertAlmostEqual(context.pct_per_crit_rate, 144360 * 1.82 / (48120 * (1 + 0.8 * 1.82)), places=9)  # 도핑 주스탯 30 포함
+        a = 12000 + POTENTIAL.buff.main_stat_flat  # 도핑 주스탯 포함
+        self.assertAlmostEqual(context.pct_per_crit_rate, 4 * 3 * a * 1.82 / (4 * a * (1 + 0.8 * 1.82)), places=9)
         archer, context = points("보우마스터", 100.0)  # 궁수는 초과분 9% 가 크리티컬 리인포스 가치
         self.assertAlmostEqual(archer, 9 * 0.5 * 0.25 * context.pct_per_crit_damage, places=9)
         self.assertEqual(points("캡틴", 100.0)[0], 0.0)
