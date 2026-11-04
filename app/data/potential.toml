@@ -7,7 +7,7 @@
 #   a' · 공' · 크뎀' = 스탯창 값에 [buff] 의 도핑·버프 가정을 더한 값 (효율은 전투 중 상태를 기준으로 봅니다)
 #   주스탯% N = N,  올스탯% N = N × (1 + 부스탯 수 × sub_stat_ratio),  부스탯% N = N × sub_stat_ratio,  제논 개별 스탯% N = N ÷ 3 (INT 제외)
 sub_stat_ratio = 0.1              # 부스탯은 유효 스탯의 1/10
-cooldown_per_second = 7.0         # 재사용 대기시간 1초 = 유효 스탯 7%
+cooldown_per_second = 11.0        # 재사용 대기시간 1초 = 유효 스탯 11%
 crit_base = 1.35                  # 크리티컬 기본 배율 (1 + 0.35)
 
 [buff]                            # 효율 계산 시 켜져 있다고 보는 도핑·버프. 스탯창(API) 값에는 없으므로 여기서 더합니다
@@ -63,18 +63,17 @@ boss_damage_extra = 475           # 보공·데미지 분모에 더하는 버프
 ied_extra_pct = 88                # 남은 방어율에 곱해 빼는 추가 방무 % (곱연산)
 
 [weapon.best_lines]               # 캐릭터별 기준점(최상 조합): 후보는 종류별 최대값이고, 캐릭터에게 환산값이 가장 큰 줄이 count 줄 모두에 붙은 것을 최상으로 봅니다
-count = { potential = 3, additional_potential = 3, soul = 3 }   # 소울은 소울 잠재 3줄만 (소울 옵션 줄은 점수에서 제외)
+count = { potential = 3, additional_potential = 3 }
+soul_total = 20                   # 소울 잠재 3줄 공격력% 합의 기준 만점 (고정, 소울 옵션 줄은 점수에서 제외)
 destiny_keyword = "데스티니"        # 이름에 이 말이 있으면 destiny 표, 아니면 default 표(제네시스·보조무기·엠블렘). 엠블렘은 보공 후보를 뺍니다
 
 [weapon.best_lines.destiny]
 potential = ["공격력 +13%", "보스 몬스터 데미지 +45%", "몬스터 방어율 무시 +45%"]
 additional_potential = ["공격력 +13%", "보스 몬스터 데미지 +20%", "몬스터 방어율 무시 +8%"]
-soul = ["공격력 +8%", "보스 몬스터 데미지 +12%", "몬스터 방어율 무시 +5%"]   # 소울 잠재 종류별 최대값
 
 [weapon.best_lines.default]
 potential = ["공격력 +12%", "보스 몬스터 데미지 +40%", "몬스터 방어율 무시 +40%"]
 additional_potential = ["공격력 +12%", "보스 몬스터 데미지 +18%", "몬스터 방어율 무시 +5%"]
-soul = ["공격력 +8%", "보스 몬스터 데미지 +12%", "몬스터 방어율 무시 +5%"]
 
 # ── 훈장 · 뱃지 · 포켓 아이템 · 칭호 (app/special.py) ──
 # 고정 옵션(item_total_option, 칭호는 설명 문구)을 잠재와 같은 유효 스탯% 로 환산하고, 부위별 최상 아이템을 이 캐릭터 기준으로
@@ -96,17 +95,11 @@ main_stat = 15
 sub_stat = 15
 attack = 10
 
-[special.best."훈장"]               # 불멸의 유산 추옵 최대: 주스탯 182 · 부스탯 49 · 올스탯 7 (기본 옵션은 보지 않음). 데몬어벤져는 최대 HP 4900
-main_stat = 182
-main_stat_hp = 4900
-sub_stat = 49
-all_stat = 7
+[special.best."훈장"]               # 불멸의 유산(250제) 추옵 최대 = scoring.toml 불꽃 표의 250 구간 (주스탯 182 · 부스탯 49 · 올스탯 7, 데벤 HP 4900)
+flame_level = 250
 
-[special.best."포켓 아이템"]       # 저주받은 마도서 추옵 최대: 주스탯 133 · 부스탯 35 · 올스탯 7 (기본 옵션은 보지 않음). 데몬어벤져는 최대 HP 3360
-main_stat = 133
-main_stat_hp = 3360
-sub_stat = 35
-all_stat = 7
+[special.best."포켓 아이템"]       # 저주받은 마도서(160제) 추옵 최대 = 불꽃 표의 160 구간 (주스탯 133 · 부스탯 35 · 올스탯 7, 데벤 HP 3360)
+flame_level = 160
 
 [special.best."칭호"]               # 보공 30% · 방무 30% · 공/마 30. 옵션은 검색 때마다 설명 문구에서 읽고 만료되면 인정하지 않습니다
 boss_damage = 30
@@ -120,19 +113,37 @@ parts = ["반지", "펜던트", "귀고리", "눈장식", "얼굴장식", "벨�
 points_per_upgrade = 10
 
 # ── 방어구·장신구 기준점 (app/potential.py best_armor_total) ──
-# 캐릭터별 최상 조합: 후보 중 이 캐릭터에게 환산값이 가장 큰 줄이 count 줄 모두에 붙은 것. "주스탯"·"공격력"은 직업에 맞게 바뀝니다
+# 캐릭터별 최상 조합: 후보 중 이 캐릭터에게 환산값이 가장 큰 줄이 count 줄 모두에 붙은 것. "주스탯"은 직업에 맞게 바뀌고,
+# "공격력" 줄은 물리 직업, "마력" 줄은 INT 직업에만 씁니다. 아이템 레벨로 표를 고릅니다 (tiers: [레벨 하한, 표 이름] 내림차순 첫 일치).
+# 종류별로 후보 목록(캐릭터별 환산 × count) 대신 <종류>_total 로 유효 스탯% 합을 고정할 수 있습니다. 에디셔널은 고정값을 씁니다.
 [armor.best_lines]
 count = { potential = 3, additional_potential = 3 }
-potential = ["주스탯 +13%", "올스탯 +10%"]
-additional_potential = ["주스탯 +4%", "올스탯 +3%", "공격력 +12"]
+tiers = [[250, "lv250"], [0, "lv200"]]
 
-[armor.best_lines.parts."장갑"]
+[armor.best_lines.lv250]          # 250제 레전드리 최대값
+potential = ["주스탯 +13%", "올스탯 +10%"]
+additional_potential_total = 23   # 에디셔널 기준 만점 (유효 스탯%). 모든 부위 공통
+
+[armor.best_lines.lv250.parts."장갑"]
 potential = ["크리티컬 데미지 +8%", "주스탯 +13%", "올스탯 +10%"]
 
-[armor.best_lines.parts."모자"]
+[armor.best_lines.lv250.parts."모자"]
 potential = ["모든 스킬의 재사용 대기시간 -2초", "주스탯 +13%", "올스탯 +10%"]
 
-[weapon.add_best]                 # 무기 추옵 최상: 공격력 = 기본 공격력 × attack_ratio, 보공 %, 올스탯
-attack_ratio = 0.72
-boss_damage = 12
-all_stat = 6
+[armor.best_lines.lv200]          # 200제 이하 레전드리 최대값
+potential = ["주스탯 +12%", "올스탯 +9%"]
+additional_potential_total = 20
+
+[armor.best_lines.lv200.parts."장갑"]
+potential = ["크리티컬 데미지 +8%", "주스탯 +12%", "올스탯 +9%"]
+
+[armor.best_lines.lv200.parts."모자"]
+potential = ["모든 스킬의 재사용 대기시간 -2초", "주스탯 +12%", "올스탯 +9%"]
+
+[weapon.add_best]                 # 무기 불꽃 최대 조합 (app/weapon.py weapon_add_best): 공/마 줄 + 나머지 후보 중 환산값 큰 (lines − 1) 줄
+attack_ratio = [[250, 0.72], [200, 0.618], [0, 0.40]]   # 7등급 공/마 = 기본 공격력 × 비율. [레벨 하한, 비율] 내림차순 첫 일치 (관측값, 160제는 표본 1개)
+boss_damage_per_tier = 2          # 보공 등급당 2% (7등급 14%)
+damage_per_tier = 1               # 데미지 등급당 1% (7등급 7%)
+all_stat_per_tier = 1             # 올스탯 등급당 1 (7등급 7)
+lines = 4                         # 불꽃 줄 수. 주스탯 단일 줄은 scoring.toml add_option.flame 의 레벨별 단일 추옵 × 7등급
+# 추옵 축 = 환산값 ÷ 최대 조합 환산값 × 100 × weights.add (방어구와 같은 척도, 만점 110)

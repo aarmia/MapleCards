@@ -204,10 +204,10 @@ class PotentialOptionTests(unittest.TestCase):
             285,
         )[0]
 
-        self.assertEqual(result["detail"]["pot"], 49.5)
+        self.assertEqual(result["detail"]["pot"], 15.0)  # 곱상수 없이 유효 스탯% 합
         magic = reference_context("레테", "int").pct_per_attack
         eddy_raw = round(4 + 10 * magic, 2)
-        self.assertEqual(result["detail"]["pot_additional"], round(eddy_raw * 2.5, 1))
+        self.assertEqual(result["detail"]["pot_additional"], round(eddy_raw, 1))
         self.assertEqual(
             result["raw_options"]["potential_options"],
             ["INT +9%", "INT +6%"],
@@ -219,11 +219,11 @@ class PotentialOptionTests(unittest.TestCase):
         )
         self.assertEqual(
             [entry["weighted_value"] for entry in result["scoring_basis"]["recognized_options"]],
-            [29.7, 19.8, 10.0, round(round(10 * magic, 2) * 2.5, 2)],
+            [9.0, 6.0, 4.0, round(10 * magic, 2)],
         )
         self.assertEqual(
             [entry["weighted_score"] for entry in result["scoring_basis"]["breakdown"]],
-            [0, 49.5, round(eddy_raw * 2.5, 2), 100.0],
+            [0, 15.0, eddy_raw, 100.0],
         )
         self.assertEqual(result["scoring_basis"]["star_score"], 100.0)
 
@@ -329,7 +329,7 @@ class PotentialOptionTests(unittest.TestCase):
         profile = build_character_profile("레테", "int", 285, [item], stats, extras)
         context = profile["context"]
 
-        self.assertEqual((profile["tier"], profile["add_target_multiplier"]), ("중자본", 0.87))
+        self.assertIn("combat_power", profile)
         self.assertEqual((context.basis, context.exempt_stat), ("stat", 4425.0))  # 어빌리티 INT 20 도 미적용  # 아티팩트·어빌리티 고정 스탯은 % 적용
         self.assertAlmostEqual(context.stat_pct, 1.38, places=9)  # b = 1 + (장비 28 + 링크 10) ÷ 100
         self.assertAlmostEqual(context.base_stat, (40000 - 4425) / 1.38, places=6)
@@ -361,7 +361,7 @@ class PotentialOptionTests(unittest.TestCase):
             ("히어로", "str", "공격력 +12", attack12),
             ("히어로", "str", "마력 +12", None),
             ("히어로", "str", "크리티컬 데미지 +8%", round(8 * reference.pct_per_crit_damage, 2)),
-            ("히어로", "str", "모든 스킬의 재사용 대기시간 -2초(10초 이하는 10%감소, 5초 미만으로 감소 불가)", 14.0),
+            ("히어로", "str", "모든 스킬의 재사용 대기시간 -2초(10초 이하는 10%감소, 5초 미만으로 감소 불가)", 22.0),
             ("제논", "all_stat", "STR +9%", 3.0),
             ("제논", "all_stat", "INT +9%", None),
             ("제논", "all_stat", "올스탯 +9%", 9.0),

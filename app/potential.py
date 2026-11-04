@@ -389,14 +389,22 @@ def analyze_lines(options: list[str], context: StatContext, char_level: int) -> 
     return score_detail(total, recognized, options, context.main_label)
 
 
-def best_armor_total(kind: str, part: str, context: StatContext, char_level: int) -> float:
-    """방어구·장신구의 캐릭터별 기준점: potential.toml [armor.best_lines] 의 후보 중 가장 좋은 줄 × count"""
+def best_armor_total(kind: str, part: str, context: StatContext, char_level: int, item_level: int = 0) -> float:
+    """방어구·장신구의 캐릭터별 기준점: potential.toml [armor.best_lines] 에서 아이템 레벨 표를 골라 후보 중 가장 좋은 줄 × count"""
     config = POTENTIAL.armor.best_lines
-    candidates = (config.raw["parts"].get(part) or {}).get(kind) or config.raw[kind]
+    tier_name = next(name for level_min, name in config.tiers if item_level >= level_min)
+    table = config.raw[tier_name]
+    part_table = (table.get("parts") or {}).get(part, {})
+    fixed = part_table.get(f"{kind}_total", table.get(f"{kind}_total"))
+    if fixed is not None:  # 고정 기준 만점 (유효 스탯%)
+        return float(fixed)
+    candidates = part_table.get(kind) or table[kind]
     main = "최대 HP" if context.main_stat == "hp" else ("STR" if context.main_stat == "all_stat" else context.main_label)
     attack = "마력" if context.main_stat == "int" else "공격력"
     values = []
     for text in candidates:
-        converted = convert_line(text.replace("주스탯", main).replace("공격력", attack), context, char_level)
+        if text.startswith(("공격력", "마력")) and not text.startswith(attack):
+            continue  # 공격력 줄은 물리 직업, 마력 줄은 INT 직업만 후보
+        converted = convert_line(text.replace("주스탯", main), context, char_level)
         values.append(converted[0] if converted else 0.0)
     return round(max(values) * config.raw["count"][kind], 2)

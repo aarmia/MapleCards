@@ -323,7 +323,7 @@ document.addEventListener('alpine:init', () => {
             const total = entries.reduce((sum, entry) => sum + entry.value, 0);
             if (item?.part === '장갑' && crit.length) {
                 const rest = total - crit.reduce((sum, entry) => sum + entry.value, 0);
-                return `${crit.length}크` + (rest > 0.05 ? ` + ${rest.toFixed(1)}%` : '');
+                return '크'.repeat(crit.length) + (rest > 0.05 ? ` + ${rest.toFixed(1)}%` : '');  // 1크 → 크, 2크 → 크크, 3크 → 크크크
             }
             return total.toFixed(1) + (item?.is_wse ? '% (공)' : '%');
         },
@@ -376,7 +376,9 @@ document.addEventListener('alpine:init', () => {
             const rows = Object.fromEntries((item.scoring_basis.breakdown || []).map(row => [row.key, row]));
             const cards = [];
             if (rows.add) {
-                cards.push({ key: 'add', label: '추가옵션', color: 'text-emerald-300', total: item.is_wse ? `${rows.add.raw_score}% (공)` : `${rows.add.raw_score}`, lines: this.addSummaryLines(item) });
+                const addMark = item.scoring_basis?.benchmarks?.add || 0;
+                const addTotal = item.is_wse ? `최대 대비 ${addMark ? Math.round(100 * rows.add.weighted_score / addMark) : 0}%` : `${rows.add.raw_score}`;
+                cards.push({ key: 'add', label: '추가옵션', color: 'text-emerald-300', total: addTotal, lines: this.addSummaryLines(item) });
             }
             if (rows.special) {
                 cards.push({ key: 'special', label: '고유 옵션', color: 'text-violet-300', total: `유효 ${rows.special.raw_score}%`, lines: this.axisEntries(item, '고유 옵션').map(entry => entry.option) });

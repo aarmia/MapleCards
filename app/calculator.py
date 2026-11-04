@@ -95,52 +95,46 @@ def calculate_item_score(add_option: dict, class_name: str, main_stat: str | Non
     stat_val = int(add_option.get(main_stat, 0))
     return stat_val + (all_stat_pct * grade.all_stat_pct_default) + (attack_pwr * grade.attack_default) + sub_total
 
-def get_advanced_add_score(actual_급수, level, part_name, char_name_class, target_multiplier=1.0):
-    add_config = SCORING.add_option
-    if any(k in part_name for k in add_config.no_add_parts):
-        return 100.0
+def flame_best_add_option(level: int, class_name: str, main_stat: str | None = None, sub_names=()) -> dict:
+    """레벨별 환생의 불꽃 최대 조합을 item_add_option 과 같은 dict 로 만듭니다 (scoring.toml add_option.flame).
 
-    targets = add_config.targets
-    if char_name_class == "제논":
-        target_map, fallback = targets.xenon, targets.xenon_fallback
-    elif char_name_class == "데몬어벤져":
-        target_map, fallback = targets.demon_avenger, targets.demon_avenger_fallback
+    주스탯 단일 + 주스탯 이중 2줄(부스탯 포함) + 4번째 줄은 올스탯%·공/마 중 급수가 큰 쪽입니다.
+    데몬어벤져는 최대 HP 단일 + 부스탯 단일·이중, 제논은 이중 3줄(STR·DEX·LUK 각 2줄)입니다.
+    """
+    main_stat = main_stat or get_main_stat(class_name)
+    flame = SCORING.add_option.flame
+    band = next(entry for entry in flame.bands if level >= entry[0])
+    tier = flame.max_tier
+    single, dual, hp, other = band[1] * tier, band[2] * tier, band[3] * tier, flame.other_per_tier * tier
+    subs = [name.lower() for name in sub_names][:2]
+    if main_stat == "hp":
+        base = {"max_hp": hp}
+        if subs:
+            base[subs[0]] = single + dual
+    elif main_stat == "all_stat":
+        base = {"str": dual * 2, "dex": dual * 2, "luk": dual * 2}
     else:
-        target_map, fallback = targets.default, targets.default_fallback
+        base = {main_stat: single + dual * 2}
+        for sub in subs:
+            base[sub] = dual
+    attack = "magic_power" if main_stat == "int" else "attack_power"
+    candidates = [{**base, "all_stat": other}, {**base, attack: other}]
+    return max(candidates, key=lambda option: calculate_item_score(option, class_name, main_stat=main_stat))
 
-    target = target_map.get(level)
-    if target is None:
-        if level >= fallback.min_level:
-            target = (level * fallback.slope) + fallback.offset
-        else:
-            return 100.0
 
-    # 캐릭터 자본대(전투력)에 따른 목표 배율. build_report 가 profile 로 정합니다.
-    target = target * target_multiplier
+def max_starforce(level: int, name: str = "", superior: bool = False) -> int:
+    """기준 만점 스타포스 (scoring.toml starforce.max_star): 제네시스 22 · 데스티니 25 · 슈페리얼 15 · 그 외 레벨 구간"""
+    config = SCORING.starforce.max_star
+    for keyword, star in config.names.raw.items():
+        if keyword in name:
+            return star
+    if superior:
+        return config.superior
+    for level_limit, star in config.bands:
+        if level < level_limit:
+            return star
+    return config.default
 
-    diff_percent = ((actual_급수 - target) / target) * 100.0
-    score = 100.0
-    rem = abs(diff_percent)
-
-    curve = add_config.curve
-    if diff_percent > 0:
-        mult = curve.above.mult
-        decay = curve.above.decay
-    else:
-        mult = curve.below.mult
-        decay = curve.below.decay
-
-    while rem > 0:
-        chunk = min(curve.chunk, rem)
-        if diff_percent > 0:
-            score += (chunk * mult)
-            mult *= decay
-        else:
-            score -= (chunk * mult)
-            mult = min(mult * decay, curve.below.cap)
-        rem -= chunk
-
-    return round(max(0, score), 2)
 
 def analyze_potential_score(
     item_data: dict,

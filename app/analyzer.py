@@ -8,10 +8,11 @@ from app.calculator import (
     calculate_item_score,
     calculate_potential_score,
     final_stat_float,
-    get_advanced_add_score,
+    flame_best_add_option,
     get_main_stat,
     get_potential_options,
     get_starforce_score,
+    max_starforce,
 )
 from app.character_profile import build_character_profile
 from app.potential import StatContext, best_armor_total, reference_context
@@ -20,7 +21,6 @@ from app.preset_projection import active_items, project_context
 from app.scoring_config import GRADES, POTENTIAL, SCORING, load_guides
 from app.special import (
     analyze_special_lines,
-    best_add_option,
     best_total,
     is_seed_ring,
     ring_score,
@@ -130,7 +130,7 @@ def get_best_preset(
 # 규칙 표가 참조할 수 있는 필드. build_guide_context 가 만드는 키와 같아야 하며, 로더가 기동 시 대조합니다.
 GUIDE_FIELDS = {
     "total", "add", "pot", "eddy", "starscore", "star", "star_next", "max_star", "at_cap", "level", "noljang", "limited",
-    "add_evaluated", "star_evaluated", "worst", "next", "min_ratio", "target_add", "target_star_330", "target_star_17",
+    "add_evaluated", "star_evaluated", "worst", "next", "min_ratio", "target_star_330", "target_star_17",
     "target_star_21", "ratio", "add_ratio", "pot_ratio", "eddy_ratio",
 }
 SPECIAL_GUIDE_FIELDS = {"total", "expired"}
@@ -165,12 +165,7 @@ def select_guide(rules: list, context: dict, names: dict, item_name: str, part_n
 
 def build_guide_context(scores, star_val, part_name, item_name, total_score, item_req_level, is_noljang, benchmarks=None, ratio=None) -> dict:
     """규칙 표가 비교할 값들을 계산합니다. 파생값(최대 스타포스, 최저 축, 목표치)은 코드가 맡고 규칙 표는 조건과 문구만 가집니다."""
-    cap = GUIDES.star_cap
-    max_star = cap.default
-    for level_limit, star_limit in cap.bands:
-        if item_req_level < level_limit:
-            max_star = star_limit
-            break
+    max_star = max_starforce(item_req_level, item_name, any(k in item_name for k in GUIDES.names.superior))
 
     axes = GUIDES.axes
     add_evaluated = not any(k in part_name for k in axes.no_add_parts)
@@ -198,7 +193,6 @@ def build_guide_context(scores, star_val, part_name, item_name, total_score, ite
         "worst": ranked[0][1], "next": ranked[1][1] if len(ranked) > 1 else ranked[0][1], "min_ratio": ranked[0][0],
         # 기준 만점 대비 비율. 등급·랭크와 같은 기준이라 부위(축 수·캐릭터별 기준점)에 관계없이 비교할 수 있습니다.
         "ratio": ratio, "add_ratio": ratios[0], "pot_ratio": ratios[1], "eddy_ratio": ratios[2],
-        "target_add": targets.add_low if item_req_level <= targets.add_level_split else targets.add_high,
         "target_star_330": min(
             targets.star_330_low if item_req_level <= targets.star_330_level_split else targets.star_330_high, max_star
         ),
@@ -237,18 +231,15 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
     main_stat = main_stat or get_main_stat(char_class)
     # 잠재 환산 기준. build_report 가 캐릭터 스탯으로 만든 것이 없으면 기준 캐릭터(potential.toml reference)를 씁니다.
     context = profile["context"] if profile else reference_context(char_class, main_stat)
-    target_multiplier = profile["add_target_multiplier"] if profile else 1.0
     weapon_context = (profile or {}).get("weapon") or WeaponContext(context)
 
     def weight_notes(item_req_level):
         star_weight = round(1.0 + (item_req_level - SCORING.starforce.reference_level) / SCORING.starforce.level_weight_divisor, 3)
         notes = [
-            f"윗잠재 환산값 × {weights.potential:g}",
-            f"에디셔널 환산값 × {weights.additional:g}",
-            f"스타포스 레벨 가중치 × {star_weight if item_req_level > 0 else 0}",
+            f"추가옵션 급수 ÷ {item_req_level}제 불꽃 최대 급수 × 100 × {weights.add:g}",
+            "윗잠재·에디셔널 환산값 합 (곱상수 없음)",
+            f"스타포스 레벨 가중치 × {star_weight if item_req_level > 0 else 0} (기준 만점은 최대 스타포스)",
         ]
-        if profile:
-            notes.append(f"추옵 목표 급수 × {target_multiplier:g} ({profile['tier']})")
         notes.extend(context.notes())
         return notes
 
@@ -293,13 +284,14 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                 notes = [f"시드링 · 종류 가중치 × 레벨 ÷ {POTENTIAL.special.ring.max_level} (리스트레인트·컨티뉴어스 만렙 = 100)"]
             elif part in POTENTIAL.special.add_option_parts:
                 # 훈장·포켓: 추옵 로직. 환생의 불꽃 급수(주스탯 + 올스탯% × 10 + 공/마 × 계수 + 부스탯 ÷ 10)를
-                # potential.toml [special.best] 의 추옵 최대치 급수와 비교합니다.
+                # 최상 아이템 레벨(potential.toml [special.best] flame_level)의 불꽃 최대 급수와 비교합니다.
                 axis_key, axis_label = "add", "추가옵션"
+                flame_level = POTENTIAL.special.best.raw[part]["flame_level"]
                 value = calculate_item_score(item.get("item_add_option") or {}, char_class, main_stat=main_stat)
-                benchmark = calculate_item_score(best_add_option(part, main_stat, context.sub_names), char_class, main_stat=main_stat)
+                benchmark = calculate_item_score(flame_best_add_option(flame_level, char_class, main_stat, context.sub_names), char_class, main_stat=main_stat)
                 total_item_score = round(100 * value / benchmark, 2) if benchmark > 0 else 0.0
                 analysis = {"recognized": [], "ignored": [], "unsupported": []}
-                notes = [f"추가옵션 급수 {value:g} ÷ 추옵 최대치 급수 {benchmark:g} × 100 (기본 옵션은 보지 않음)"]
+                notes = [f"추가옵션 급수 {value:g} ÷ {flame_level}제 불꽃 최대 급수 {benchmark:g} × 100 (기본 옵션은 보지 않음)"]
             else:
                 lines, expired = special_lines(item, weapon_context)
                 analysis = analyze_special_lines(lines, weapon_context, char_level)
@@ -383,47 +375,51 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             # 무기류는 공격력% 단위(app/weapon.py). 무기는 추옵·스타포스·윗잠·에디·소울, 보조무기·엠블렘은 윗잠·에디만 평가합니다.
             group = part_group(slot, part)
             if group == "weapon":
+                # 무기 추옵 = 공% 환산값 ÷ 레벨별 불꽃 최대 조합 × 100 × weights.add (방어구와 같은 척도)
                 add_raw_score, add_recognized = weapon_add_value(item.get("item_add_option"), weapon_context, char_level)
-                add_score = add_raw_score * weights.weapon_add
+                add_best = weapon_add_best(item, weapon_context, char_level)
+                add_score = (100 * add_raw_score / add_best * weights.add) if add_best > 0 else 0.0
                 soul_analysis = analyze_weapon_item(item, "soul", weapon_context, char_level)
                 soul_val = soul_analysis["score"]
-                soul_score = (soul_val * weights.soul) if soul_val > 0 else 0
+                soul_score = max(soul_val, 0)
             else:
                 add_raw_score = add_score = 0.0
                 # 보조무기의 스타포스는 200제 장비 기준으로 환산하고, 엠블렘은 스타포스 축이 없습니다.
                 adv_star_score = get_starforce_score(star, POTENTIAL.weapon.secondary_star_level) if group == "secondary" else 0.0
             pot_analysis = analyze_weapon_item(item, "potential", weapon_context, char_level)
             pot_val = pot_analysis["score"]
-            pot_score = (pot_val * weights.potential) if pot_val > 0 else 0
+            pot_score = max(pot_val, 0)
             eddy_analysis = analyze_weapon_item(item, "additional_potential", weapon_context, char_level)
             eddy_val = eddy_analysis["score"]
-            eddy_score = (eddy_val * weights.additional) if eddy_val > 0 else 0
+            eddy_score = max(eddy_val, 0)
             # 캐릭터별 최상 조합을 기준점으로 둡니다 (가이드의 축 비율과 이후 등급 컷에 사용).
             tier = tier_of(name)
             benchmarks = {
                 "tier": tier,
-                "pot": round(best_lines_total("potential", group, weapon_context, char_level, tier) * weights.potential, 2),
-                "pot_additional": round(best_lines_total("additional_potential", group, weapon_context, char_level, tier) * weights.additional, 2),
+                "pot": best_lines_total("potential", group, weapon_context, char_level, tier),
+                "pot_additional": best_lines_total("additional_potential", group, weapon_context, char_level, tier),
             }
             if group == "weapon":
-                benchmarks["soul"] = round(best_lines_total("soul", group, weapon_context, char_level, tier) * weights.soul, 2)
-                benchmarks["add"] = round(weapon_add_best(item, weapon_context, char_level) * weights.weapon_add, 2)
+                benchmarks["soul"] = best_lines_total("soul", group, weapon_context, char_level, tier)
+                benchmarks["add"] = round(100 * weights.add, 2)
         else:
             # 추옵이 없는 부위(반지·어깨장식·기계 심장)는 추옵 축 자체를 두지 않습니다.
+            # 추옵 축 = 급수 ÷ 그 레벨의 불꽃 최대 급수 × 100 × weights.add. 기준 만점은 100 × weights.add 입니다.
             if add_evaluated:
-                actual_add_급수 = calculate_item_score(item.get("item_add_option", {}), char_class, main_stat=main_stat)
-                add_raw_score = actual_add_급수
-                add_score = get_advanced_add_score(actual_add_급수, item_req_level, part, char_class, target_multiplier=target_multiplier)
+                add_raw_score = calculate_item_score(item.get("item_add_option", {}), char_class, main_stat=main_stat)
+                add_best = calculate_item_score(flame_best_add_option(item_req_level, char_class, main_stat, context.sub_names), char_class, main_stat=main_stat)
+                add_score = (100 * add_raw_score / add_best * weights.add) if add_best > 0 else 0.0
             benchmarks = {
-                "pot": round(best_armor_total("potential", part, context, char_level) * weights.potential, 2),
-                "pot_additional": round(best_armor_total("additional_potential", part, context, char_level) * weights.additional, 2),
+                "add": round(100 * weights.add, 2),
+                "pot": best_armor_total("potential", part, context, char_level, item_req_level),
+                "pot_additional": best_armor_total("additional_potential", part, context, char_level, item_req_level),
             }
             pot_analysis = analyze_potential_score(item, "potential", char_class, char_level, main_stat=main_stat, context=context)
             pot_val = pot_analysis["score"]
-            pot_score = (pot_val * weights.potential) if pot_val > 0 else 0
+            pot_score = max(pot_val, 0)
             eddy_analysis = analyze_potential_score(item, "additional_potential", char_class, char_level, main_stat=main_stat, context=context)
             eddy_val = eddy_analysis["score"]
-            eddy_score = (eddy_val * weights.additional) if eddy_val > 0 else 0
+            eddy_score = max(eddy_val, 0)
 
         _log_unsupported_options(name, "potential", pot_analysis, unsupported)
         _log_unsupported_options(name, "additional_potential", eddy_analysis, unsupported)
@@ -459,6 +455,10 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
 
         total_item_score = add_score + pot_score + eddy_score + adv_star_score + soul_score
         group = part_group(slot, part) if is_weapon else None
+        # 스타포스 기준 만점 = 최대 스타포스(130제 이하 20 · 140제 이상 30 · 제네시스 22 · 데스티니 25 · 슈페리얼 15)의 점수
+        star_level = POTENTIAL.weapon.secondary_star_level if group == "secondary" else item_req_level
+        star_best = get_starforce_score(max_starforce(item_req_level, name, is_superior), star_level)
+        benchmarks["star"] = round(star_best * (weights.superior_star if is_superior else 1), 2)
         detail = {"pot": round(pot_score, 1), "pot_additional": round(eddy_score, 1)}
         breakdown = [
             {"key": "pot", "label": "윗잠재", "raw_score": round(max(pot_val, 0), 2), "weighted_score": round(pot_score, 2)},
@@ -476,9 +476,9 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         # 기준 만점 = 평가하는 축의 기준점 합. 등급·랭크는 총점이 아니라 이 비율로 매깁니다 (익셉셔널은 만점에 넣지 않는 가산).
         benchmark_total = benchmarks["pot"] + benchmarks["pot_additional"] + benchmarks.get("soul", 0)
         if add_evaluated:
-            benchmark_total += benchmarks.get("add") or axes.benchmarks[0]
+            benchmark_total += benchmarks["add"]
         if star_evaluated:
-            benchmark_total += axes.benchmarks[3]
+            benchmark_total += benchmarks["star"]
         exceptional = exceptional_axis(item, part) if not is_weapon else None
         if exceptional and exceptional[0] > 0:  # 강화가 없으면 축을 보여주지 않습니다
             upgrades, exceptional_points = exceptional

@@ -10,7 +10,7 @@ import re
 
 from app.calculator import final_stat_float, final_stat_value, get_potential_options
 from app.potential import StatContext, ap_stat, is_archer, main_names, reference_context, secondary_names, stat_weight
-from app.scoring_config import POTENTIAL, SCORING
+from app.scoring_config import POTENTIAL
 
 EXTRA_KEYS = ("symbol", "hyper_stat", "union_raider", "union_artifact", "ability", "link_skill", "hexa_stat")
 
@@ -240,20 +240,10 @@ def build_stat_context(char_class, main_stat: str, char_level: int, equipped_ite
 def build_character_profile(char_class, main_stat: str, char_level: int, equipped_items, stat_data, extras=None) -> dict:
     """캐릭터별 기준을 한 번에 정합니다.
 
-    - tier / add_target_multiplier: 전투력으로 자본대를 나눠 추옵 목표 급수에 곱할 배율 (scoring.toml add_option.tiers)
     - context: 잠재·에디셔널을 유효 스탯% 로 바꾸는 캐릭터 수치 (StatContext)
     """
-    tiers = SCORING.add_option.tiers.bands
-    combat_power = final_stat_value(stat_data, "전투력")
-    tier_name, multiplier = tiers[-1][1], tiers[-1][2]
-    for min_power, name, factor in tiers:
-        if combat_power >= min_power:
-            tier_name, multiplier = name, factor
-            break
     return {
         "main_stat": main_stat.upper(),
-        "combat_power": combat_power,
-        "tier": tier_name,
-        "add_target_multiplier": multiplier,
+        "combat_power": final_stat_value(stat_data, "전투력"),
         "context": build_stat_context(char_class, main_stat, char_level, equipped_items, stat_data, extras),
     }

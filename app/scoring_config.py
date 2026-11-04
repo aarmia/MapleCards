@@ -78,7 +78,6 @@ def _int_keyed(table: dict, source: str) -> dict:
         raise ConfigError(f"{source}: 키는 정수(아이템 레벨)여야 합니다") from exc
 
 
-_FALLBACK = {"min_level": NUMBER, "slope": NUMBER, "offset": NUMBER}
 _CLASSES_SPEC = {
     "main_stat": dict, "special": dict, "switchable": dict, "default": str,
     "secondary_stat": dict, "secondary_stat_overrides": dict, "archer_classes": list, "stat_weight": dict,
@@ -86,18 +85,14 @@ _CLASSES_SPEC = {
 _SCORING_SPEC = {
     "add_option": {
         "grade": {k: NUMBER for k in ("all_stat_pct_default", "all_stat_pct_all_stat", "attack_default", "attack_all_stat", "attack_hp", "magic_int", "sub_stat_divisor")},
-        "targets": {
-            "default": dict, "default_fallback": _FALLBACK,
-            "xenon": dict, "xenon_fallback": _FALLBACK,
-            "demon_avenger": dict, "demon_avenger_fallback": _FALLBACK,
-        },
-        "no_add_parts": list,
-        "curve": {"chunk": NUMBER, "above": {"mult": NUMBER, "decay": NUMBER}, "below": {"mult": NUMBER, "decay": NUMBER, "cap": NUMBER}},
-        "tiers": {"bands": list},
+        "flame": {"max_tier": NUMBER, "bands": list, "other_per_tier": NUMBER},
     },
     "potential": {"excluded_slots": list, "ignored_keywords": list, "stat_keywords": list, "relevant_keywords": dict},
-    "starforce": {k: NUMBER for k in ("reference_level", "level_weight_divisor", "base_star", "over_star_log_weight")},
-    "weights": {k: NUMBER for k in ("potential", "additional", "soul", "superior_star", "weapon_add")},
+    "starforce": {
+        **{k: NUMBER for k in ("reference_level", "level_weight_divisor", "base_star", "over_star_log_weight")},
+        "max_star": {"bands": list, "default": NUMBER, "superior": NUMBER, "names": dict},
+    },
+    "weights": {k: NUMBER for k in ("add", "superior_star")},
     "noljang": {k: NUMBER for k in ("star_min", "star_max", "max_level", "etc_stat_strong", "etc_attack_strong", "etc_stat_weak", "etc_attack_weak")},
     "special_items": {"wse_slots": list, "special_parts": list, "secondary_slots": list, "superior_keyword": str},
 }
@@ -120,15 +115,21 @@ def load_classes(path: Path = DATA_DIR / "classes.toml") -> Section:
 def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
     data = load_toml(path)
     validate(data, _SCORING_SPEC, path.name)
-    targets = data["add_option"]["targets"]
-    for name in ("default", "xenon", "demon_avenger"):
-        targets[name] = _int_keyed(targets[name], f"{path.name}: add_option.targets.{name}")
     previous = None
-    for band in data["add_option"]["tiers"]["bands"]:
-        if not (isinstance(band, list) and len(band) == 3 and isinstance(band[0], NUMBER) and isinstance(band[1], str) and isinstance(band[2], NUMBER)):
-            raise ConfigError(f"{path.name}: add_option.tiers.bands 항목은 [전투력 하한, 이름, 배율] 이어야 합니다")
+    for band in data["add_option"]["flame"]["bands"]:
+        if not (isinstance(band, list) and len(band) == 4 and all(isinstance(v, NUMBER) for v in band)):
+            raise ConfigError(f"{path.name}: add_option.flame.bands 항목은 [레벨 하한, 단일 추옵, 이중 추옵, 최대 HP] 여야 합니다")
         if previous is not None and band[0] > previous:
-            raise ConfigError(f"{path.name}: add_option.tiers.bands 는 전투력 하한 내림차순이어야 합니다")
+            raise ConfigError(f"{path.name}: add_option.flame.bands 는 레벨 하한 내림차순이어야 합니다")
+        previous = band[0]
+    if data["add_option"]["flame"]["bands"][-1][0] != 0:
+        raise ConfigError(f"{path.name}: add_option.flame.bands 의 마지막 항목은 레벨 하한 0 이어야 합니다")
+    previous = None
+    for band in data["starforce"]["max_star"]["bands"]:
+        if not (isinstance(band, list) and len(band) == 2 and all(isinstance(v, NUMBER) for v in band)):
+            raise ConfigError(f"{path.name}: starforce.max_star.bands 항목은 [레벨 미만, 최대 스타포스] 여야 합니다")
+        if previous is not None and band[0] < previous:
+            raise ConfigError(f"{path.name}: starforce.max_star.bands 는 레벨 오름차순이어야 합니다")
         previous = band[0]
     return Section(data, path.name)
 
@@ -177,12 +178,8 @@ def load_grades(path: Path = DATA_DIR / "grades.toml") -> Section:
 
 RULE_OPERATORS = ("<", "<=", ">", ">=", "==", "!=")
 _GUIDES_SPEC = {
-    "star_cap": {"bands": list, "default": NUMBER},
     "axes": {"labels": list, "benchmarks": list, "no_add_parts": list, "no_star_parts": list},
-    "targets": {
-        k: NUMBER
-        for k in ("add_level_split", "add_low", "add_high", "star_330_level_split", "star_330_low", "star_330_high", "star_mid", "star_step")
-    },
+    "targets": {k: NUMBER for k in ("star_330_level_split", "star_330_low", "star_330_high", "star_mid", "star_step")},
     "names": {k: list for k in ("upgrade_hearts", "target_hearts", "black_hearts", "superior", "limited")},
     "special_rule": list,
     "rule": list,
@@ -220,13 +217,6 @@ def load_guides(path: Path = DATA_DIR / "guides.toml", rule_fields: set | None =
     validate(data, _GUIDES_SPEC, path.name)
     if len(data["axes"]["labels"]) != 4 or len(data["axes"]["benchmarks"]) != 4:
         raise ConfigError(f"{path.name}: axes.labels 와 axes.benchmarks 는 4개여야 합니다")
-    previous = None
-    for band in data["star_cap"]["bands"]:
-        if not (isinstance(band, list) and len(band) == 2 and all(isinstance(v, NUMBER) for v in band)):
-            raise ConfigError(f"{path.name}: star_cap.bands 항목은 [레벨 미만, 최대 스타포스] 여야 합니다")
-        if previous is not None and band[0] < previous:
-            raise ConfigError(f"{path.name}: star_cap.bands 는 레벨 오름차순이어야 합니다")
-        previous = band[0]
     if rule_fields is not None:
         check_rules(data["rule"], data["names"], rule_fields, f"{path.name}: rule")
     if special_fields is not None:
@@ -246,11 +236,11 @@ _POTENTIAL_SPEC = {
     "weapon": {
         "boss_defense": NUMBER, "secondary_star_level": NUMBER,
         "buff": {k: NUMBER for k in ("attack_pct_extra", "boss_damage_extra", "ied_extra_pct")},
-        "add_best": {"attack_ratio": NUMBER, "boss_damage": NUMBER, "all_stat": NUMBER},
+        "add_best": {"attack_ratio": list, "boss_damage_per_tier": NUMBER, "damage_per_tier": NUMBER, "all_stat_per_tier": NUMBER, "lines": NUMBER},
         "best_lines": {
-            "count": dict, "destiny_keyword": str,
-            "destiny": {"potential": list, "additional_potential": list, "soul": list},
-            "default": {"potential": list, "additional_potential": list, "soul": list},
+            "count": dict, "soul_total": NUMBER, "destiny_keyword": str,
+            "destiny": {"potential": list, "additional_potential": list},
+            "default": {"potential": list, "additional_potential": list},
         },
     },
     "special": {
@@ -258,7 +248,7 @@ _POTENTIAL_SPEC = {
         "best": dict, "ring": {"max_level": NUMBER, "weights": dict, "default": NUMBER},
     },
     "exceptional": {"parts": list, "points_per_upgrade": NUMBER},
-    "armor": {"best_lines": {"count": dict, "potential": list, "additional_potential": list, "parts": dict}},
+    "armor": {"best_lines": {"count": dict, "tiers": list}},
 }
 
 
@@ -275,6 +265,19 @@ def load_potential(path: Path = DATA_DIR / "potential.toml") -> Section:
         if previous is not None and band[0] < previous:
             raise ConfigError(f"{path.name}: exempt_estimate.bands 는 레벨 오름차순이어야 합니다")
         previous = band[0]
+    best_lines = data["armor"]["best_lines"]
+    tiers = best_lines["tiers"]
+    if not tiers or tiers[-1][0] != 0:
+        raise ConfigError(f"{path.name}: armor.best_lines.tiers 의 마지막 항목은 레벨 하한 0 이어야 합니다")
+    for tier in tiers:
+        if not (isinstance(tier, list) and len(tier) == 2 and isinstance(tier[0], NUMBER) and isinstance(tier[1], str)):
+            raise ConfigError(f"{path.name}: armor.best_lines.tiers 항목은 [레벨 하한, 표 이름] 이어야 합니다")
+        table = best_lines.get(tier[1])
+        for kind in ("potential", "additional_potential"):
+            has_lines = isinstance(table, dict) and isinstance(table.get(kind), list)
+            has_total = isinstance(table, dict) and isinstance(table.get(f"{kind}_total"), NUMBER)
+            if not (has_lines or has_total):
+                raise ConfigError(f"{path.name}: armor.best_lines.{tier[1]} 에는 {kind} 목록이나 {kind}_total 이 필요합니다")
     return Section(data, path.name)
 
 

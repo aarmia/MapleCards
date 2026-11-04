@@ -6,33 +6,25 @@
 #   total                         아이템 총점
 #   add / pot / eddy / starscore  축별 가중 점수 (추가옵션, 윗잠재, 에디셔널, 스타포스)
 #   star                          현재 스타포스        star_next   star + 1
-#   max_star                      아이템 레벨별 최대 스타포스 (star_cap 표)
+#   max_star                      기준 만점 스타포스 (scoring.toml starforce.max_star)
 #   at_cap                        star 가 22 이상이거나 max_star 이상
 #   level                         아이템 레벨
 #   add_evaluated / star_evaluated  이 부위에서 그 축을 평가하는지 (axes 표)
 #   worst / next                  기준 대비 비율이 가장 낮은 축, 그다음 축의 이름
 #   min_ratio                     평가 축 중 최저 비율
 #   limited                       이벤트 반지 여부 (names.limited)      noljang   놀라운 장비 강화 여부
-#   target_add                    추옵 완성 기준 (targets.add_*)
 #   target_star_330 / target_star_17 / target_star_21   스타포스 목표 (targets 표, max_star 로 제한)
 # name_any 에 names 표의 이름(문자열)을 적으면 아이템 이름에 그 목록 중 하나가 포함될 때, 목록을 직접 적으면 그 목록으로 판정합니다.
 # part_any 는 부위 이름에 포함될 때 맞습니다.
 # text 안의 {star_next} {worst} {next} {max_star} {target_star_330} {target_star_21} 는 계산값으로 바뀝니다.
 
-[star_cap]                     # [레벨 미만, 최대 스타포스]. 어느 구간에도 없으면 default
-bands = [[118, 10], [128, 15], [138, 20]]
-default = 30
-
 [axes]
 labels = ["추가옵션", "윗잠재", "에디셔널", "스타포스"]
-benchmarks = [110, 108, 40, 105]           # 축별 기준점. 비율 = 점수 / 기준
+benchmarks = [110, 108, 40, 105]           # 축별 기준점의 예비값. 평가한 축은 캐릭터·아이템별 기준점(benchmarks)이 이 값을 대신합니다
 no_add_parts = ["반지", "어깨장식", "기계 심장", "보조무기", "엠블렘"]   # 추옵 축을 평가하지 않는 부위
 no_star_parts = ["엠블렘"]                                              # 스타포스 축을 평가하지 않는 부위 (보조무기는 200제 기준으로 평가)
 
 [targets]
-add_level_split = 200          # 아이템 레벨이 이 값 이하면 add_low, 아니면 add_high 가 추옵 완성 기준
-add_low = 103.5
-add_high = 101
 star_330_level_split = 160     # 330점대 목표 스타포스: 레벨이 이 값 이하면 star_330_low, 아니면 star_330_high
 star_330_low = 23
 star_330_high = 22
@@ -128,7 +120,7 @@ text = "⚠️ [교체 권장] 하나에서 두개 정도 부분이 아쉬운 �
 
 # 350점 이상
 [[rule]]
-when = [["ratio", ">=", 96], ["at_cap", "==", true], ["add_evaluated", "==", true], ["add", "<", "target_add"]]
+when = [["ratio", ">=", 96], ["at_cap", "==", true], ["add_evaluated", "==", true], ["add_ratio", "<", 0.9]]
 text = "✨ [추가옵션 강화 / 전승] 추가옵션이 완성되지 않았습니다. 강화하거나, 전승을 고려하세요."
 
 [[rule]]

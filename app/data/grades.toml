@@ -3,18 +3,18 @@
 # 아이템 등급·카드 강조·점수 색·총평 랭크의 기준은 총점이 아니라 "기준 만점 대비 %"(score_ratio) 입니다.
 # 기준 만점 = 평가하는 축의 기준점 합(캐릭터별 최상 조합 포함). 특수부위·시드링은 이미 % 척도이고 익셉셔널은 100 을 넘는 가산입니다.
 
-item_grade = [[99, "SSS+"], [96, "SSS"], [83, "SS"], [69, "S"], [55, "A"], [41, "B"], [28, "C"], [14, "D"]]   # 기준 대비 % → 등급 문자
+item_grade = [[90, "SSS+"], [86, "SSS"], [78, "SS"], [67, "S"], [56, "A"], [43, "B"], [28, "C"], [14, "D"]]   # 기준 대비 % → 등급 문자. SSS+ 는 최상위 랭커 장비가 전부 들어오는 선
 item_grade_default = "F"
 
-card_highlight = [[100, "transcendent"], [96, "legendary"], [83, "unique"], [69, "epic"]]   # 아이템 카드 테두리 강조
+card_highlight = [[100, "transcendent"], [90, "legendary"], [78, "unique"], [67, "epic"]]   # 아이템 카드 테두리 강조
 card_highlight_default = "none"
 
-score_color = [[96, "ultimate"], [83, "legendary"], [55, "unique"], [28, "epic"]]   # 점수 숫자 색
+score_color = [[90, "ultimate"], [78, "legendary"], [56, "unique"], [28, "epic"]]   # 점수 숫자 색
 score_color_default = "rare"
 
 [stat_bar]   # 축별 막대 색 구간. [기준, 티어, 초과 여부]. 초과(true)면 >, 아니면 >= 로 비교
-pot = [[118, "ultimate", true], [100, "legendary", false], [92, "unique", false], [66, "epic", false], [50, "rare", false]]
-pot_additional = [[48, "ultimate", true], [32, "legendary", false], [25, "unique", false], [19, "epic", false], [9, "rare", false]]
+pot = [[36, "ultimate", true], [30, "legendary", false], [28, "unique", false], [20, "epic", false], [15, "rare", false]]   # 유효 스탯% 합
+pot_additional = [[19, "ultimate", true], [13, "legendary", false], [10, "unique", false], [8, "epic", false], [4, "rare", false]]
 star = [[100, "legendary", false], [90, "unique", false], [75, "epic", false], [50, "rare", false]]
 add = [[108, "ultimate", true], [105, "legendary", false], [90, "unique", false], [75, "epic", false], [50, "rare", false]]
 exceptional = []   # 익셉셔널 막대는 구간 없이 기본 색(빨강)으로 통일
@@ -22,38 +22,38 @@ default = "poor"
 
 [stat_bar_max]   # 막대 길이가 100% 가 되는 값
 add = 110.0
-pot = 128.7
-pot_additional = 55.0
+pot = 39.0           # 주스탯 13% × 3줄
+pot_additional = 22.0
 star = 110.0
 exceptional = 30.0   # 익셉셔널 강화 3회가 막대 100%
 
-# 총평 랭크. 칭호를 뺀 모든 아이템의 기준 대비 % 평균이 min 이상인 첫 항목. weapon_keyword 가 장비 이름에 있으면 with_weapon 문구를 씁니다.
+# 총평 랭크. 칭호·뱃지를 뺀 모든 아이템의 기준 대비 % 평균이 min 이상인 첫 항목 (최상위 랭커 98% 가 ABSOLUTE 에 들어오는 선). weapon_keyword 가 장비 이름에 있으면 with_weapon 문구를 씁니다.
 [[overall]]
-min = 100
+min = 97
 rank = "ABSOLUTE"
 comment = "전서버 최상위권 장비입니다. 컨텐츠가 없으시군요."
 
 [[overall]]
-min = 95
+min = 92
 rank = "ETERNAL"
 comment = "서버권 최상위권 장비입니다. 이제 2차 초월의 영역입니다."
 
 [[overall]]
-min = 90
+min = 87
 rank = "DESTINY"
 comment = "데스티니 초월에 충분히 도전할만한 스펙입니다.  당신의 가능성을 믿고 초월에 도전하세요!"
 weapon_keyword = "데스티니"
 with_weapon = "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 더 높은 곳으로의 성장을 준비하세요!"
 
 [[overall]]
-min = 85
+min = 80
 rank = "DESTINY"
 comment = "데스티니 초월이 가시권에 들어왔습니다.  천천히 부족한 부위를 강화하고 데스티니 초월에 도전하세요!"
 weapon_keyword = "데스티니"
 with_weapon = "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 더 높은 곳으로의 성장을 준비하세요!"
 
 [[overall]]
-min = 75
+min = 72
 rank = "ASTRA"
 comment = "본격적으로 아스트라 해방에 도전하세요.  2차 해방까지는 가성비의 영역으로 들어섰습니다."
 

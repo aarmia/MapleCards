@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from app.calculator import get_potential_options
 from app.potential import StatContext, convert_line, score_detail
-from app.scoring_config import POTENTIAL
+from app.scoring_config import POTENTIAL, SCORING
 
 _ATTACK_PCT = re.compile(r"^(공격력|마력) \+(\d+(?:\.\d+)?)%$")
 _ATTACK_FLAT = re.compile(r"^(공격력|마력) \+(\d+)$")
@@ -172,6 +172,9 @@ def tier_of(item_name: str) -> str:
 def best_lines_total(kind: str, part_group: str, context: WeaponContext, char_level: int, tier: str = "default") -> float:
     """캐릭터별 기준점: potential.toml [weapon.best_lines] 표의 최상 조합을 공% 단위로 환산한 값"""
     config = POTENTIAL.weapon.best_lines
+    fixed = config.raw.get(f"{kind}_total")
+    if fixed is not None:  # 고정 기준 만점 (공격력%)
+        return float(fixed)
     candidates = config.raw[tier][kind]
     if part_group == "emblem":
         candidates = [text for text in candidates if "보스" not in text]  # 엠블렘에는 보공 줄이 없습니다
@@ -194,9 +197,31 @@ def part_group(slot: str, part: str) -> str:
 
 
 def weapon_add_best(item_data: dict, context: WeaponContext, char_level: int) -> float:
-    """무기 추옵 기준점: 기본 공격력 × attack_ratio 의 고정 공/마 + 보공 + 올스탯 (potential.toml [weapon.add_best])"""
+    """무기 추옵 기준점: 레벨별 불꽃 최대 조합의 공% 환산값 (potential.toml [weapon.add_best]).
+
+    공/마 줄(기본 공격력 × 7등급 비율)은 항상 넣고, 보공·데미지·올스탯·주스탯 단일 7등급 중 환산값이 큰 줄로 나머지를 채웁니다.
+    """
     config = POTENTIAL.weapon.add_best
+    flame = SCORING.add_option.flame
+    tier = flame.max_tier
     base = item_data.get("item_base_option") or {}
+    level = int(base.get("base_equipment_level") or 0)
     base_attack = float(base.get("magic_power" if context.attack_label == "마력" else "attack_power") or 0)
-    lines = [f"{context.attack_label} +{round(base_attack * config.attack_ratio)}", f"보스 몬스터 데미지 +{config.boss_damage:g}%", f"올스탯 +{config.all_stat:g}"]
-    return round(sum((convert_weapon_line(text, context, char_level) or (0.0, ""))[0] for text in lines), 2)
+    ratio = next(value for level_min, value in config.attack_ratio if level >= level_min)
+    single = next(band for band in flame.bands if level >= band[0])[1] * tier
+    main = context.stats.main_label
+
+    def value_of(text):
+        converted = convert_weapon_line(text, context, char_level)
+        return converted[0] if converted else 0.0
+
+    attack = value_of(f"{context.attack_label} +{round(base_attack * ratio)}")
+    others = [
+        f"보스 몬스터 데미지 +{config.boss_damage_per_tier * tier:g}%",
+        f"데미지 +{config.damage_per_tier * tier:g}%",
+        f"올스탯 +{config.all_stat_per_tier * tier:g}",
+    ]
+    if main in ("STR", "DEX", "INT", "LUK"):
+        others.append(f"{main} +{single:g}")
+    best_others = sorted((value_of(text) for text in others), reverse=True)[: max(config.lines - 1, 0)]
+    return round(attack + sum(best_others), 2)
