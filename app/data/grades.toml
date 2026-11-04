@@ -17,6 +17,7 @@ pot = [[118, "ultimate", true], [100, "legendary", false], [92, "unique", false]
 pot_additional = [[48, "ultimate", true], [32, "legendary", false], [25, "unique", false], [19, "epic", false], [9, "rare", false]]
 star = [[100, "legendary", false], [90, "unique", false], [75, "epic", false], [50, "rare", false]]
 add = [[108, "ultimate", true], [105, "legendary", false], [90, "unique", false], [75, "epic", false], [50, "rare", false]]
+exceptional = [[30, "ultimate", false], [20, "legendary", false], [10, "unique", false]]   # 익셉셔널 강화 1회 10점, 3회 30점
 default = "poor"
 
 [stat_bar_max]   # 막대 길이가 100% 가 되는 값
@@ -24,6 +25,7 @@ add = 110.0
 pot = 128.7
 pot_additional = 55.0
 star = 110.0
+exceptional = 30.0   # 익셉셔널 강화 3회가 막대 100%
 
 # 총평 랭크. 칭호를 뺀 모든 아이템의 기준 대비 % 평균이 min 이상인 첫 항목. weapon_keyword 가 장비 이름에 있으면 with_weapon 문구를 씁니다.
 [[overall]]
