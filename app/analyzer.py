@@ -299,7 +299,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             exceptional = exceptional_axis(item, part)
             special_detail = {"special": round(total_item_score, 1)}
             special_breakdown = [{"key": "special", "label": "고유 옵션", "raw_score": round(value, 2), "weighted_score": total_item_score}]
-            if exceptional:
+            if exceptional and exceptional[0] > 0:  # 강화가 없으면 축을 보여주지 않습니다
                 upgrades, points = exceptional
                 total_item_score = round(total_item_score + points, 2)
                 special_detail["exceptional"] = points
@@ -458,7 +458,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         if star_evaluated:
             benchmark_total += axes.benchmarks[3]
         exceptional = exceptional_axis(item, part) if not is_weapon else None
-        if exceptional:
+        if exceptional and exceptional[0] > 0:  # 강화가 없으면 축을 보여주지 않습니다
             upgrades, exceptional_points = exceptional
             total_item_score += exceptional_points
             detail["exceptional"] = exceptional_points
@@ -484,7 +484,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                     "unrecognized_options": unrecognized_options,
                     "weights": weight_notes(item_req_level)
                     + ([f"무기류 공격력% 단위 환산 · 보공 1% = 공 {weapon_context.boss_per_pct:.3g}%, 유효 스탯 1% = 공 {weapon_context.stat_pct_unit:.3g}%, 기준점은 캐릭터별 최상 조합"] if is_weapon else [])
-                    + ([f"익셉셔널 강화 1회당 {POTENTIAL.exceptional.points_per_upgrade:g}점 (현재 {exceptional[0]}회)"] if exceptional else []),
+                    + ([f"익셉셔널 강화 1회당 {POTENTIAL.exceptional.points_per_upgrade:g}점 (현재 {exceptional[0]}회)"] if exceptional and exceptional[0] > 0 else []),
                     "breakdown": breakdown,
                     "benchmarks": benchmarks,
                     "star_score": round(adv_star_score, 2),

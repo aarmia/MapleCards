@@ -57,6 +57,10 @@ class SpecialPartTests(unittest.TestCase):
         self.assertAlmostEqual(results["벨트"]["total_score"], sum(results["벨트"]["detail"].values()), delta=0.3)
         self.assertEqual(results["훈장"]["detail"]["exceptional"], 30)
         self.assertAlmostEqual(results["훈장"]["total_score"], results["훈장"]["detail"]["special"] + 30, delta=0.1)
+        # 강화가 없으면 축 자체가 보이지 않습니다
+        plain = evaluate_equipment([{**belt, "item_exceptional_option": {"exceptional_upgrade": 0}}], "히어로", 285)[0]
+        self.assertNotIn("exceptional", plain["detail"])
+        self.assertNotIn("exceptional", [row["key"] for row in plain["scoring_basis"]["breakdown"]])
 
     def test_title_options_are_parsed_and_expired_titles_score_zero(self):
         description = "깊은 어둠이 걸어온 마법의 주문\n\n보스 몬스터 데미지 +30%\n몬스터 방어율 무시+30%\n일반 몬스터 데미지 +30%\n추가 경험치 +100%\n공격력/마력+30\n옵션 적용 기간: 90일"
