@@ -1,8 +1,8 @@
 import math
 import re
 
-from app.potential import StatContext, analyze_lines, reference_context, score_detail, secondary_names
-from app.scoring_config import CLASSES, SCORING
+from app.potential import StatContext, analyze_lines, convert_line, reference_context, score_detail, secondary_names
+from app.scoring_config import CLASSES, POTENTIAL, SCORING
 
 
 def get_potential_options(item_data: dict, potential_type: str) -> list[str]:
@@ -68,7 +68,233 @@ def get_main_stat(class_name: str, stat_data: dict = None) -> str:
 
     return CLASSES.default
 
-def calculate_item_score(add_option: dict, class_name: str, main_stat: str | None = None) -> float:
+# 추옵 dict 키 → 잠재 줄과 같은 문구 (convert_line 으로 캐릭터 효율 환산)
+_ADD_LINE_TEXT = (("str", "STR +{}"), ("dex", "DEX +{}"), ("int", "INT +{}"), ("luk", "LUK +{}"),
+                  ("all_stat", "올스탯 +{}%"), ("attack_power", "공격력 +{}"), ("magic_power", "마력 +{}"), ("max_hp", "최대 HP +{}"))
+
+
+def _context_add_rows(add_option: dict, context: StatContext) -> list[tuple[str, float, str]]:
+    """추옵 줄을 잠재와 같은 규칙(convert_line)으로 유효 스탯% 로 바꾼 뒤 고정 주스탯 1 의 효율로 나눠 급수로 돌려줍니다.
+
+    급수 단위는 그대로(고정 주스탯 1 = 1급)이고, 공/마·올스탯%·부스탯의 계수만 캐릭터 효율을 따릅니다.
+    """
+    per_flat = context.pct_per_flat
+    rows = []
+    for key, template in _ADD_LINE_TEXT:
+        try:
+            amount = int(float(add_option.get(key) or 0))
+        except (TypeError, ValueError):
+            continue
+        if not amount:
+            continue
+        text = template.format(amount)
+        converted = convert_line(text, context, 0)
+        if converted is None or per_flat <= 0:
+            continue
+        grade = converted[0] / per_flat
+        unit = grade / amount
+        rule = "주스탯" if abs(unit - 1) < 1e-9 else f"1당 {unit:.3g}급 (캐릭터 효율)"
+        rows.append((text, grade, rule))
+    return rows
+
+
+def add_option_entries(add_option: dict, class_name: str, main_stat: str | None = None, context: StatContext | None = None) -> list[dict]:
+    """calculate_item_score 의 급수를 줄별로 나눈 근거. 값의 합은 calculate_item_score 와 같습니다 (화면 표시용)."""
+    if context is not None:
+        return [{"option": text, "value": round(grade, 2), "rule": rule} for text, grade, rule in _context_add_rows(add_option, context)]
+    main_stat = main_stat or get_main_stat(class_name)
+    grade = SCORING.add_option.grade
+    labels = {"str": "STR", "dex": "DEX", "int": "INT", "luk": "LUK", "max_hp": "최대 HP"}
+
+    def num(key):
+        return int(add_option.get(key, 0) or 0)
+
+    entries = []
+
+    def add(option, value, rule):
+        if value:
+            entries.append({"option": option, "value": round(value, 2), "rule": rule})
+
+    if main_stat == "all_stat":
+        for key in ("str", "dex", "luk"):
+            add(f"{labels[key]} +{num(key)}", num(key), "주스탯")
+        add(f"올스탯 +{num('all_stat')}%", num("all_stat") * grade.all_stat_pct_all_stat, f"올스탯% × {grade.all_stat_pct_all_stat:g}")
+        add(f"공격력 +{num('attack_power')}", num("attack_power") * grade.attack_all_stat, f"공격력 × {grade.attack_all_stat:g}")
+        return entries
+    if main_stat == "hp":
+        add(f"최대 HP +{num('max_hp')}", num("max_hp"), "주스탯")
+        add(f"공격력 +{num('attack_power')}", num("attack_power") * grade.attack_hp, f"공격력 × {grade.attack_hp:g}")
+    elif main_stat == "int":
+        add(f"INT +{num('int')}", num("int"), "주스탯")
+        add(f"올스탯 +{num('all_stat')}%", num("all_stat") * grade.all_stat_pct_default, f"올스탯% × {grade.all_stat_pct_default:g}")
+        add(f"마력 +{num('magic_power')}", num("magic_power") * grade.magic_int, f"마력 × {grade.magic_int:g}")
+    else:
+        add(f"{labels[main_stat]} +{num(main_stat)}", num(main_stat), "주스탯")
+        add(f"올스탯 +{num('all_stat')}%", num("all_stat") * grade.all_stat_pct_default, f"올스탯% × {grade.all_stat_pct_default:g}")
+        add(f"공격력 +{num('attack_power')}", num("attack_power") * grade.attack_default, f"공격력 × {grade.attack_default:g}")
+    for name in secondary_names(class_name, main_stat):
+        add(f"{name} +{num(name.lower())}", num(name.lower()) / grade.sub_stat_divisor, f"부스탯 ÷ {grade.sub_stat_divisor:g}")
+    return entries
+
+
+_FLAME_STATS = ("str", "dex", "int", "luk")
+_FLAME_STAT_OPTIONS = [(s,) for s in _FLAME_STATS] + [
+    (a, b) for i, a in enumerate(_FLAME_STATS) for b in _FLAME_STATS[i + 1:]
+]
+# _FLAME_STATS_FROM[i]: i 번째 이후 옵션이 다루는 스탯 (탐색 가지치기용)
+_FLAME_STATS_FROM = [set().union(*_FLAME_STAT_OPTIONS[i:]) for i in range(len(_FLAME_STAT_OPTIONS))]
+# 스탯이 아닌 불꽃 옵션. 한 줄씩 차지하므로 남은 줄 수 계산에 씁니다.
+_FLAME_OTHER_KEYS = ("max_hp", "max_mp", "attack_power", "magic_power", "armor", "speed", "jump",
+                     "boss_damage", "damage", "all_stat", "equipment_level_decrease")
+
+
+def _flame_stat_per_tier(level: int) -> tuple[int, int]:
+    """불꽃 단일·이중 스탯의 등급당 수치. 140제 이상은 scoring.toml 표, 그 아래는 레벨 ÷ 20 + 1 · 레벨 ÷ 40 + 1.
+
+    scoring.toml 의 [0, 7, 4] 줄은 점수 기준점(최대치) 용이라 저레벨 실제 수치와 다릅니다. 기준점은 바꾸지 않습니다.
+    """
+    flame = SCORING.add_option.flame
+    if level >= 140:
+        band = next(band for band in flame.bands if level >= band[0])
+        return int(band[1]), int(band[2])
+    return level // 20 + 1, level // 40 + 1
+
+
+def flame_stat_lines(add_option: dict, level: int, allow_ambiguous: bool = False) -> list[dict] | None:
+    """추가옵션의 STR·DEX·INT·LUK 합계를 불꽃 줄(단일·이중 스탯, 1~7단계)로 되돌립니다.
+
+    한 옵션은 한 번만 붙고, 스탯이 아닌 옵션이 차지한 줄을 빼면 최대 4줄입니다.
+    해가 정확히 하나일 때만 [{"stats": {"luk": 84}, "tier": 7}, ...] 를 돌려주고, 없거나 여러 개면 None 입니다.
+    allow_ambiguous 이면 해가 여러 개일 때 찾은 첫 조합을 돌려주고 각 줄에 "guess": True 를 붙입니다 (화면 표시용).
+    140~150제는 단일 8 · 이중 4 처럼 정확히 2배라 같은 합계를 만드는 조합이 여럿인 경우가 많습니다.
+    """
+    def num(key):
+        try:
+            return int(float(add_option.get(key) or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    totals = {s: num(s) for s in _FLAME_STATS}
+    if not any(totals.values()):
+        return []
+    if level <= 0:
+        return None
+    max_lines = 4 - sum(1 for key in _FLAME_OTHER_KEYS if num(key))
+    single, double = _flame_stat_per_tier(level)
+    max_tier = SCORING.add_option.flame.max_tier
+    line_max = max(single, double) * max_tier  # 한 줄이 한 스탯에 더할 수 있는 최대값
+    solutions = []
+
+    def search(index, remaining, chosen):
+        if len(solutions) > 1:
+            return
+        if not any(remaining.values()):
+            solutions.append(list(chosen))
+            return
+        lines_left = max_lines - len(chosen)
+        if index == len(_FLAME_STAT_OPTIONS) or lines_left <= 0:
+            return
+        # 가지치기: 남은 스탯을 이후 옵션이 다루지 않거나 남은 줄로 채울 수 없으면 해가 없습니다
+        if any(value and (stat not in _FLAME_STATS_FROM[index] or value > lines_left * line_max)
+               for stat, value in remaining.items()):
+            return
+        search(index + 1, remaining, chosen)
+        option = _FLAME_STAT_OPTIONS[index]
+        per = single if len(option) == 1 else double
+        for tier in range(1, max_tier + 1):
+            if any(remaining[s] < per * tier for s in option):
+                break
+            search(index + 1, {**remaining, **{s: remaining[s] - per * tier for s in option}}, chosen + [(option, tier, per)])
+
+    search(0, totals, [])
+    if not solutions or (len(solutions) > 1 and not allow_ambiguous):
+        return None
+    if len(solutions) > 1:
+        return [{"stats": {s: per * tier for s in option}, "tier": tier, "guess": True} for option, tier, per in solutions[0]]
+    return [{"stats": {s: per * tier for s in option}, "tier": tier} for option, tier, per in solutions[0]]
+
+
+def _flame_amount(add_option: dict, key: str) -> int:
+    try:
+        return int(float(add_option.get(key) or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _flame_hp_per_tier(level: int) -> int:
+    """불꽃 최대 HP·MP 의 단계당 수치. 140제 이상은 scoring.toml 표, 그 아래는 레벨 × 3."""
+    if level >= 140:
+        return int(next(band for band in SCORING.add_option.flame.bands if level >= band[0])[3])
+    return level * 3
+
+
+def flame_lines(add_option: dict, level: int, class_name: str, main_stat: str | None = None,
+                context: StatContext | None = None, values: dict | None = None, attack_tier=None) -> list[dict]:
+    """추가옵션의 모든 불꽃 줄: [{"option", "tier", "value"}] (화면 표시용).
+
+    점수에 영향이 없는 줄(다른 직업 스탯·HP·MP·방어력·이동속도 등)도 단계와 수치를 함께 보여주고 value 는 0 입니다.
+    스탯 합계를 불꽃 줄로 하나로 되돌릴 수 없으면 스탯별 합계 줄을 단계 None 으로 둡니다.
+    value 는 기본이 급수(calculate_item_score)이고, 무기는 values(키 → 공% 환산값)와 attack_tier(공/마 단계 판별)를 넘깁니다.
+    """
+    main_stat = main_stat or get_main_stat(class_name)
+    labels = {"str": "STR", "dex": "DEX", "int": "INT", "luk": "LUK"}
+    order = [main_stat, *[name.lower() for name in secondary_names(class_name, main_stat)]]
+    totals = {stat: _flame_amount(add_option, stat) for stat in _FLAME_STATS}
+    max_tier = SCORING.add_option.flame.max_tier
+
+    def value_of(stats: dict) -> float:
+        if values is None:
+            return calculate_item_score(stats, class_name, main_stat, context)
+        # 무기: 스탯 합계의 환산값을 줄의 몫만큼 나눕니다. 스탯 외 키는 그대로
+        return sum(values.get(key, 0.0) * (amount / totals[key] if key in totals and totals[key] else 1) for key, amount in stats.items())
+
+    # 조합이 여러 개면 그중 하나를 보여주고(guess), 합계가 불꽃 줄로 안 맞으면 스탯별 합계 줄을 단계 없이 둡니다.
+    stat_lines = flame_stat_lines(add_option, level, allow_ambiguous=True)
+    if stat_lines is None:
+        stat_lines = [{"stats": {stat: amount}, "tier": None} for stat, amount in totals.items() if amount]
+    lines = []
+    for line in stat_lines:
+        keys = sorted(line["stats"], key=lambda key: order.index(key) if key in order else len(order))
+        text = " · ".join(f"{labels[key]} +{line['stats'][key]}" for key in keys)
+        entry = {"option": text, "tier": line["tier"], "value": value_of(line["stats"])}
+        if line.get("guess"):
+            entry["guess"] = True
+        lines.append(entry)
+
+    per_other = SCORING.add_option.flame.other_per_tier
+    hp_per = _flame_hp_per_tier(level)
+    armor_per = _flame_stat_per_tier(level)[0] if level > 0 else None  # 방어력은 단일 스탯과 같은 단계당 수치
+    weapon_steps = POTENTIAL.weapon.add_best
+    attack_key = "magic_power" if main_stat == "int" else "attack_power"
+    others = (
+        ("all_stat", "올스탯 +{}%", per_other), ("attack_power", "공격력 +{}", 1), ("magic_power", "마력 +{}", 1),
+        ("boss_damage", "보스 몬스터 데미지 +{}%", weapon_steps.boss_damage_per_tier), ("damage", "데미지 +{}%", weapon_steps.damage_per_tier),
+        ("max_hp", "최대 HP +{}", hp_per), ("max_mp", "최대 MP +{}", hp_per), ("armor", "방어력 +{}", armor_per),
+        ("speed", "이동속도 +{}", 1), ("jump", "점프력 +{}", 1), ("equipment_level_decrease", "착용 레벨 감소 -{}", 5),
+    )
+    for key, template, per_tier in others:
+        amount = _flame_amount(add_option, key)
+        if not amount:
+            continue
+        if attack_tier is not None and key == attack_key:
+            tier = attack_tier(amount)
+        elif attack_tier is not None and key in ("attack_power", "magic_power"):
+            tier = None  # 무기의 다른 쪽 공/마는 단계 기준표가 없습니다
+        else:
+            tier = amount // per_tier if per_tier and amount % per_tier == 0 and 1 <= amount // per_tier <= max_tier else None
+        lines.append({"option": template.format(amount), "tier": tier, "value": value_of({key: amount})})
+    lines = [{**line, "value": round(line["value"], 2)} for line in lines]
+    return sorted(lines, key=lambda line: -line["value"])
+
+
+def calculate_item_score(add_option: dict, class_name: str, main_stat: str | None = None, context: StatContext | None = None) -> float:
+    """추가옵션 급수 (고정 주스탯 1 = 1급).
+
+    context 가 있으면 공/마·올스탯%·부스탯 계수를 그 캐릭터의 잠재 환산 효율로 씁니다(_context_add_rows).
+    없으면(단독 호출) scoring.toml add_option.grade 의 고정 계수: 주스탯 + 올스탯% × 10 + 공 × 4 + 부스탯 ÷ 10.
+    """
+    if context is not None:
+        return sum(grade for _, grade, _ in _context_add_rows(add_option, context))
     main_stat = main_stat or get_main_stat(class_name)
     grade = SCORING.add_option.grade
 
@@ -95,7 +321,8 @@ def calculate_item_score(add_option: dict, class_name: str, main_stat: str | Non
     stat_val = int(add_option.get(main_stat, 0))
     return stat_val + (all_stat_pct * grade.all_stat_pct_default) + (attack_pwr * grade.attack_default) + sub_total
 
-def flame_best_add_option(level: int, class_name: str, main_stat: str | None = None, sub_names=()) -> dict:
+def flame_best_add_option(level: int, class_name: str, main_stat: str | None = None, sub_names=(),
+                          context: StatContext | None = None) -> dict:
     """레벨별 환생의 불꽃 최대 조합을 item_add_option 과 같은 dict 로 만듭니다 (scoring.toml add_option.flame).
 
     주스탯 단일 + 주스탯 이중 2줄(부스탯 포함) + 4번째 줄은 올스탯%·공/마 중 급수가 큰 쪽입니다.
@@ -119,7 +346,64 @@ def flame_best_add_option(level: int, class_name: str, main_stat: str | None = N
             base[sub] = dual
     attack = "magic_power" if main_stat == "int" else "attack_power"
     candidates = [{**base, "all_stat": other}, {**base, attack: other}]
-    return max(candidates, key=lambda option: calculate_item_score(option, class_name, main_stat=main_stat))
+    return max(candidates, key=lambda option: calculate_item_score(option, class_name, main_stat=main_stat, context=context))
+
+
+def _stat_option(stat: float, attack: float, main_stat: str, sub_names) -> dict:
+    stats = ("str", "dex", "luk") if main_stat == "all_stat" else (main_stat, *[name.lower() for name in sub_names])
+    option = {key: stat for key in stats}
+    option["magic_power" if main_stat == "int" else "attack_power"] = attack
+    return option
+
+
+def starforce_benchmark_option(level: int, main_stat: str, sub_names=(), part: str = "") -> dict | None:
+    """만점 스타포스(scoring.toml starforce.benchmark, 기본 25성)의 스탯·공/마 합계를 item_starforce_option 모양으로.
+    장갑은 공/마 보너스를 더합니다. 표의 최저 레벨 미만이거나 데몬어벤져(HP 기준 없음)이면 None 입니다."""
+    if main_stat == "hp":
+        return None
+    config = SCORING.starforce.benchmark
+    band = next((band for band in config.bands if level >= band[0]), None)
+    if band is None:
+        return None
+    _, stat, attack = band
+    return _stat_option(stat, attack + (config.glove_attack_bonus if part == "장갑" else 0), main_stat, sub_names)
+
+
+def starforce_option(level: int, star: int, main_stat: str, sub_names=(), part: str = "") -> dict | None:
+    """star 성까지 스타포스로 오른 스탯·공/마 합계 (scoring.toml starforce.gain) 를 item_starforce_option 모양으로.
+    표의 최저 레벨 미만, 그 레벨의 최대 성 초과, 데몬어벤져(HP 기준 없음)이면 None 입니다."""
+    gain = SCORING.starforce.gain
+    index = next((i for i, low in enumerate(gain.levels) if level >= low), None)
+    if main_stat == "hp" or index is None:
+        return None
+    stat_16, attack_16 = gain.stat_16[index], gain.attack_16[index]
+    star = max(0, int(star))
+    if star > 15 + len(attack_16):
+        return None
+    stat = sum(gain.stat_1_15[:star]) + sum(stat_16[:max(0, star - 15)])
+    attack = sum(attack_16[:max(0, star - 15)])
+    if part == "장갑":
+        attack += sum(1 for glove_star in gain.glove_attack_stars if star >= glove_star)
+    return _stat_option(stat, attack, main_stat, sub_names)
+
+
+def noljang_option(level: int, star: int, main_stat: str, sub_names=()) -> dict:
+    """놀장 star 성의 스탯·공/마 합계 (scoring.toml starforce.noljang). 놀장은 API 스타포스 옵션이 비고 작과 같은 칸에 들어 있어 표로 계산합니다."""
+    config = SCORING.starforce.noljang
+    levels = config.levels
+
+    def row(table, lv):
+        index = max(i for i, low in enumerate(levels) if lv >= low)
+        return table[index]
+
+    if level % 10 == 5 and levels[0] < level - 5 and level + 5 <= levels[-1]:
+        # 일의 자리 5 레벨: 스탯은 앞뒤 레벨 평균의 정수, 공/마는 낮은 쪽
+        stats = [int((a + b) / 2) for a, b in zip(row(config.stat, level - 5), row(config.stat, level + 5))]
+    else:
+        stats = row(config.stat, level)
+    attacks = row(config.attack, level - 5 if level % 10 == 5 else level)
+    star = max(0, min(int(star), 15))
+    return _stat_option(sum(stats[:min(star, 5)]), sum(attacks[:max(0, star - 5)]), main_stat, sub_names)
 
 
 def max_starforce(level: int, name: str = "", superior: bool = False) -> int:

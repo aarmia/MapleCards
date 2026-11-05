@@ -42,6 +42,20 @@ class PresetProjectionTests(unittest.TestCase):
         self.assertEqual(same_id.attack, current.attack)
         self.assertEqual(same_id.final_sub, current.final_sub)
 
+    def test_projection_updates_each_sub_stat_of_multi_sub_class(self):
+        parts = {"STR": {"base": 1000, "mult": 2, "exempt": 100}, "DEX": {"base": 2000, "mult": 1.5, "exempt": 50}}
+        current = replace(reference_context("섀도어", "luk"), base_stat=8000, attack=10000, attack_multiplier=2,
+                          final_sub=1000 * 2 + 100 + 2000 * 1.5 + 50, sources={"subs": parts})
+        selected = replace(current, sources={"subs": {"STR": {**parts["STR"], "mult": 3}, "DEX": {**parts["DEX"], "mult": 2}}})
+        a = [{"item_name": "a", "item_total_option": {"luk": "0", "str": "10", "dex": "20", "attack_power": "0"}}]
+        b = [{"item_name": "b", "item_total_option": {"luk": "0", "str": "40", "dex": "20", "attack_power": "0"},
+              "potential_option_1": "올스탯 +5"}]
+        result = project_context(current, selected, a, b, 298)
+        self.assertEqual(result.sources["subs"]["STR"], {"base": 1035, "mult": 3, "exempt": 100})
+        self.assertEqual(result.sources["subs"]["DEX"], {"base": 2005, "mult": 2, "exempt": 50})
+        self.assertEqual(result.final_sub, 1035 * 3 + 100 + 2005 * 2 + 50)
+        self.assertNotIn("sub_projection_unmodeled", result.sources)
+
     def test_missing_totals_are_not_treated_as_zero_equipment(self):
         delta = flat_delta([{}], [{"item_total_option": {"luk": "100"}}], "luk", "LUK", 298)
         self.assertEqual(delta["total"], 0)

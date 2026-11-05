@@ -84,8 +84,15 @@ class StatContext:
     # ── 효율 계산은 전투 중 상태(도핑·버프 포함)를 기준으로 합니다. 가정값은 potential.toml [buff] ──
     @property
     def buff_stat(self) -> float:
-        """전투 중 깡스탯에 더해지는 가정치: 주스탯 도핑 + 메이플 용사류(AP 스탯 × ap_stat_pct)"""
-        return POTENTIAL.buff.main_stat_flat + self.ap_stat * POTENTIAL.buff.ap_stat_pct / 100
+        """전투 중 깡스탯에 더해지는 가정치: 주스탯 도핑 + 올스탯 도핑(주스탯 몫) + 메이플 용사류(AP 스탯 × ap_stat_pct)"""
+        all_stat_share = {"hp": 0, "all_stat": 3}.get(self.main_stat, 1)  # 데몬어벤져 HP 는 올스탯이 안 붙고, 제논은 세 스탯 모두
+        return (POTENTIAL.buff.main_stat_flat + POTENTIAL.buff.all_stat_flat * all_stat_share
+                + self.ap_stat * POTENTIAL.buff.ap_stat_pct / 100)
+
+    @property
+    def buff_sub(self) -> float:
+        """전투 중 부스탯에 더해지는 가정치: 올스탯 도핑 (부스탯 % 는 모르므로 그대로 더함)"""
+        return POTENTIAL.buff.all_stat_flat if self.sub_names else 0.0
 
     @property
     def base_stat_effective(self) -> float:
@@ -94,8 +101,8 @@ class StatContext:
 
     @property
     def stat_attack(self) -> float:
-        """A = w × (S + 버프 가정치 × b) + d"""
-        return self.stat_weight * (self.final_main + self.buff_stat * self.stat_pct) + self.final_sub
+        """A = w × (S + 버프 가정치 × b) + (d + 부스탯 버프)"""
+        return self.stat_weight * (self.final_main + self.buff_stat * self.stat_pct) + self.final_sub + self.buff_sub
 
     @property
     def attack_multiplier_effective(self) -> float:

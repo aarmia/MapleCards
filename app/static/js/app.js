@@ -34,6 +34,11 @@ document.addEventListener('alpine:init', () => {
         queuePosition: null,
         queueEstimatedWait: null,
         viewMode: 'equip',
+        // 스펙업 추천: 사용자가 바꾼 노작 시세(아이템 이름 → 억)와 그 시세로 다시 계산한 스타포스 비용(슬롯 → 메소)
+        specUpExpanded: false,
+        specUpPrices: {},
+        specUpCosts: {},
+        specUpMaterials: {},  // 사용자가 바꾼 연마석 시세 (이름 → 억)
         // 장비창 배치 [슬롯, 열, 행]. 7열 격자: 1·2열 왼쪽 블록, 3~5열 캐릭터(1~4행)와 무기류(5행), 6·7열 오른쪽 블록.
         // 슬롯 이름은 넥슨 응답의 item_equipment_slot 과 같고, 칭호는 장비창에 보이지 않습니다.
         equipLayout: [
@@ -47,6 +52,7 @@ document.addEventListener('alpine:init', () => {
         showHelp: false,
         helpTab: 'guide',
         showDetail: false,
+        showPowerNote: false,
         selectedItem: null,
         labelMap: {
             'str': 'STR', 'dex': 'DEX', 'int': 'INT', 'luk': 'LUK',
@@ -189,6 +195,7 @@ document.addEventListener('alpine:init', () => {
                 await new Promise(resolve => setTimeout(resolve, 250));
                 this.report = data;
                 this.autoRetried = false;
+                this.applySavedSpecUpPrices();
             } catch(e) {
                 if (e.name === 'AbortError') {
                     return;
@@ -272,12 +279,139 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
+        // 큰 메소 값을 조·억 단위로 (예: 1조 2,670억, 95.9억)
+        formatMeso(value) {
+            const n = Number(value) || 0;
+            const jo = Math.floor(n / 1e12), eok = (n - jo * 1e12) / 1e8;
+            if (jo > 0) return jo.toLocaleString() + '조' + (eok >= 1 ? ' ' + Math.round(eok).toLocaleString() + '억' : '');
+            if (eok >= 100) return Math.round(eok).toLocaleString() + '억';
+            if (eok >= 0.1) return eok.toFixed(1) + '억';
+            return Math.round(n / 1e4).toLocaleString() + '만';
+        },
+
+        // 스펙업 추천: 모든 아이템의 강화 행동을 100억 메소당 주스탯% 높은 순으로. 노작 시세를 바꾼 스타포스는 다시 계산한 비용을 씁니다.
+        specUpActions() {
+            if (!this.report?.results) return [];
+            const unit = this.report.spec_up?.unit || 1e10;
+            const rows = [];
+            for (const item of this.report.results) {
+                for (const action of item.spec_up || []) {
+                    let cost = action.axis === '스타포스' ? (this.specUpCosts[item.slot] ?? action.cost) : action.cost;
+                    if (action.material) cost = action.material.count * this.materialPrice(action) * 1e8 + action.material.meso;
+                    rows.push({ ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0, item });
+                }
+            }
+            return rows.sort((a, b) => b.efficiency - a.efficiency);
+        },
+
+        visibleSpecUp() {
+            const all = this.specUpActions();
+            return this.specUpExpanded ? all : all.slice(0, this.report?.spec_up?.limit || 5);
+        },
+
+        formatEfficiency(value) {
+            const n = Number(value) || 0;
+            return n >= 0.1 ? n.toFixed(2) : n.toFixed(3);
+        },
+
+        specUpPrice(action) {
+            const saved = this.specUpPrices[action.item.name];
+            return saved ?? Math.round(action.base_price / 1e6) / 100;
+        },
+
+        specUpPriceCustom(action) {
+            return this.specUpPrices[action.item.name] !== undefined;
+        },
+
+        async setSpecUpPrice(action, value) {
+            const eok = Number(value);
+            if (value === '' || !Number.isFinite(eok) || eok < 0) return;
+            this.specUpPrices = { ...this.specUpPrices, [action.item.name]: eok };
+            try { localStorage.setItem('specup-prices', JSON.stringify(this.specUpPrices)); } catch (e) { /* 저장 불가(사생활 보호 모드 등) */ }
+            await this.refreshSpecUpCosts([action]);
+        },
+
+        resetSpecUpPrice(action) {
+            const prices = { ...this.specUpPrices };
+            delete prices[action.item.name];
+            this.specUpPrices = prices;
+            try { localStorage.setItem('specup-prices', JSON.stringify(prices)); } catch (e) { /* 무시 */ }
+            const costs = { ...this.specUpCosts };
+            delete costs[action.item.slot];
+            this.specUpCosts = costs;
+        },
+
+        // 바꾼 노작 시세로 스타포스 기대 비용만 서버에서 다시 계산합니다 (넥슨 API 호출 없음).
+        async refreshSpecUpCosts(actions) {
+            if (!actions.length) return;
+            try {
+                const res = await fetch('/spec-up/starforce-cost', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: actions.map(a => ({ level: a.level, star: a.star, base_price: Math.round(this.specUpPrice(a) * 1e8) })) }),
+                });
+                if (!res.ok) return;
+                const { costs } = await res.json();
+                const next = { ...this.specUpCosts };
+                actions.forEach((a, i) => { if (costs[i] !== null && costs[i] !== undefined) next[a.item.slot] = costs[i]; });
+                this.specUpCosts = next;
+            } catch (e) { /* 실패하면 기본 시세 비용을 그대로 씁니다 */ }
+        },
+
+        // 시드링 연마석 시세(억): 사용자가 바꾼 값, 없으면 기본 시세. 같은 연마석을 쓰는 모든 반지에 함께 적용됩니다.
+        materialPrice(action) {
+            const saved = this.specUpMaterials[action.material.name];
+            return saved ?? Math.round(action.material.price / 1e6) / 100;
+        },
+
+        materialPriceCustom(action) {
+            return this.specUpMaterials[action.material.name] !== undefined;
+        },
+
+        setMaterialPrice(action, value) {
+            const eok = Number(value);
+            if (value === '' || !Number.isFinite(eok) || eok < 0) return;
+            this.specUpMaterials = { ...this.specUpMaterials, [action.material.name]: eok };
+            try { localStorage.setItem('specup-materials', JSON.stringify(this.specUpMaterials)); } catch (e) { /* 무시 */ }
+        },
+
+        resetMaterialPrice(action) {
+            const prices = { ...this.specUpMaterials };
+            delete prices[action.material.name];
+            this.specUpMaterials = prices;
+            try { localStorage.setItem('specup-materials', JSON.stringify(prices)); } catch (e) { /* 무시 */ }
+        },
+
+        applySavedSpecUpPrices() {
+            try { this.specUpMaterials = JSON.parse(localStorage.getItem('specup-materials') || '{}') || {}; } catch (e) { this.specUpMaterials = {}; }
+            this.specUpCosts = {};
+            this.specUpExpanded = false;
+            try { this.specUpPrices = JSON.parse(localStorage.getItem('specup-prices') || '{}') || {}; } catch (e) { this.specUpPrices = {}; }
+            const saved = this.specUpActions().filter(a => a.axis === '스타포스' && this.specUpPriceCustom(a));
+            this.refreshSpecUpCosts(saved);
+        },
+
         getFilteredItems() {
             if (!this.report || !this.report.results) return [];
-            // 모든 아이템 점수: 칭호를 뺀 전부 (기준 대비 % 오름차순). 취약 5종: 평균에 들어가는 아이템 중 낮은 5개
-            const items = [...this.report.results].filter(item => item.part !== '칭호').sort((a, b) => a.score_ratio - b.score_ratio);
-            if (this.viewMode === 'all') return items;
-            return items.filter(item => item.scored !== false).slice(0, 5);
+            // 모든 아이템 점수: 칭호를 뺀 전부 (기준 대비 % 오름차순)
+            return [...this.report.results].filter(item => item.part !== '칭호').sort((a, b) => a.score_ratio - b.score_ratio);
+        },
+
+        // 모바일 장비창: 부위 그룹별로 나눕니다. 비어 있는 예비 특수 반지는 숨깁니다.
+        mobileEquipGroups() {
+            const groups = [
+                { title: '장신구', slots: ['반지1', '반지2', '반지3', '반지4', '펜던트', '펜던트2', '얼굴장식', '눈장식', '귀고리', '벨트'] },
+                { title: '방어구', slots: ['모자', '상의', '하의', '신발', '장갑', '망토', '어깨장식', '기계 심장'] },
+                { title: '무기류 · 특수', slots: ['무기', '보조무기', '엠블렘', '훈장', '뱃지', '포켓 아이템', '예비 특수 반지'] },
+            ];
+            return groups.map(group => ({ ...group, slots: group.slots.filter(slot => slot !== '예비 특수 반지' || this.getSlotItem(slot)) }));
+        },
+
+        // 탭을 누르면 바뀐 영역이 보이도록 그 위치로 스크롤합니다(모바일에서 탭이 결과보다 위에 있기 때문).
+        setViewMode(mode) {
+            this.viewMode = mode;
+            if (!window.matchMedia('(max-width: 767px)').matches) return;
+            this.$nextTick(() => this.$refs.views?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
         },
 
         equipCells() {
@@ -345,8 +479,92 @@ document.addEventListener('alpine:init', () => {
             return lines;
         },
 
+        optionBlocks(item) {
+            if (!item) return [];
+            const raw = item.raw_options || {};
+            const blocks = [
+                { key: 'potential', title: 'Potential', grade: raw.potential_grade, options: (raw.potential_options || []).filter(Boolean), category: '윗잠재' },
+                { key: 'additional', title: 'Additional', grade: raw.additional_grade, options: (raw.additional_options || []).filter(Boolean), category: '에디셔널' },
+                { key: 'soul', title: 'Soul', grade: null, options: raw.soul_options || [], category: '소울' },
+            ];
+            return blocks.filter(block => block.options.length || this.axisEntries(item, block.category).length);
+        },
+
+        // 원본 잠재 줄과 환산 줄을 한 줄로 합칩니다. 같은 문구가 여러 줄이면 순서대로 짝을 짓고,
+        // 짝이 없는 원본 줄은 미반영 사유(배지)나 '-' 로, 원본에 없는 환산 줄(숨김 줄 제외)은 뒤에 붙입니다.
+        mergedLines(item, block) {
+            const entries = this.axisEntries(item, block.category).slice();
+            const unrecognized = (item?.scoring_basis?.unrecognized_options || []).filter(entry => entry.category === block.category).slice();
+            const take = (list, text) => {
+                const index = list.findIndex(entry => entry.option === text);
+                return index < 0 ? null : list.splice(index, 1)[0];
+            };
+            const rows = block.options.map(text => {
+                const entry = take(entries, text);
+                const skipped = entry ? null : take(unrecognized, text);
+                return { text, entry, skipped };
+            });
+            entries.forEach(entry => rows.push({ text: entry.option, entry, skipped: null }));
+            return rows.map((row, index) => ({
+                ...row,
+                key: block.key + index,
+                dot: block.key === 'soul' ? '#fbbf24' : this.getOptionLineColor(row.text, item?.level, item?.is_wse, block.grade, block.key === 'additional'),
+            }));
+        },
+
+        // 잠재 카드에 줄별로 표시되지 않는 미반영 옵션 (추가옵션 등 다른 분류)
+        otherUnrecognized(item) {
+            const inline = new Set(this.optionBlocks(item).map(block => block.category));
+            return (item?.scoring_basis?.unrecognized_options || []).filter(entry => !inline.has(entry.category));
+        },
+
+        // 상세 모달에서 기본 옵션만 보여주는 부위 (뱃지: 점수·환산 없음)
+        baseOnly(item) {
+            return item?.part === '뱃지';
+        },
+
+        // 상세 옵션 카드: 추가옵션 → 익셉셔널 → 윗잠재 → 에디셔널 → 소울. 모두 같은 줄 모양
+        // { text, sub(환산 규칙), value(환산값) | badge(미반영 사유) } 으로 맞춥니다.
+        optionCards(item) {
+            if (!item || this.baseOnly(item)) return [];
+            const rows = Object.fromEntries((item.scoring_basis?.breakdown || []).map(row => [row.key, row]));
+            const cards = [];
+            const exceptional = rows.exceptional && Number(rows.exceptional.raw_score) > 0 ? rows.exceptional : null;
+            if (rows.add) {
+                const entries = this.axisEntries(item, '추가옵션');
+                const mark = item.scoring_basis?.benchmarks?.add || 0;
+                const total = item.is_wse ? `최대 대비 ${mark ? Math.round(100 * rows.add.weighted_score / mark) : 0}%` : `${rows.add.raw_score}급`;
+                // 불꽃 줄로 되돌린 add_lines 가 있으면 줄마다 단계를 붙이고, 없으면 합계 줄에 단계 '?' 를 둡니다.
+                const flame = item.scoring_basis?.add_lines;
+                const valueText = value => item.is_wse ? `+${value}% (공)` : `+${value}`;
+                const lines = Array.isArray(flame)
+                    ? flame.map(line => ({ text: line.option, tier: line.tier, guess: !!line.guess, value: line.value ? valueText(line.value) : null }))
+                    : entries.length
+                        ? entries.map(entry => ({ text: entry.option, tier: null, value: valueText(entry.value) }))
+                        : this.addSummaryLines(item).map(text => ({ text, tier: null }));
+                cards.push({ key: 'add', title: '추가옵션', color: this.categoryColor('추가옵션'), dot: '#34d399', total, lines, wide: !exceptional });
+            }
+            if (exceptional) {
+                const lines = this.exceptionalLines(item).map(text => ({ text }));
+                cards.push({ key: 'exceptional', title: '익셉셔널', color: this.categoryColor('익셉셔널'), dot: '#fb7185',
+                             total: `${exceptional.raw_score}회`, lines, wide: !rows.add });
+            }
+            this.optionBlocks(item).forEach(block => {
+                cards.push({
+                    key: block.key, title: block.category, color: this.categoryColor(block.category), grade: block.grade,
+                    total: this.axisTotalText(item, block.category), wide: block.key === 'soul',
+                    lines: this.mergedLines(item, block).map(line => ({
+                        text: line.text, sub: line.entry?.rule, dot: line.dot,
+                        value: line.entry ? this.entryValueText(item, line.entry) : null,
+                        badge: !line.entry && line.skipped ? line.skipped.reason : null,
+                    })),
+                });
+            });
+            return cards.map(card => ({ ...card, lines: card.lines.map((line, index) => ({ dot: card.dot, ...line, key: card.key + index })) }));
+        },
+
         exceptionalLines(item) {
-            // 익셉셔널 강화로 오른 스탯. 네 스탯이 같으면 올스탯, 공/마가 같으면 공마로 묶습니다.
+            // 익셉셔널 강화로 오른 스탯. 네 스탯이 같으면 올스탯, 공/마·HP/MP 가 같으면 묶습니다.
             const ex = item?.raw_options?.exceptional || {};
             const n = key => Number(ex[key] || 0);
             const lines = [];
@@ -360,46 +578,22 @@ document.addEventListener('alpine:init', () => {
             return lines;
         },
 
-        optionBlocks(item) {
-            if (!item) return [];
-            const raw = item.raw_options || {};
-            const blocks = [
-                { key: 'potential', title: 'Potential', grade: raw.potential_grade, options: (raw.potential_options || []).filter(Boolean), category: '윗잠재' },
-                { key: 'additional', title: 'Additional', grade: raw.additional_grade, options: (raw.additional_options || []).filter(Boolean), category: '에디셔널' },
-                { key: 'soul', title: 'Soul', grade: null, options: raw.soul_options || [], category: '소울' },
-            ];
-            return blocks.filter(block => block.options.length || this.axisEntries(item, block.category).length);
-        },
-
-        // 상세 모달에서 기본 옵션만 보여주는 부위 (뱃지: 점수·환산 없음)
-        baseOnly(item) {
-            return item?.part === '뱃지';
-        },
-
-        summaryCards(item) {
-            if (!item?.scoring_basis) return [];
-            const rows = Object.fromEntries((item.scoring_basis.breakdown || []).map(row => [row.key, row]));
-            const cards = [];
-            if (rows.add) {
-                const addMark = item.scoring_basis?.benchmarks?.add || 0;
-                const addTotal = item.is_wse ? `최대 대비 ${addMark ? Math.round(100 * rows.add.weighted_score / addMark) : 0}%` : `${rows.add.raw_score}`;
-                cards.push({ key: 'add', label: '추가옵션', color: 'text-emerald-300', total: addTotal, lines: this.addSummaryLines(item) });
-            }
-            if (rows.special) {
-                cards.push({ key: 'special', label: '고유 옵션', color: 'text-violet-300', total: `유효 ${rows.special.raw_score}%`, lines: this.axisEntries(item, '고유 옵션').map(entry => entry.option) });
-            }
-            if (rows.pot) cards.push({ key: 'pot', label: '윗잠재', color: this.categoryColor('윗잠재'), total: this.axisTotalText(item, '윗잠재'), lines: [`${this.axisEntries(item, '윗잠재').length}줄 인식 · ${this.summaryUnit(item)}`] });
-            if (rows.pot_additional) cards.push({ key: 'eddy', label: '에디셔널', color: this.categoryColor('에디셔널'), total: this.axisTotalText(item, '에디셔널'), lines: [`${this.axisEntries(item, '에디셔널').length}줄 인식 · ${this.summaryUnit(item)}`] });
-            if (rows.exceptional) {
-                cards.push({ key: 'exceptional', label: '익셉셔널', color: this.categoryColor('익셉셔널'), total: `${rows.exceptional.raw_score}회`, lines: this.exceptionalLines(item) });
-            }
-            if (rows.soul) cards.push({ key: 'soul', label: '소울', color: this.categoryColor('소울'), total: this.axisTotalText(item, '소울'), lines: [`${this.axisEntries(item, '소울').length}줄 인식 · 공격력%`] });
-            return cards;
+        init() {
+            // 상세 시트는 휴대폰 뒤로가기로 닫힙니다. 열 때 기록을 하나 쌓고, 뒤로가기(popstate)에 닫습니다.
+            window.addEventListener('popstate', () => { this.showDetail = false; });
+            this.$watch('showDetail', open => { document.body.style.overflow = open ? 'hidden' : ''; });
         },
 
         openItemDetail(item) {
             this.selectedItem = item;
+            if (!this.showDetail) history.pushState({ meculatorDetail: true }, '');
             this.showDetail = true;
+        },
+
+        closeDetail() {
+            if (!this.showDetail) return;
+            if (history.state?.meculatorDetail) history.back();  // popstate 가 showDetail 을 끕니다
+            else this.showDetail = false;
         },
 
         getSafeValue(val) {

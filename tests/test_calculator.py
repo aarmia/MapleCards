@@ -12,7 +12,15 @@ from app.analyzer import (
     split_guide,
     unsupported_registry,
 )
-from app.calculator import calculate_potential_score, get_main_stat, get_potential_options
+from app.calculator import (
+    add_option_entries,
+    calculate_item_score,
+    calculate_potential_score,
+    get_main_stat,
+    get_potential_options,
+    starforce_benchmark_option,
+    starforce_option,
+)
 from app.character_profile import (
     _gear_attack_pct,
     _gear_attack_pct_sources,
@@ -44,7 +52,7 @@ class PotentialOptionTests(unittest.TestCase):
         current = build_stat_context("나이트워커", "luk", 298, [equipped], stats, extras)
         old = replace(current, stat_pct=9.38)
         with patch("app.analyzer.evaluate_equipment", return_value=[]), patch("app.analyzer.get_best_preset", return_value=1):
-            report = build_report("지아름", {"character_class": "나이트워커", "character_level": 298},
+            report = build_report("테스트", {"character_class": "나이트워커", "character_level": 298},
                 {"item_equipment": [equipped], "item_equipment_preset_1": [selected]}, stats, extras=extras)
         context = report["profile"]["context"]
         self.assertEqual(context["sources"]["preset_main_flat_delta"], 1259)
@@ -172,10 +180,10 @@ class PotentialOptionTests(unittest.TestCase):
             "additional_potential_option_2": "마력 +10",
             "additional_potential_option_3": None,
             "starforce": "22",
+            "item_starforce_option": {"int": "145", "luk": "145", "magic_power": "106"},  # 200제 22성(만점) 합계 → 스타포스 축 100
             "item_base_option": {"base_equipment_level": 200},
             "item_add_option": {},
             "item_etc_option": {},
-            "item_starforce_option": {},
         }
 
     def test_lethe_uses_int_as_main_stat(self):
@@ -226,6 +234,22 @@ class PotentialOptionTests(unittest.TestCase):
             [0, 15.0, eddy_raw, 100.0],
         )
         self.assertEqual(result["scoring_basis"]["star_score"], 100.0)
+
+    def test_starforce_option_per_star_table(self):
+        # 22성 합계는 만점 표와 같고, 23성부터는 공/마만 오르며, 장갑은 15성까지 공/마 +1 이 7번 붙습니다.
+        self.assertEqual(starforce_option(250, 22, "luk", ("DEX",)), starforce_benchmark_option(250, "luk", ("DEX",)))
+        self.assertEqual(starforce_option(250, 23, "luk", ("DEX",)), {"luk": 159, "dex": 159, "attack_power": 143})
+        self.assertEqual(starforce_option(200, 15, "str", ("DEX",), "장갑"), {"str": 40, "dex": 40, "attack_power": 7})
+        self.assertIsNone(starforce_option(130, 21, "str"))  # 130제는 20성까지
+
+    def test_starforce_axis_is_stat_based_to_22_and_log_bonus_above(self):
+        over = {**self.challenger_top, "starforce": "25", "item_starforce_option": {"int": "145", "luk": "145", "magic_power": "175"}}
+        low = {**self.challenger_top, "starforce": "18", "item_starforce_option": {"int": "85", "luk": "85", "magic_power": "30"}}
+        def star(item):
+            return evaluate_equipment([item], "레테", 285)[0]["scoring_basis"]["star_score"]
+
+        self.assertAlmostEqual(star(over), round(100 + 10 * math.log(4), 2))  # 23성부터 100 + 10 × ln(별 − 21)
+        self.assertLess(star(low), 50)  # 18성은 22성 스탯 환산의 절반 미만
 
     def test_ring_does_not_recommend_unavailable_add_option(self):
         guide = get_dynamic_guide(
@@ -333,11 +357,11 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertEqual((context.basis, context.exempt_stat), ("stat", 4425.0))  # 어빌리티 INT 20 도 미적용  # 아티팩트·어빌리티 고정 스탯은 % 적용
         self.assertAlmostEqual(context.stat_pct, 1.38, places=9)  # b = 1 + (장비 28 + 링크 10) ÷ 100
         self.assertAlmostEqual(context.base_stat, (40000 - 4425) / 1.38, places=6)
-        # 효율은 도핑 가정(주스탯 +30, 공격력 +30, 공격력 4%)을 더한 전투 중 상태 기준입니다
+        # 효율은 도핑 가정(주스탯·올스탯·공격력·공격력 %)을 더한 전투 중 상태 기준입니다
         buff = POTENTIAL.buff
-        a = context.base_stat + buff.main_stat_flat + (4 + 5 * 284) * buff.ap_stat_pct / 100  # 도핑 + 메이플 용사류 AP 16%
+        a = context.base_stat + buff.main_stat_flat + buff.all_stat_flat + (4 + 5 * 284) * buff.ap_stat_pct / 100  # 도핑 + 메이플 용사류 AP 16%
         self.assertAlmostEqual(context.base_stat_effective, a, places=6)
-        stat_attack = 4 * (40000 + (a - context.base_stat) * 1.38) + 4000
+        stat_attack = 4 * (40000 + (a - context.base_stat) * 1.38) + 4000 + buff.all_stat_flat  # 부스탯에도 올스탯 도핑
         attack = (2000 + buff.attack_flat) * (1 + buff.attack_pct / 100)
         self.assertAlmostEqual(context.pct_per_flat, 100 * 1.38 / a, places=9)
         self.assertAlmostEqual(context.pct_per_attack, 100 * stat_attack * (1 + buff.attack_pct / 100) / (4 * a * attack), places=9)
@@ -351,6 +375,7 @@ class PotentialOptionTests(unittest.TestCase):
         # 기준 캐릭터: a = 12000, b = 3 → 고정 스탯 1 = 0.025%, 공/마 1 = 0.12%, 크뎀 1% = A ÷ ((1.35 + 0.9 + 버프) × w × a')
         reference = reference_context("히어로", "str")  # 공/마·고정 스탯 1 의 가치는 [buff] 도핑 가정에 따라 달라집니다
         attack12, flat1 = round(12 * reference.pct_per_attack, 2), reference.pct_per_flat
+        xenon, avenger = reference_context("제논", "all_stat"), reference_context("데몬어벤져", "hp")  # 올스탯 도핑 몫이 달라 효율도 다름
         cases = [
             ("히어로", "str", "STR +12%", 12.0),
             ("히어로", "str", "올스탯 +9%", 9.9),  # 주스탯 1 + 부스탯 1 × 0.1
@@ -365,11 +390,11 @@ class PotentialOptionTests(unittest.TestCase):
             ("제논", "all_stat", "STR +9%", 3.0),
             ("제논", "all_stat", "INT +9%", None),
             ("제논", "all_stat", "올스탯 +9%", 9.0),
-            ("제논", "all_stat", "LUK +40", round(40 * flat1, 2)),
+            ("제논", "all_stat", "LUK +40", round(40 * xenon.pct_per_flat, 2)),
             ("데몬어벤져", "hp", "최대 HP +12%", 12.0),
             ("데몬어벤져", "hp", "STR +12%", 1.2),
             ("데몬어벤져", "hp", "올스탯 +9%", 0.9),
-            ("데몬어벤져", "hp", "공격력 +12", attack12),
+            ("데몬어벤져", "hp", "공격력 +12", round(12 * avenger.pct_per_attack, 2)),
         ]
         for class_name, main_stat, option, expected in cases:
             with self.subTest(option=f"{class_name} {option}"):
@@ -384,10 +409,10 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertEqual(points("캡틴", 95.0)[0], 0.0)  # 90% 이상이면 0 이지만 미지원으로 남지 않음
         below, context = points("캡틴", 80.0)  # 100% 까지 20% 여유 → 9% 전부 유효
         self.assertAlmostEqual(below, 9 * context.pct_per_crit_rate, places=9)
-        # A × (0.35 + 크뎀 + 버프) ÷ (w × a × (1 + 크확 × (0.35 + 크뎀 + 버프)))
-        a = context.base_stat_effective  # 도핑·메이플 용사류 가정 포함. A ÷ (w × a') = b 라서 a' 는 약분됩니다
+        # A × (0.35 + 크뎀 + 버프) ÷ (w × a' × (1 + 크확 × (0.35 + 크뎀 + 버프)))
+        a = context.base_stat_effective  # 도핑·메이플 용사류 가정 포함
         bonus = 0.35 + 0.9 + POTENTIAL.buff.crit_damage_pct / 100
-        self.assertAlmostEqual(context.pct_per_crit_rate, 4 * 3 * a * bonus / (4 * a * (1 + 0.8 * bonus)), places=9)
+        self.assertAlmostEqual(context.pct_per_crit_rate, context.stat_attack * bonus / (4 * a * (1 + 0.8 * bonus)), places=9)
         archer, context = points("보우마스터", 100.0)  # 궁수는 초과분 9% 가 크리티컬 리인포스 가치
         self.assertAlmostEqual(archer, 9 * 0.5 * 0.25 * context.pct_per_crit_damage, places=9)
         self.assertEqual(points("캡틴", 100.0)[0], 0.0)
@@ -446,6 +471,56 @@ class PotentialOptionTests(unittest.TestCase):
 
         self.assertEqual(result["guide_tag"], "미지원")
         self.assertIn("블랙 하트", result["guide_message"])
+
+
+
+class AddOptionEntriesTests(unittest.TestCase):
+    def test_line_values_sum_to_add_option_score_for_every_stat_kind(self):
+        option = {"str": "40", "dex": "42", "int": "30", "luk": "168", "max_hp": "2100",
+                  "attack_power": "3", "magic_power": "4", "all_stat": "6"}
+        for char_class, main in (("섀도어", "luk"), ("나이트워커", "luk"), ("비숍", "int"),
+                                 ("제논", "all_stat"), ("데몬어벤져", "hp"), ("히어로", "str")):
+            entries = add_option_entries(option, char_class, main_stat=main)
+            self.assertAlmostEqual(sum(e["value"] for e in entries), calculate_item_score(option, char_class, main_stat=main), places=6, msg=char_class)
+        rows = {e["option"]: (e["value"], e["rule"]) for e in add_option_entries(option, "섀도어", main_stat="luk")}
+        self.assertEqual(rows["LUK +168"], (168, "주스탯"))
+        self.assertEqual(rows["올스탯 +6%"], (60, "올스탯% × 10"))
+        self.assertEqual(rows["DEX +42"], (4.2, "부스탯 ÷ 10"))
+        self.assertEqual(add_option_entries({}, "섀도어", main_stat="luk"), [])
+
+
+    def test_add_option_grade_uses_character_efficiency_when_context_given(self):
+        context = reference_context("섀도어", "luk")
+        option = {"luk": "120", "dex": "40", "all_stat": "6", "attack_power": "10"}
+        entries = add_option_entries(option, "섀도어", main_stat="luk", context=context)
+        grades = {entry["option"]: entry["value"] for entry in entries}
+        self.assertEqual(grades["LUK +120"], 120)  # 주스탯은 1당 1급
+        self.assertAlmostEqual(grades["공격력 +10"], round(10 * context.pct_per_attack / context.pct_per_flat, 2))
+        self.assertAlmostEqual(sum(grades.values()), calculate_item_score(option, "섀도어", "luk", context), places=1)
+
+    def test_flame_stat_totals_are_split_back_into_tiered_lines(self):
+        from app.calculator import flame_lines, flame_stat_lines
+        gloves = {"luk": "168", "dex": "42", "int": "42", "all_stat": "6"}
+        self.assertEqual(flame_stat_lines(gloves, 250), [
+            {"stats": {"luk": 84}, "tier": 7}, {"stats": {"dex": 42, "luk": 42}, "tier": 6}, {"stats": {"int": 42, "luk": 42}, "tier": 6}])
+        lines = flame_lines(gloves, 250, "섀도어", main_stat="luk")
+        self.assertEqual([(line["option"], line["tier"]) for line in lines],
+                         [("LUK +84", 7), ("올스탯 +6%", 6), ("LUK +42 · DEX +42", 6), ("LUK +42 · INT +42", 6)])
+        self.assertAlmostEqual(sum(line["value"] for line in lines), calculate_item_score(gloves, "섀도어", main_stat="luk"))
+        # 140제 미만은 레벨 ÷ 20 + 1 · 레벨 ÷ 40 + 1 (120제: 단일 7, 이중 4/단계)
+        self.assertEqual(flame_stat_lines({"str": 12, "dex": 12}, 120), [{"stats": {"str": 12, "dex": 12}, "tier": 3}])
+        # 100제 STR 6 · DEX 6 은 이중 2단계와 단일 1단계 두 줄이 모두 가능해 판별하지 않습니다.
+        self.assertIsNone(flame_stat_lines({"str": 6, "dex": 6}, 100))
+
+    def test_flame_stat_lines_refuses_impossible_or_ambiguous_totals(self):
+        from app.calculator import flame_stat_lines
+        self.assertIsNone(flame_stat_lines({"luk": 5}, 250))                       # 12 의 배수 아님
+        self.assertIsNone(flame_stat_lines({"luk": 84, "speed": 1, "jump": 1, "armor": 1, "all_stat": 1}, 250))  # 남은 줄 0
+        self.assertIsNone(flame_stat_lines({"str": 7, "dex": 7, "int": 7, "luk": 7}, 250))  # 이중 두 줄 조합이 여러 개
+        guess = flame_stat_lines({"str": 7, "dex": 7, "int": 7, "luk": 7}, 250, allow_ambiguous=True)  # 화면용: 그중 하나
+        self.assertEqual(sum(sum(line["stats"].values()) for line in guess), 28)
+        self.assertTrue(all(line["guess"] for line in guess))
+        self.assertEqual(flame_stat_lines({}, 250), [])
 
 
 if __name__ == "__main__":

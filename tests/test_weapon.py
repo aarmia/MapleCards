@@ -84,5 +84,52 @@ class WeaponConversionTests(unittest.TestCase):
         self.assertLessEqual(results["엠블렘"]["scoring_basis"]["benchmarks"]["pot"], w["scoring_basis"]["benchmarks"]["pot"])
 
 
+
+class WeaponAttackTierTests(unittest.TestCase):
+    # 데스티니 무기 1추~5추(= 7~3단계) 공/마 추옵. 출처: https://matsu1207.tistory.com/587
+    # 표에는 기본 공/마가 없어서, 250제 7단계 비율(0.72)로 1추에서 기본 공/마를 되돌려 씁니다.
+    TABLE = {
+        "한손검": [257, 201, 152, 111, 76], "두손검": [268, 209, 158, 115, 79], "폴암": [240, 187, 142, 103, 71],
+        "건틀렛 리볼버": [201, 157, 119, 87, 59], "완드": [315, 246, 186, 136, 93], "스태프": [320, 249, 189, 139, 94],
+        "활": [251, 196, 148, 108, 74], "아대": [136, 106, 81, 59, 40], "건": [196, 153, 116, 85, 58],
+        "핸드캐논": [275, 214, 162, 118, 81],
+    }
+
+    def test_every_destiny_row_maps_back_to_its_tier(self):
+        from app.weapon import weapon_attack_tier
+        for name, values in self.TABLE.items():
+            item = {"item_base_option": {"base_equipment_level": 250, "attack_power": values[0] / 0.72}}
+            for tier, amount in zip((7, 6, 5, 4, 3), values):
+                self.assertEqual(weapon_attack_tier(item, "공격력", amount), tier, f"{name} {amount}")
+
+    def test_destiny_dagger_seen_in_live_data_is_tier_seven(self):
+        from app.weapon import weapon_attack_tier
+        item = {"item_base_option": {"base_equipment_level": 250, "attack_power": "349"}}
+        self.assertEqual(weapon_attack_tier(item, "공격력", 251), 7)
+        self.assertIsNone(weapon_attack_tier(item, "공격력", 20))   # 1~2단계 영역은 자료가 없어 판별하지 않음
+        self.assertIsNone(weapon_attack_tier({"item_base_option": {}}, "공격력", 251))
+
+
+    def test_every_table_value_maps_to_its_tier_by_name_and_part(self):
+        from app.scoring_config import POTENTIAL
+        from app.weapon import weapon_attack_tier
+        checked = 0
+        for set_name, table in POTENTIAL.weapon.flame_attack.raw.items():
+            for part, values in table.items():
+                # 기본 공격력을 일부러 비워 비율 판별로 빠지지 않게 하고, 표 조회만 검사합니다.
+                item = {"item_name": f"{set_name} 무기", "item_equipment_part": part, "item_base_option": {}}
+                for tier, amount in zip((7, 6, 5, 4, 3), values):
+                    self.assertEqual(weapon_attack_tier(item, "공격력", amount), tier, f"{set_name} {part} {amount}")
+                    checked += 1
+        self.assertGreater(checked, 300)
+
+    def test_genesis_lapis_uses_its_own_table_and_api_part_spacing_is_ignored(self):
+        from app.weapon import weapon_attack_tier
+        lapis = {"item_name": "제네시스 라피스", "item_equipment_part": "대검", "item_base_option": {}}
+        self.assertEqual(weapon_attack_tier(lapis, "공격력", 46), 4)   # 비율로는 3단계 근처라 틀리게 나오는 값
+        dual = {"item_name": "제네시스 듀얼보우건", "item_equipment_part": "듀얼 보우건", "item_base_option": {}}
+        self.assertEqual(weapon_attack_tier(dual, "공격력", 153), 6)
+
+
 if __name__ == "__main__":
     unittest.main()

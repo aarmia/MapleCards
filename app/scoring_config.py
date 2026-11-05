@@ -91,6 +91,9 @@ _SCORING_SPEC = {
     "starforce": {
         **{k: NUMBER for k in ("reference_level", "level_weight_divisor", "base_star", "over_star_log_weight")},
         "max_star": {"bands": list, "default": NUMBER, "superior": NUMBER, "names": dict},
+        "benchmark": {"benchmark_star": NUMBER, "bands": list, "glove_attack_bonus": NUMBER, "over_star_log_weight": NUMBER},
+        "noljang": {"levels": list, "stat": list, "attack": list},
+        "gain": {k: list for k in ("stat_1_15", "glove_attack_stars", "levels", "stat_16", "attack_16")},
     },
     "weights": {k: NUMBER for k in ("add", "superior_star")},
     "noljang": {k: NUMBER for k in ("star_min", "star_max", "max_level", "etc_stat_strong", "etc_attack_strong", "etc_stat_weak", "etc_attack_weak")},
@@ -124,6 +127,26 @@ def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
         previous = band[0]
     if data["add_option"]["flame"]["bands"][-1][0] != 0:
         raise ConfigError(f"{path.name}: add_option.flame.bands 의 마지막 항목은 레벨 하한 0 이어야 합니다")
+    previous = None
+    for band in data["starforce"]["benchmark"]["bands"]:
+        if not (isinstance(band, list) and len(band) == 3 and all(isinstance(v, NUMBER) for v in band)):
+            raise ConfigError(f"{path.name}: starforce.benchmark.bands 항목은 [레벨 하한, 스탯, 공/마] 여야 합니다")
+        if previous is not None and band[0] > previous:
+            raise ConfigError(f"{path.name}: starforce.benchmark.bands 는 레벨 하한 내림차순이어야 합니다")
+        previous = band[0]
+    gain = data["starforce"]["gain"]
+    if not (len(gain["stat_1_15"]) == 15 and len(gain["levels"]) == len(gain["stat_16"]) == len(gain["attack_16"])
+            and gain["levels"] == sorted(gain["levels"], reverse=True)
+            and all(len(stat) <= 7 and len(stat) <= len(attack) for stat, attack in zip(gain["stat_16"], gain["attack_16"]))):
+        raise ConfigError(f"{path.name}: starforce.gain 은 1~15성 15개, 레벨 내림차순, 레벨마다 stat_16(최대 7개) ≤ attack_16 길이여야 합니다")
+    for level, stat, attack in zip(gain["levels"], gain["stat_16"], gain["attack_16"]):
+        band = next((b for b in data["starforce"]["benchmark"]["bands"] if b[0] == level), None)
+        if band and len(attack) >= 7 and [sum(gain["stat_1_15"]) + sum(stat), sum(attack[:7])] != band[1:]:
+            raise ConfigError(f"{path.name}: starforce.gain {level}제 22성 합계가 starforce.benchmark.bands 와 다릅니다")
+    noljang = data["starforce"]["noljang"]
+    if not (len(noljang["levels"]) == len(noljang["stat"]) == len(noljang["attack"])
+            and all(len(row) == 5 for row in noljang["stat"]) and all(len(row) == 10 for row in noljang["attack"])):
+        raise ConfigError(f"{path.name}: starforce.noljang 은 레벨마다 스탯 5개(1~5성)·공/마 10개(6~15성)가 필요합니다")
     previous = None
     for band in data["starforce"]["max_star"]["bands"]:
         if not (isinstance(band, list) and len(band) == 2 and all(isinstance(v, NUMBER) for v in band)):
@@ -227,7 +250,8 @@ def load_guides(path: Path = DATA_DIR / "guides.toml", rule_fields: set | None =
 
 _POTENTIAL_SPEC = {
     "sub_stat_ratio": NUMBER, "cooldown_per_second": NUMBER, "crit_base": NUMBER,
-    "buff": {k: NUMBER for k in ("main_stat_flat", "attack_flat", "attack_pct", "ap_stat_pct", "crit_damage_pct")},
+    "buff": {k: NUMBER for k in ("main_stat_flat", "all_stat_flat", "attack_flat", "attack_pct", "ap_stat_pct", "crit_damage_pct",
+                                 "damage_pct", "boss_damage_pct")},
     "ap": {"base": NUMBER, "per_level": NUMBER},
     "bounds": {"pct_per_flat": list, "pct_per_attack": list, "pct_per_crit_damage": list},
     "reference": {k: NUMBER for k in ("level", "base_stat", "stat_pct", "attack", "crit_damage", "crit_rate")},
@@ -237,7 +261,7 @@ _POTENTIAL_SPEC = {
     "weapon": {
         "boss_defense": NUMBER, "secondary_star_level": NUMBER,
         "buff": {k: NUMBER for k in ("attack_pct_extra", "boss_damage_extra", "ied_extra_pct")},
-        "add_best": {"attack_ratio": list, "boss_damage_per_tier": NUMBER, "damage_per_tier": NUMBER, "all_stat_per_tier": NUMBER, "lines": NUMBER},
+        "add_best": {"attack_ratio": list, "attack_tier_ratio": list, "boss_damage_per_tier": NUMBER, "damage_per_tier": NUMBER, "all_stat_per_tier": NUMBER, "lines": NUMBER},
         "best_lines": {
             "count": dict, "soul_total": NUMBER, "destiny_keyword": str,
             "destiny": {"potential": list, "additional_potential": list},
@@ -282,14 +306,66 @@ def load_potential(path: Path = DATA_DIR / "potential.toml") -> Section:
     return Section(data, path.name)
 
 
-def load_class_skills(path: Path = DATA_DIR / "class_skills.toml") -> Section:
-    """직업별 스킬 크리티컬 데미지 표 (scripts/build_class_skills.py 가 생성)"""
+def load_starforce_cost(path: Path = DATA_DIR / "starforce_cost.toml") -> Section:
+    """스타포스 기대 비용 설정: 샤타 이벤트·성별 확률과 비용 분모·파괴 방지·확정 복구·노작 시세 기본값"""
     data = load_toml(path)
-    validate(data, {"common": {"useful_sharp_eyes": NUMBER}, "crit_damage": dict}, path.name)
-    for name, row in data["crit_damage"].items():
-        if not (isinstance(row, dict) and isinstance(row.get("passive"), NUMBER) and isinstance(row.get("boss_buff"), NUMBER)
-                and isinstance(row.get("sharp_eyes"), bool)):
-            raise ConfigError(f"{path.name}: crit_damage.{name} 에는 passive·boss_buff 숫자와 sharp_eyes 참거짓이 필요합니다")
+    validate(data, {
+        "event": {k: NUMBER for k in ("cost_multiplier", "destroy_multiplier", "destroy_max_star", "restore_multiplier")},
+        "odds": dict, "cost_denominator": dict, "prevention": {"stars": list},
+        "restore": {"items": dict, "meso": dict}, "base_price": {"default": list, "item": list},
+    }, path.name)
+    stars = [str(star) for star in range(12, 30)]
+    for star in stars:
+        odds = data["odds"].get(star)
+        if not (isinstance(odds, list) and len(odds) == 3 and abs(sum(odds) - 1) < 1e-6 and odds[0] > 0):
+            raise ConfigError(f"{path.name}: odds.{star} 는 [성공(>0), 실패, 파괴] 이고 합이 1 이어야 합니다")
+        if not (isinstance(data["cost_denominator"].get(star), NUMBER) and data["cost_denominator"][star] > 0):
+            raise ConfigError(f"{path.name}: cost_denominator.{star} 는 양수여야 합니다")
+    for level, row in data["restore"]["meso"].items():
+        if not (str(level).isdigit() and all(star in data["restore"]["items"] and isinstance(v, NUMBER) for star, v in row.items())):
+            raise ConfigError(f"{path.name}: restore.meso.{level} 의 성은 restore.items 에 있어야 하고 값은 숫자여야 합니다")
+    previous = None
+    for band in data["base_price"]["default"]:
+        if not (isinstance(band, list) and len(band) == 2 and all(isinstance(v, NUMBER) for v in band)) or (
+                previous is not None and band[0] > previous):
+            raise ConfigError(f"{path.name}: base_price.default 는 [레벨 하한, 억 메소] 레벨 내림차순이어야 합니다")
+        previous = band[0]
+    if previous != 0:
+        raise ConfigError(f"{path.name}: base_price.default 의 마지막 레벨 하한은 0 이어야 합니다")
+    for index, item in enumerate(data["base_price"]["item"]):
+        if not (isinstance(item.get("name"), str) and isinstance(item.get("price"), NUMBER) and item["price"] >= 0
+                and isinstance(item.get("parts", []), list)):
+            raise ConfigError(f"{path.name}: base_price.item[{index}] 에는 name, 0 이상 price 가 필요합니다")
+    return Section(data, path.name)
+
+
+def load_spec_up(path: Path = DATA_DIR / "spec_up.toml") -> Section:
+    """스펙업 추천 설정: 효율 단위·큐브 재설정 비용·등급업 확률·천장·추가옵션 재설정 규칙"""
+    data = load_toml(path)
+    cube_spec = {"cost": list, "grade_up": list, "pity": list, "min_step": NUMBER}
+    validate(data, {
+        "ranking": {"unit": NUMBER, "top": NUMBER},
+        "cube": {"grades": list, "potential": cube_spec, "additional": cube_spec},
+        "flame": {"cost": NUMBER, "first_step": NUMBER, "step": NUMBER, "tiers": list, "tier_odds": list, "boss_bonus": NUMBER,
+                  "lines": NUMBER, "options": list},
+        "seed_ring": {"restraint": dict, "continuous": dict, "upgrade": dict, "materials": dict, "burst_share": dict},
+    }, path.name)
+    ring = data["seed_ring"]
+    if not all(isinstance(v, list) and len(v) == 2 and 0 < v[0] <= v[1] < 100 for v in ring["burst_share"].values()) \
+            or "default" not in ring["burst_share"] or not 0 < ring["continuous"].get("uptime", 0) <= 1:
+        raise ConfigError(f"{path.name}: seed_ring.burst_share 는 default 와 직업별 [15초 %, 20초 %] (0 < 15초 ≤ 20초 < 100) 여야 합니다")
+    for level, step in ring["upgrade"].items():
+        if step.get("material") not in ring["materials"] or not all(isinstance(step.get(k), NUMBER) for k in ("count", "meso")):
+            raise ConfigError(f"{path.name}: seed_ring.upgrade.{level} 의 material 은 materials 에 있어야 하고 count·meso 는 숫자여야 합니다")
+    grades = len(data["cube"]["grades"])
+    for kind in ("potential", "additional"):
+        cube = data["cube"][kind]
+        if not (len(cube["grade_up"]) == len(cube["pity"]) == grades - 1
+                and all(len(band) == 2 and len(band[1]) == grades for band in cube["cost"]) and cube["cost"][-1][0] == 0):
+            raise ConfigError(f"{path.name}: cube.{kind} 의 grade_up·pity 는 등급 수 − 1 개, cost 는 [레벨 하한, 등급별 비용] 이고 마지막 하한은 0 이어야 합니다")
+    flame = data["flame"]
+    if len(flame["tiers"]) != len(flame["tier_odds"]) or abs(sum(flame["tier_odds"]) - 1) > 1e-9 or flame["lines"] > len(flame["options"]):
+        raise ConfigError(f"{path.name}: flame.tiers·tier_odds 길이가 같고 확률 합이 1, lines ≤ 옵션 종류 수여야 합니다")
     return Section(data, path.name)
 
 
@@ -297,4 +373,5 @@ CLASSES = load_classes()
 SCORING = load_scoring()
 POTENTIAL = load_potential()
 GRADES = load_grades()
-CLASS_SKILLS = load_class_skills()
+STARFORCE_COST = load_starforce_cost()
+SPEC_UP = load_spec_up()

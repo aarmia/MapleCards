@@ -12,6 +12,7 @@ from app.calculator import final_stat_float, get_potential_options
 from app.character_profile import _effect_stats, build_stat_context
 from app.preset_projection import active_items, project_context
 from app.scoring_config import POTENTIAL
+from app.set_projection import sum_subs
 
 BOSS_DEFENSE = 380.0
 FIELDS = ("main_flat", "main_exempt", "main_pct", "sub_flat", "sub_exempt", "sub_pct",
@@ -21,6 +22,10 @@ FIELDS = ("main_flat", "main_exempt", "main_pct", "sub_flat", "sub_exempt", "sub
 def effects(texts, context, exempt=False):
     result = dict.fromkeys(FIELDS, 0.0)
     result.update(ied=1.0, ignored=[])
+    # 복수 부스탯은 부스탯별로도 모읍니다 (sub_* 는 합계).
+    per_sub = {label: {"flat": 0.0, "exempt": 0.0, "pct": 0.0} for label in context.sub_names} if len(context.sub_names) > 1 else None
+    if per_sub is not None:
+        result["subs"] = per_sub
     attack = "마력" if context.main_stat == "int" else "공격력"
     patterns = {
         "boss": r"보스 몬스터(?: 공격 시)? 데미지",
@@ -59,6 +64,11 @@ def effects(texts, context, exempt=False):
                     flat, pct = _effect_stats([clause], names)
                     result[prefix + ("_exempt" if exempt else "_flat")] += flat
                     result[prefix + "_pct"] += pct
+                if per_sub is not None:
+                    for label in context.sub_names:
+                        flat, pct = _effect_stats([clause], (label,))
+                        per_sub[label]["exempt" if exempt else "flat"] += flat
+                        per_sub[label]["pct"] += pct
             else:
                 result["ignored"].append(clause)
     return result
@@ -159,12 +169,20 @@ def optimize_presets(char_class, main_stat, level, item_data, stat_data, extras,
         exempt = equipment_context.exempt_stat + delta["main_exempt"]
         attack_mult = equipment_context.attack_multiplier + delta["attack_pct"] / 100
         attack = (equipment_context.attack / equipment_context.attack_multiplier + delta["attack"]) * attack_mult
-        # 부스탯은 단일 부스탯 직업만 모델링합니다. 복수 부스탯(섀도어·듀블·카데나)은 현재 값을 그대로 둡니다.
+        # 단일 부스탯은 sub_* 키, 복수 부스탯(섀도어·듀블·카데나)은 부스탯별 sources["subs"] 로 투영합니다.
         modeled_sub = "sub_base_estimate" in equipment_context.sources
+        parts = None
+        if not modeled_sub and "subs" in equipment_context.sources and all("subs" in old for old in current_effects):
+            parts = {}
+            for label, part in equipment_context.sources["subs"].items():
+                change = {key: sum(option[1]["subs"][label][key] - old["subs"][label][key]
+                                   for option, old in zip(combination, current_effects)) for key in ("flat", "pct", "exempt")}
+                parts[label] = {"base": part["base"] + change["flat"], "mult": part["mult"] + change["pct"] / 100,
+                                "exempt": part["exempt"] + change["exempt"]}
         sub_base = equipment_context.sources.get("sub_base_estimate", 0) + delta["sub_flat"]
         sub_mult = equipment_context.sources.get("sub_multiplier", 1) + delta["sub_pct"] / 100
         sub_exempt = equipment_context.sources.get("sub_exempt", 0) + delta["sub_exempt"]
-        if min(base, mult, attack_mult, attack, sub_mult if modeled_sub else 1) <= 0:
+        if min(base, mult, attack_mult, attack, sub_mult if modeled_sub else 1, *(p["mult"] for p in (parts or {}).values())) <= 0:
             return None
         crit = equipment_context.crit_damage + equipment["crit"] - equip_current["crit"] + delta["crit"]
         rate = equipment_context.crit_rate + equipment["rate"] - equip_current["rate"] + delta["rate"]
@@ -172,7 +190,9 @@ def optimize_presets(char_class, main_stat, level, item_data, stat_data, extras,
             "final_sub": max(0, sub_base * sub_mult + sub_exempt),
             "sub_pct_ratio": sub_base / (current.stat_weight * base), "sub_flat_ratio": sub_mult / (current.stat_weight * mult),
             "sources": {**equipment_context.sources, "sub_base_estimate": sub_base, "sub_multiplier": sub_mult, "sub_exempt": sub_exempt},
-        } if modeled_sub else {}
+        } if modeled_sub else {
+            "final_sub": sum_subs(parts), "sources": {**equipment_context.sources, "subs": parts},
+        } if parts is not None else {}
         candidate = replace(equipment_context, base_stat=base, stat_pct=mult, exempt_stat=exempt,
             final_main=base * mult + exempt, attack=attack, attack_multiplier=attack_mult, crit_damage=crit, crit_rate=rate, **sub_fields)
         old_ied = math.prod([equip_current["ied"], *(old["ied"] for old in current_effects)])
