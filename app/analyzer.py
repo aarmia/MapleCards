@@ -1,4 +1,5 @@
 import logging
+import math
 import operator
 import re
 from collections import Counter
@@ -15,6 +16,8 @@ from app.calculator import (
     get_potential_options,
     get_starforce_score,
     max_starforce,
+    noljang_option,
+    starforce_benchmark_option,
 )
 from app.character_profile import build_character_profile
 from app.combat_power import adjust_combat_power
@@ -267,7 +270,10 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         notes = [
             f"추가옵션 급수 ÷ {item_req_level}제 불꽃 최대 급수 × 100 × {weights.add:g}",
             "윗잠재·에디셔널 환산값 합 (곱상수 없음)",
-            f"스타포스 레벨 가중치 × {star_weight if item_req_level > 0 else 0} (기준 만점은 최대 스타포스)",
+            (f"스타포스: 스타포스 스탯을 주스탯% 로 환산 ÷ {item_req_level}제 22성 합계 × 100, "
+             f"23성부터 100 + {SCORING.starforce.benchmark.over_star_log_weight:g} × ln(별 − 21)"
+             if starforce_benchmark_option(item_req_level, main_stat, context.sub_names)
+             else f"스타포스 레벨 가중치 × {star_weight if item_req_level > 0 else 0} (기준 만점은 최대 스타포스)"),
         ]
         notes.extend(context.notes())
         return notes
@@ -403,6 +409,24 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         if is_noljang: adv_star_score = get_starforce_score(SCORING.starforce.base_star, item_req_level)
         elif is_superior: adv_star_score = get_starforce_score(star, item_req_level) * weights.superior_star
         else: adv_star_score = get_starforce_score(star, item_req_level)
+        # 140제 이상 방어구·장신구: 22성 이하는 스타포스로 오른 실제 스탯을 주스탯% 로 환산해 22성 합계 대비 × 100,
+        # 23성 이상은 100 + 로그 가산(scoring.toml starforce.benchmark). 놀장은 스타포스 옵션이 비고 스탯이 작과 같은 칸에 있어
+        # 놀장 표로 계산합니다. 슈페리얼은 실제 스탯이라 배수가 없습니다.
+        star_from_stats = False
+        star_benchmark_option = None if any(k in slot for k in special_items.wse_slots) else starforce_benchmark_option(
+            item_req_level, main_stat, context.sub_names, part)
+        if star_benchmark_option:
+            if is_noljang or item.get("starforce_scroll_flag") == "사용":
+                source = noljang_option(item_req_level, star, main_stat, context.sub_names)
+            else:
+                source = item.get("item_starforce_option")
+            star_value = calculate_item_score(source or {}, char_class, main_stat=main_stat, context=context)
+            star_best = calculate_item_score(star_benchmark_option, char_class, main_stat=main_stat, context=context)
+            if star_best > 0:
+                adv_star_score, star_from_stats = 100 * star_value / star_best, True
+                sf_bench = SCORING.starforce.benchmark
+                if star > sf_bench.benchmark_star and not is_noljang and not is_superior:
+                    adv_star_score = 100 + sf_bench.over_star_log_weight * math.log(star - sf_bench.benchmark_star + 1)
 
         soul_analysis, soul_val, soul_score, benchmarks, add_recognized = None, 0.0, 0.0, None, []
         add_lines = None  # 불꽃 줄별 단계·급수 (화면 표시용). 되돌릴 수 없으면 None
@@ -501,8 +525,11 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         group = part_group(slot, part) if is_weapon else None
         # 스타포스 기준 만점 = 최대 스타포스(130제 이하 20 · 140제 이상 30 · 제네시스 22 · 데스티니 25 · 슈페리얼 15)의 점수
         star_level = POTENTIAL.weapon.secondary_star_level if group == "secondary" else item_req_level
-        star_best = get_starforce_score(max_starforce(item_req_level, name, is_superior), star_level)
-        benchmarks["star"] = round(star_best * (weights.superior_star if is_superior else 1), 2)
+        if star_from_stats:
+            benchmarks["star"] = 100.0  # 22성 스탯 환산 = 100
+        else:
+            star_best = get_starforce_score(max_starforce(item_req_level, name, is_superior), star_level)
+            benchmarks["star"] = round(star_best * (weights.superior_star if is_superior else 1), 2)
         detail = {"pot": round(pot_score, 1), "pot_additional": round(eddy_score, 1)}
         breakdown = [
             {"key": "pot", "label": "윗잠재", "raw_score": round(max(pot_val, 0), 2), "weighted_score": round(pot_score, 2)},

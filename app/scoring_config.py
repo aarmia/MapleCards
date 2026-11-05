@@ -91,6 +91,8 @@ _SCORING_SPEC = {
     "starforce": {
         **{k: NUMBER for k in ("reference_level", "level_weight_divisor", "base_star", "over_star_log_weight")},
         "max_star": {"bands": list, "default": NUMBER, "superior": NUMBER, "names": dict},
+        "benchmark": {"benchmark_star": NUMBER, "bands": list, "glove_attack_bonus": NUMBER, "over_star_log_weight": NUMBER},
+        "noljang": {"levels": list, "stat": list, "attack": list},
     },
     "weights": {k: NUMBER for k in ("add", "superior_star")},
     "noljang": {k: NUMBER for k in ("star_min", "star_max", "max_level", "etc_stat_strong", "etc_attack_strong", "etc_stat_weak", "etc_attack_weak")},
@@ -124,6 +126,17 @@ def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
         previous = band[0]
     if data["add_option"]["flame"]["bands"][-1][0] != 0:
         raise ConfigError(f"{path.name}: add_option.flame.bands 의 마지막 항목은 레벨 하한 0 이어야 합니다")
+    previous = None
+    for band in data["starforce"]["benchmark"]["bands"]:
+        if not (isinstance(band, list) and len(band) == 3 and all(isinstance(v, NUMBER) for v in band)):
+            raise ConfigError(f"{path.name}: starforce.benchmark.bands 항목은 [레벨 하한, 스탯, 공/마] 여야 합니다")
+        if previous is not None and band[0] > previous:
+            raise ConfigError(f"{path.name}: starforce.benchmark.bands 는 레벨 하한 내림차순이어야 합니다")
+        previous = band[0]
+    noljang = data["starforce"]["noljang"]
+    if not (len(noljang["levels"]) == len(noljang["stat"]) == len(noljang["attack"])
+            and all(len(row) == 5 for row in noljang["stat"]) and all(len(row) == 10 for row in noljang["attack"])):
+        raise ConfigError(f"{path.name}: starforce.noljang 은 레벨마다 스탯 5개(1~5성)·공/마 10개(6~15성)가 필요합니다")
     previous = None
     for band in data["starforce"]["max_star"]["bands"]:
         if not (isinstance(band, list) and len(band) == 2 and all(isinstance(v, NUMBER) for v in band)):

@@ -178,10 +178,10 @@ class PotentialOptionTests(unittest.TestCase):
             "additional_potential_option_2": "마력 +10",
             "additional_potential_option_3": None,
             "starforce": "22",
+            "item_starforce_option": {"int": "145", "luk": "145", "magic_power": "106"},  # 200제 22성(만점) 합계 → 스타포스 축 100
             "item_base_option": {"base_equipment_level": 200},
             "item_add_option": {},
             "item_etc_option": {},
-            "item_starforce_option": {},
         }
 
     def test_lethe_uses_int_as_main_stat(self):
@@ -232,6 +232,15 @@ class PotentialOptionTests(unittest.TestCase):
             [0, 15.0, eddy_raw, 100.0],
         )
         self.assertEqual(result["scoring_basis"]["star_score"], 100.0)
+
+    def test_starforce_axis_is_stat_based_to_22_and_log_bonus_above(self):
+        over = {**self.challenger_top, "starforce": "25", "item_starforce_option": {"int": "145", "luk": "145", "magic_power": "175"}}
+        low = {**self.challenger_top, "starforce": "18", "item_starforce_option": {"int": "85", "luk": "85", "magic_power": "30"}}
+        def star(item):
+            return evaluate_equipment([item], "레테", 285)[0]["scoring_basis"]["star_score"]
+
+        self.assertAlmostEqual(star(over), round(100 + 10 * math.log(4), 2))  # 23성부터 100 + 10 × ln(별 − 21)
+        self.assertLess(star(low), 50)  # 18성은 22성 스탯 환산의 절반 미만
 
     def test_ring_does_not_recommend_unavailable_add_option(self):
         guide = get_dynamic_guide(

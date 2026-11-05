@@ -349,6 +349,45 @@ def flame_best_add_option(level: int, class_name: str, main_stat: str | None = N
     return max(candidates, key=lambda option: calculate_item_score(option, class_name, main_stat=main_stat, context=context))
 
 
+def _stat_option(stat: float, attack: float, main_stat: str, sub_names) -> dict:
+    stats = ("str", "dex", "luk") if main_stat == "all_stat" else (main_stat, *[name.lower() for name in sub_names])
+    option = {key: stat for key in stats}
+    option["magic_power" if main_stat == "int" else "attack_power"] = attack
+    return option
+
+
+def starforce_benchmark_option(level: int, main_stat: str, sub_names=(), part: str = "") -> dict | None:
+    """만점 스타포스(scoring.toml starforce.benchmark, 기본 25성)의 스탯·공/마 합계를 item_starforce_option 모양으로.
+    장갑은 공/마 보너스를 더합니다. 표의 최저 레벨 미만이거나 데몬어벤져(HP 기준 없음)이면 None 입니다."""
+    if main_stat == "hp":
+        return None
+    config = SCORING.starforce.benchmark
+    band = next((band for band in config.bands if level >= band[0]), None)
+    if band is None:
+        return None
+    _, stat, attack = band
+    return _stat_option(stat, attack + (config.glove_attack_bonus if part == "장갑" else 0), main_stat, sub_names)
+
+
+def noljang_option(level: int, star: int, main_stat: str, sub_names=()) -> dict:
+    """놀장 star 성의 스탯·공/마 합계 (scoring.toml starforce.noljang). 놀장은 API 스타포스 옵션이 비고 작과 같은 칸에 들어 있어 표로 계산합니다."""
+    config = SCORING.starforce.noljang
+    levels = config.levels
+
+    def row(table, lv):
+        index = max(i for i, low in enumerate(levels) if lv >= low)
+        return table[index]
+
+    if level % 10 == 5 and levels[0] < level - 5 and level + 5 <= levels[-1]:
+        # 일의 자리 5 레벨: 스탯은 앞뒤 레벨 평균의 정수, 공/마는 낮은 쪽
+        stats = [int((a + b) / 2) for a, b in zip(row(config.stat, level - 5), row(config.stat, level + 5))]
+    else:
+        stats = row(config.stat, level)
+    attacks = row(config.attack, level - 5 if level % 10 == 5 else level)
+    star = max(0, min(int(star), 15))
+    return _stat_option(sum(stats[:min(star, 5)]), sum(attacks[:max(0, star - 5)]), main_stat, sub_names)
+
+
 def max_starforce(level: int, name: str = "", superior: bool = False) -> int:
     """기준 만점 스타포스 (scoring.toml starforce.max_star): 제네시스 22 · 데스티니 25 · 슈페리얼 15 · 그 외 레벨 구간"""
     config = SCORING.starforce.max_star
