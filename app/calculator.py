@@ -369,6 +369,24 @@ def starforce_benchmark_option(level: int, main_stat: str, sub_names=(), part: s
     return _stat_option(stat, attack + (config.glove_attack_bonus if part == "장갑" else 0), main_stat, sub_names)
 
 
+def starforce_option(level: int, star: int, main_stat: str, sub_names=(), part: str = "") -> dict | None:
+    """star 성까지 스타포스로 오른 스탯·공/마 합계 (scoring.toml starforce.gain) 를 item_starforce_option 모양으로.
+    표의 최저 레벨 미만, 그 레벨의 최대 성 초과, 데몬어벤져(HP 기준 없음)이면 None 입니다."""
+    gain = SCORING.starforce.gain
+    index = next((i for i, low in enumerate(gain.levels) if level >= low), None)
+    if main_stat == "hp" or index is None:
+        return None
+    stat_16, attack_16 = gain.stat_16[index], gain.attack_16[index]
+    star = max(0, int(star))
+    if star > 15 + len(attack_16):
+        return None
+    stat = sum(gain.stat_1_15[:star]) + sum(stat_16[:max(0, star - 15)])
+    attack = sum(attack_16[:max(0, star - 15)])
+    if part == "장갑":
+        attack += sum(1 for glove_star in gain.glove_attack_stars if star >= glove_star)
+    return _stat_option(stat, attack, main_stat, sub_names)
+
+
 def noljang_option(level: int, star: int, main_stat: str, sub_names=()) -> dict:
     """놀장 star 성의 스탯·공/마 합계 (scoring.toml starforce.noljang). 놀장은 API 스타포스 옵션이 비고 작과 같은 칸에 들어 있어 표로 계산합니다."""
     config = SCORING.starforce.noljang

@@ -34,6 +34,11 @@ document.addEventListener('alpine:init', () => {
         queuePosition: null,
         queueEstimatedWait: null,
         viewMode: 'equip',
+        // 스펙업 추천: 사용자가 바꾼 노작 시세(아이템 이름 → 억)와 그 시세로 다시 계산한 스타포스 비용(슬롯 → 메소)
+        specUpExpanded: false,
+        specUpPrices: {},
+        specUpCosts: {},
+        specUpMaterials: {},  // 사용자가 바꾼 연마석 시세 (이름 → 억)
         // 장비창 배치 [슬롯, 열, 행]. 7열 격자: 1·2열 왼쪽 블록, 3~5열 캐릭터(1~4행)와 무기류(5행), 6·7열 오른쪽 블록.
         // 슬롯 이름은 넥슨 응답의 item_equipment_slot 과 같고, 칭호는 장비창에 보이지 않습니다.
         equipLayout: [
@@ -190,6 +195,7 @@ document.addEventListener('alpine:init', () => {
                 await new Promise(resolve => setTimeout(resolve, 250));
                 this.report = data;
                 this.autoRetried = false;
+                this.applySavedSpecUpPrices();
             } catch(e) {
                 if (e.name === 'AbortError') {
                     return;
@@ -273,12 +279,122 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
+        // 큰 메소 값을 조·억 단위로 (예: 1조 2,670억, 95.9억)
+        formatMeso(value) {
+            const n = Number(value) || 0;
+            const jo = Math.floor(n / 1e12), eok = (n - jo * 1e12) / 1e8;
+            if (jo > 0) return jo.toLocaleString() + '조' + (eok >= 1 ? ' ' + Math.round(eok).toLocaleString() + '억' : '');
+            if (eok >= 100) return Math.round(eok).toLocaleString() + '억';
+            if (eok >= 0.1) return eok.toFixed(1) + '억';
+            return Math.round(n / 1e4).toLocaleString() + '만';
+        },
+
+        // 스펙업 추천: 모든 아이템의 강화 행동을 100억 메소당 주스탯% 높은 순으로. 노작 시세를 바꾼 스타포스는 다시 계산한 비용을 씁니다.
+        specUpActions() {
+            if (!this.report?.results) return [];
+            const unit = this.report.spec_up?.unit || 1e10;
+            const rows = [];
+            for (const item of this.report.results) {
+                for (const action of item.spec_up || []) {
+                    let cost = action.axis === '스타포스' ? (this.specUpCosts[item.slot] ?? action.cost) : action.cost;
+                    if (action.material) cost = action.material.count * this.materialPrice(action) * 1e8 + action.material.meso;
+                    rows.push({ ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0, item });
+                }
+            }
+            return rows.sort((a, b) => b.efficiency - a.efficiency);
+        },
+
+        visibleSpecUp() {
+            const all = this.specUpActions();
+            return this.specUpExpanded ? all : all.slice(0, this.report?.spec_up?.limit || 5);
+        },
+
+        formatEfficiency(value) {
+            const n = Number(value) || 0;
+            return n >= 0.1 ? n.toFixed(2) : n.toFixed(3);
+        },
+
+        specUpPrice(action) {
+            const saved = this.specUpPrices[action.item.name];
+            return saved ?? Math.round(action.base_price / 1e6) / 100;
+        },
+
+        specUpPriceCustom(action) {
+            return this.specUpPrices[action.item.name] !== undefined;
+        },
+
+        async setSpecUpPrice(action, value) {
+            const eok = Number(value);
+            if (value === '' || !Number.isFinite(eok) || eok < 0) return;
+            this.specUpPrices = { ...this.specUpPrices, [action.item.name]: eok };
+            try { localStorage.setItem('specup-prices', JSON.stringify(this.specUpPrices)); } catch (e) { /* 저장 불가(사생활 보호 모드 등) */ }
+            await this.refreshSpecUpCosts([action]);
+        },
+
+        resetSpecUpPrice(action) {
+            const prices = { ...this.specUpPrices };
+            delete prices[action.item.name];
+            this.specUpPrices = prices;
+            try { localStorage.setItem('specup-prices', JSON.stringify(prices)); } catch (e) { /* 무시 */ }
+            const costs = { ...this.specUpCosts };
+            delete costs[action.item.slot];
+            this.specUpCosts = costs;
+        },
+
+        // 바꾼 노작 시세로 스타포스 기대 비용만 서버에서 다시 계산합니다 (넥슨 API 호출 없음).
+        async refreshSpecUpCosts(actions) {
+            if (!actions.length) return;
+            try {
+                const res = await fetch('/spec-up/starforce-cost', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: actions.map(a => ({ level: a.level, star: a.star, base_price: Math.round(this.specUpPrice(a) * 1e8) })) }),
+                });
+                if (!res.ok) return;
+                const { costs } = await res.json();
+                const next = { ...this.specUpCosts };
+                actions.forEach((a, i) => { if (costs[i] !== null && costs[i] !== undefined) next[a.item.slot] = costs[i]; });
+                this.specUpCosts = next;
+            } catch (e) { /* 실패하면 기본 시세 비용을 그대로 씁니다 */ }
+        },
+
+        // 시드링 연마석 시세(억): 사용자가 바꾼 값, 없으면 기본 시세. 같은 연마석을 쓰는 모든 반지에 함께 적용됩니다.
+        materialPrice(action) {
+            const saved = this.specUpMaterials[action.material.name];
+            return saved ?? Math.round(action.material.price / 1e6) / 100;
+        },
+
+        materialPriceCustom(action) {
+            return this.specUpMaterials[action.material.name] !== undefined;
+        },
+
+        setMaterialPrice(action, value) {
+            const eok = Number(value);
+            if (value === '' || !Number.isFinite(eok) || eok < 0) return;
+            this.specUpMaterials = { ...this.specUpMaterials, [action.material.name]: eok };
+            try { localStorage.setItem('specup-materials', JSON.stringify(this.specUpMaterials)); } catch (e) { /* 무시 */ }
+        },
+
+        resetMaterialPrice(action) {
+            const prices = { ...this.specUpMaterials };
+            delete prices[action.material.name];
+            this.specUpMaterials = prices;
+            try { localStorage.setItem('specup-materials', JSON.stringify(prices)); } catch (e) { /* 무시 */ }
+        },
+
+        applySavedSpecUpPrices() {
+            try { this.specUpMaterials = JSON.parse(localStorage.getItem('specup-materials') || '{}') || {}; } catch (e) { this.specUpMaterials = {}; }
+            this.specUpCosts = {};
+            this.specUpExpanded = false;
+            try { this.specUpPrices = JSON.parse(localStorage.getItem('specup-prices') || '{}') || {}; } catch (e) { this.specUpPrices = {}; }
+            const saved = this.specUpActions().filter(a => a.axis === '스타포스' && this.specUpPriceCustom(a));
+            this.refreshSpecUpCosts(saved);
+        },
+
         getFilteredItems() {
             if (!this.report || !this.report.results) return [];
-            // 모든 아이템 점수: 칭호를 뺀 전부 (기준 대비 % 오름차순). 취약 5종: 평균에 들어가는 아이템 중 낮은 5개
-            const items = [...this.report.results].filter(item => item.part !== '칭호').sort((a, b) => a.score_ratio - b.score_ratio);
-            if (this.viewMode === 'all') return items;
-            return items.filter(item => item.scored !== false).slice(0, 5);
+            // 모든 아이템 점수: 칭호를 뺀 전부 (기준 대비 % 오름차순)
+            return [...this.report.results].filter(item => item.part !== '칭호').sort((a, b) => a.score_ratio - b.score_ratio);
         },
 
         // 모바일 장비창: 부위 그룹별로 나눕니다. 비어 있는 예비 특수 반지는 숨깁니다.

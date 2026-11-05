@@ -1,15 +1,15 @@
 <template x-for="(item, index) in getFilteredItems()" :key="item.name + index">
-    <div class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 flex flex-col md:flex-row gap-3 md:gap-6 shadow-sm animate-fade-in" :class="viewMode === 'top5' ? 'border-l-4 border-l-red-400' : ''">
+    <div class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 flex flex-col md:flex-row gap-3 md:gap-6 shadow-sm animate-fade-in">
 
         <!-- 모바일: 아이콘 · 이름 · 등급을 한 줄 머리로. 데스크톱: 왼쪽 아이콘 열 -->
         <div class="flex items-center gap-3 md:flex-col md:justify-center md:min-w-[80px] md:gap-0">
-            <span class="hidden md:block text-[9px] font-black mb-2 tracking-widest uppercase text-slate-400" x-text="viewMode === 'all' ? 'Rank ' + (index+1) : 'Priority ' + (index+1)"></span>
+            <span class="hidden md:block text-[9px] font-black mb-2 tracking-widest uppercase text-slate-400" x-text="'Rank ' + (index+1)"></span>
             <div @click="openItemDetail(item)" class="relative p-1.5 md:p-2 rounded-2xl cursor-pointer hover:scale-110 transition-transform active:scale-95 group shrink-0" :class="getBorderColor(item.score_ratio)">
                 <img :src="item.icon" class="w-11 h-11 md:w-12 md:h-12 object-contain drop-shadow-sm">
                 <span x-show="item.star > 0" class="absolute -top-2 -right-2 text-[10px] font-bold px-1.5 md:px-2 py-0.5 rounded-full border-2 border-white shadow-sm bg-slate-900 text-white" x-text="item.star + '★'"></span>
             </div>
             <div class="flex-1 min-w-0 md:hidden" @click="openItemDetail(item)">
-                <p class="text-[10px] font-black tracking-widest uppercase text-slate-400" x-text="(viewMode === 'all' ? 'Rank ' : 'Priority ') + (index+1) + ' · ' + item.part"></p>
+                <p class="text-[10px] font-black tracking-widest uppercase text-slate-400" x-text="'Rank ' + (index+1) + ' · ' + item.part"></p>
                 <h3 class="font-black text-slate-800 tracking-tight text-base leading-snug break-keep" x-text="item.name"></h3>
             </div>
             <div class="md:hidden text-right shrink-0">

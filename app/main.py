@@ -13,6 +13,7 @@ from fastapi import FastAPI, Query, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, Field
 from starlette.requests import ClientDisconnect
 
 from app.analyzer import build_report, unsupported_registry
@@ -23,6 +24,7 @@ from app.request_tracker import DiagnosticRequestTracker
 from app.scoring_config import GRADES
 from app.scraper import NexonAPIError, NexonAPIHandler
 from app.settings import Settings
+from app.starforce_cost import FIRST_STAR, LAST_STAR, expected_cost
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -156,6 +158,23 @@ async def sitemap_xml():
 @app.get("/request-status/{request_id}")
 async def request_status(request_id: str):
     return await request_tracker.status(request_id)
+
+
+class StarforceCostItem(BaseModel):
+    level: int = Field(ge=0, le=300)
+    star: int = Field(ge=0, le=LAST_STAR)
+    base_price: float = Field(ge=0, le=1e15)  # 노작 시세 (메소)
+
+
+class StarforceCostRequest(BaseModel):
+    items: list[StarforceCostItem] = Field(max_length=40)
+
+
+@app.post("/spec-up/starforce-cost")
+async def spec_up_starforce_cost(body: StarforceCostRequest):
+    """사용자가 노작 시세를 바꾸면 스타포스 다음 1성 기대 비용만 다시 계산합니다 (넥슨 API 호출 없음)."""
+    return {"costs": [round(expected_cost(row.level, row.base_price, row.star, row.star + 1))
+                      if FIRST_STAR <= row.star < LAST_STAR else None for row in body.items]}
 
 
 async def client_disconnected(request: Request) -> bool:

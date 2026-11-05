@@ -99,6 +99,20 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('window.MECULATOR_GRADES = {"item_grade": [[90, "SSS+"]', response.text)
         self.assertIn("gradeCutText('SSS+')", response.text)
 
+    async def test_spec_up_cost_recalculates_with_user_price_without_nexon_calls(self):
+        api = FakeNexonAPI()
+        with patch("app.main.nexon_api", api):
+            async with client() as c:
+                response = await c.post("/spec-up/starforce-cost", json={"items": [
+                    {"level": 140, "star": 21, "base_price": 1e8}, {"level": 140, "star": 5, "base_price": 1e8}]})
+                rejected = await c.post("/spec-up/starforce-cost", json={"items": [{"level": 140, "star": 22, "base_price": -1}]})
+        self.assertEqual(response.status_code, 200)
+        costs = response.json()["costs"]
+        self.assertAlmostEqual(costs[0] / 1e8, 59.08 - 34.84, delta=0.01)  # starforce.gg 140제·노작 1억: 12→22 − 12→21
+        self.assertIsNone(costs[1])  # 12성 미만은 계산하지 않음
+        self.assertEqual(rejected.status_code, 422)
+        self.assertEqual(api.max_active, 0)
+
     async def test_nexon_error_becomes_json_with_code_and_retry_after(self):
         error = NexonAPIError("메이플스토리 점검 중입니다.", status_code=503, code="OPENAPI00010", retry_after=600)
         with patch("app.main.nexon_api", FakeNexonAPI(error=error)), self.assertLogs("app.main", level="WARNING"):

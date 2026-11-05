@@ -1,0 +1,113 @@
+<!-- 스펙업 추천: 강화 행동을 기대 비용 100억 메소당 주스탯% 높은 순으로 (app/spec_up.py, app.js specUpActions) -->
+<div class="space-y-3">
+    <div class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 shadow-sm">
+        <h3 class="font-black text-slate-800">스펙업 추천</h3>
+        <p class="mt-1 text-[12px] text-slate-500 leading-relaxed break-keep">
+            스타포스·잠재능력·에디셔널·추가옵션·시드링 강화마다 <span class="font-bold text-slate-700">기대 비용 100억 메소당 오르는 주스탯%</span>를 계산해 높은 순으로 보여줍니다.
+            스타포스는 샤타 이벤트(15~16 미포함) 기준이고, 노작 시세는 직접 바꿀 수 있습니다.
+            잠재·추가옵션은 넥슨 공식 확률의 기대값이라 실제 비용은 운에 따라 크게 달라질 수 있습니다.
+        </p>
+    </div>
+
+    <p x-show="!specUpActions().length" class="text-sm text-slate-500 bg-white rounded-2xl border border-slate-200 p-4">추천할 강화가 없습니다. 무기류·특수 장비는 아직 지원하지 않습니다.</p>
+
+    <template x-for="(action, index) in visibleSpecUp()" :key="action.item.slot + action.axis + (action.variant || '')">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 shadow-sm animate-fade-in">
+            <div class="flex items-start gap-3">
+                <div @click="openItemDetail(action.item)" class="relative p-1.5 rounded-2xl cursor-pointer hover:scale-110 transition-transform active:scale-95 shrink-0"
+                     :class="getBorderColor(action.item.score_ratio)">
+                    <img :src="action.item.icon" class="w-11 h-11 object-contain drop-shadow-sm" :alt="action.item.name">
+                    <span x-show="action.item.star > 0" class="absolute -top-2 -right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm bg-slate-900 text-white" x-text="action.item.star + '★'"></span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[10px] font-black tracking-widest uppercase text-slate-400" x-text="'Priority ' + (index + 1) + ' · ' + action.item.part"></p>
+                    <h3 class="font-black text-slate-800 tracking-tight text-base leading-snug break-keep" x-text="action.item.name"></h3>
+                    <p class="mt-1 text-[13px] font-bold text-slate-700 break-keep">
+                        <span class="inline-block mr-1 text-[10px] px-1.5 py-0.5 rounded font-black bg-blue-600 text-white align-middle" x-text="action.axis"></span>
+                        <span x-text="action.label"></span>
+                    </p>
+                    <p x-show="action.detail" class="mt-0.5 text-[11px] font-bold text-slate-500 break-keep" x-text="action.detail"></p>
+                    <p x-show="action.combo" class="mt-0.5 text-[11px] font-bold text-slate-500 break-keep"
+                       x-text="'대표 구성: ' + action.combo + ' (성공의 ' + Math.round((action.combo_share || 0) * 100) + '%)'"></p>
+                </div>
+                <div class="text-right shrink-0">
+                    <p class="text-[10px] md:text-[11px] font-black text-slate-500 tabular-nums whitespace-nowrap"
+                       x-text="(report?.spec_up?.stat_label || '주스탯') + ' +' + formatEfficiency(action.efficiency) + '% / 100억'"></p>
+                    <p class="text-base md:text-2xl font-black text-emerald-600 tabular-nums leading-tight whitespace-nowrap"
+                       x-text="'최종뎀 +' + (action.final_damage ?? 0).toFixed(2) + '%'"></p>
+                </div>
+            </div>
+
+            <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-[12px]">
+                <div class="rounded-lg bg-slate-50 px-2.5 py-2">
+                    <p class="text-[10px] font-bold text-slate-400">주스탯 증가</p>
+                    <p class="font-black text-slate-700 tabular-nums" x-text="'+' + action.gain.toFixed(2) + '%'"></p>
+                </div>
+                <div class="rounded-lg bg-slate-50 px-2.5 py-2">
+                    <p class="text-[10px] font-bold text-slate-400">기대 비용</p>
+                    <p class="font-black text-slate-700 tabular-nums" x-text="formatMeso(action.cost)"></p>
+                </div>
+                <template x-if="action.chance !== undefined">
+                    <div class="rounded-lg bg-slate-50 px-2.5 py-2">
+                        <p class="text-[10px] font-bold text-slate-400">1회 성공 확률</p>
+                        <p class="font-black text-slate-700 tabular-nums" x-text="(action.chance * 100).toFixed(action.chance >= 0.01 ? 2 : 4) + '%'"></p>
+                    </div>
+                </template>
+                <template x-if="action.tries !== undefined">
+                    <div class="rounded-lg bg-slate-50 px-2.5 py-2">
+                        <p class="text-[10px] font-bold text-slate-400">평균 재설정</p>
+                        <p class="font-black text-slate-700 tabular-nums" x-text="Math.ceil(action.tries).toLocaleString() + '회'"></p>
+                    </div>
+                </template>
+                <template x-if="action.steps && action.steps.length">
+                    <div class="col-span-2 md:col-span-4 rounded-lg border border-slate-100 px-2.5 py-2">
+                        <p class="text-[10px] font-bold text-slate-400 mb-1" x-text="'단계별 목표 (현재 ' + action.current_grade + '급)'"></p>
+                        <div class="grid grid-cols-[auto_1fr_1fr_auto] gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
+                            <span class="font-bold text-slate-400">목표</span><span class="font-bold text-slate-400 text-right">확률</span>
+                            <span class="font-bold text-slate-400 text-right">기대 비용</span><span class="font-bold text-slate-400 text-right">100억당</span>
+                            <template x-for="step in action.steps" :key="step.plus">
+                                <div class="contents" :class="step.plus === action.steps.reduce((a, b) => b.efficiency > a.efficiency ? b : a).plus ? 'text-emerald-700 font-black' : 'text-slate-600 font-bold'">
+                                    <span x-text="'+' + step.plus + '급 (' + step.target + ')'"></span>
+                                    <span class="text-right" x-text="(step.chance * 100).toFixed(step.chance >= 0.01 ? 2 : 4) + '%'"></span>
+                                    <span class="text-right" x-text="formatMeso(step.cost)"></span>
+                                    <span class="text-right" x-text="'+' + formatEfficiency(step.efficiency) + '%'"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="action.material">
+                    <div class="col-span-2 rounded-lg bg-amber-50 border border-amber-100 px-2.5 py-2">
+                        <label class="flex items-center gap-2">
+                            <span class="text-[10px] font-bold text-amber-700 shrink-0" x-text="action.material.name + ' 시세'"></span>
+                            <input type="number" min="0" step="0.1" inputmode="decimal"
+                                   class="w-20 rounded border border-amber-200 bg-white px-2 py-1 text-right font-black text-slate-700 tabular-nums"
+                                   :value="materialPrice(action)" @change="setMaterialPrice(action, $event.target.value)">
+                            <span class="text-[11px] font-bold text-slate-500">억</span>
+                            <button type="button" x-show="materialPriceCustom(action)" @click="resetMaterialPrice(action)"
+                                    class="ml-auto text-[10px] font-bold text-slate-400 hover:text-slate-600 underline">기본 시세로</button>
+                        </label>
+                    </div>
+                </template>
+                <template x-if="action.axis === '스타포스'">
+                    <div class="col-span-2 rounded-lg bg-amber-50 border border-amber-100 px-2.5 py-2">
+                        <label class="flex items-center gap-2">
+                            <span class="text-[10px] font-bold text-amber-700 shrink-0">노작 시세</span>
+                            <input type="number" min="0" step="0.1" inputmode="decimal"
+                                   class="w-24 rounded border border-amber-200 bg-white px-2 py-1 text-right font-black text-slate-700 tabular-nums"
+                                   :value="specUpPrice(action)" @change="setSpecUpPrice(action, $event.target.value)">
+                            <span class="text-[11px] font-bold text-slate-500">억</span>
+                            <span x-show="!specUpPriceCustom(action) && !action.base_price_registered" class="text-[10px] font-bold text-amber-600">기본값</span>
+                            <button type="button" x-show="specUpPriceCustom(action)" @click="resetSpecUpPrice(action)"
+                                    class="ml-auto text-[10px] font-bold text-slate-400 hover:text-slate-600 underline">기본 시세로</button>
+                        </label>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+
+    <button type="button" x-show="specUpActions().length > (report?.spec_up?.limit || 5)" @click="specUpExpanded = !specUpExpanded"
+            class="w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
+            x-text="specUpExpanded ? '접기' : '전체 ' + specUpActions().length + '개 보기'"></button>
+</div>

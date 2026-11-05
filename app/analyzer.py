@@ -28,6 +28,7 @@ from app.preset_optimizer import optimize_presets
 from app.preset_projection import active_items, project_context
 from app.scoring_config import GRADES, POTENTIAL, SCORING, load_guides
 from app.set_projection import MEMBERS, PITCHED
+from app.spec_up import attach_spec_up
 from app.special import (
     analyze_special_lines,
     best_total,
@@ -762,6 +763,10 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
     extra_items = [item for item in spare_rings if item not in items] + ([title] if title else [])
     evaluate_list = evaluate_equipment([*items, *extra_items], char_class, char_level, unsupported=unsupported, main_stat=main_stat, profile=profile)
     attach_values(evaluate_list, items, equipped_items, profile, char_level, (extras or {}).get("set_effect"))
+    # 스펙업 추천: 아이템별 축 강화 행동과 전체 상위 (100억 메소당 주스탯%, app/spec_up.py)
+    damage_total = (final_stat_float(stat_data, "데미지") or 0.0) + (final_stat_float(stat_data, "보스 몬스터 데미지") or 0.0)
+    spec_up = attach_spec_up(evaluate_list, [*items, *extra_items], profile["context"], char_class, main_stat, char_level,
+                             GUIDES.names.limited, damage_total)
     overall_review, all_sorted_results = generate_overall_review(evaluate_list)
 
     return {
@@ -779,5 +784,6 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
             "weapon": profile["weapon"].as_dict(),
         },
         "overall": overall_review,
+        "spec_up": spec_up,
         "results": all_sorted_results,
     }
