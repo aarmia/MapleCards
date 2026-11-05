@@ -66,9 +66,6 @@ class FakeNexonAPI:
         # 심볼 조회가 실패해도 진단은 계속되어야 합니다.
         return {}, {"symbol": "NEXON_TIMEOUT"}
 
-    async def get_guild(self, *_):
-        return await self._respond({"guild_noblesse_skill": []})
-
 
 def client():
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")

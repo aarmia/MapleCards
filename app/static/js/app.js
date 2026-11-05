@@ -422,7 +422,7 @@ document.addEventListener('alpine:init', () => {
                 const flame = item.scoring_basis?.add_lines;
                 const valueText = value => item.is_wse ? `+${value}% (공)` : `+${value}`;
                 const lines = Array.isArray(flame)
-                    ? flame.map(line => ({ text: line.option, tier: line.tier, value: valueText(line.value) }))
+                    ? flame.map(line => ({ text: line.option, tier: line.tier, guess: !!line.guess, value: line.value ? valueText(line.value) : null }))
                     : entries.length
                         ? entries.map(entry => ({ text: entry.option, tier: null, value: valueText(entry.value) }))
                         : this.addSummaryLines(item).map(text => ({ text, tier: null }));

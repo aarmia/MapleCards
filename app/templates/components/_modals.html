@@ -86,7 +86,7 @@
                                     <!-- 추가옵션은 점 대신 불꽃 단계. 단계를 확정할 수 없으면 '?' -->
                                     <span x-show="card.key === 'add'" class="flex-none w-4 text-center text-xs font-black tabular-nums"
                                           :class="line.tier ? 'text-emerald-300' : 'text-neutral-500'"
-                                          :title="line.tier ? '' : '불꽃 줄을 하나로 확정할 수 없거나 단계 기준이 없는 옵션'"
+                                          :title="line.tier ? (line.guess ? '같은 합계를 만드는 불꽃 조합이 여러 개라 그중 하나를 표시합니다' : '') : '불꽃 줄을 확정할 수 없거나 단계 기준이 없는 옵션'"
                                           x-text="line.tier ? line.tier : '?'"></span>
                                     <span x-show="card.key !== 'add'" class="w-1.5 h-1.5 rounded-full flex-none" :style="{ backgroundColor: line.dot }"></span>
                                     <div class="min-w-0 flex-1">

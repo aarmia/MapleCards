@@ -11,8 +11,8 @@ from dataclasses import replace
 from app.calculator import final_stat_float, get_potential_options
 from app.character_profile import _effect_stats, build_stat_context
 from app.preset_projection import active_items, project_context
-from app.set_projection import sum_subs
 from app.scoring_config import POTENTIAL
+from app.set_projection import sum_subs
 
 BOSS_DEFENSE = 380.0
 FIELDS = ("main_flat", "main_exempt", "main_pct", "sub_flat", "sub_exempt", "sub_pct",

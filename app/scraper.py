@@ -26,7 +26,6 @@ STAT_EXTRA_ENDPOINTS = {
     "link_skill": "/character/link-skill",
     "hexa_stat": "/character/hexamatrix-stat",
     "set_effect": "/character/set-effect",
-    "union_champion": "/user/union-champion",   # 전투력 보정의 크뎀 합산(app/crit_damage.py)
 }
 
 # Nexon Open API 오류 코드 -> (우리 HTTP 상태, 사용자 메시지, Retry-After 초).
@@ -245,14 +244,6 @@ class NexonAPIHandler:
     async def get_character_item(self, ocid: str) -> dict[str, Any]:
         """캐릭터의 장비 아이템 정보를 가져옵니다."""
         return await self._request("/character/item-equipment", {"ocid": ocid})
-
-    async def get_guild(self, guild_name: str, world_name: str) -> dict[str, Any]:
-        """길드 기본 정보(노블레스 스킬 포함). 전투력 보정의 크뎀 합산에 씁니다."""
-        found = await self._request("/guild/id", {"guild_name": guild_name, "world_name": world_name})
-        oguild_id = found.get("oguild_id")
-        if not isinstance(oguild_id, str) or not oguild_id:
-            raise NexonAPIError("길드를 찾을 수 없습니다.", status_code=404, code="GUILD_NOT_FOUND")
-        return await self._request("/guild/basic", {"oguild_id": oguild_id})
 
     async def get_stat_extras(self, ocid: str) -> tuple[dict[str, Any], dict[str, str]]:
         """STAT_EXTRA_ENDPOINTS 를 한꺼번에 조회합니다. 실패한 항목은 결과에서 빼고 오류 코드만 돌려주어 진단이 계속되게 합니다."""

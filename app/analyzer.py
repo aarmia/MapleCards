@@ -5,13 +5,12 @@ from collections import Counter
 
 from app.calculator import (
     add_option_entries,
-    flame_lines,
-    flame_stat_lines,
     analyze_potential_score,
     calculate_item_score,
     calculate_potential_score,
     final_stat_float,
     flame_best_add_option,
+    flame_lines,
     get_main_stat,
     get_potential_options,
     get_starforce_score,
@@ -209,30 +208,26 @@ def build_guide_context(scores, star_val, part_name, item_name, total_score, ite
     }
 
 
-def weapon_flame_tiers(item, recognized, level, attack_label):
-    """무기 추옵 줄(공% 환산)에 불꽃 단계를 붙입니다. 공/마는 기본 공/마 대비 단계 비율표(weapon_attack_tier)로 판별합니다."""
-    per_tier = POTENTIAL.weapon.add_best
-    add_option = item.get("item_add_option") or {}
-    stat_lines = flame_stat_lines(add_option, level) or []
-    lines = []
+def weapon_flame_tiers(item, recognized, level, attack_label, char_class, main_stat):
+    """무기 추옵의 모든 불꽃 줄과 단계. 값은 공% 환산값(recognized)이고, 점수에 안 쓰이는 줄은 값 없이 표시합니다.
+    공/마 단계는 무기별 1~5추 표·기본 공/마 대비 비율(weapon_attack_tier)로 판별합니다."""
+    attack_key = "magic_power" if attack_label == "마력" else "attack_power"
+    values = {}
     for entry in recognized:
-        option, tier = entry["option"], None
-        match = re.fullmatch(r"(보스 몬스터 데미지|데미지|올스탯) \+(\d+)%?", option)
-        if match:
-            step = {"보스 몬스터 데미지": per_tier.boss_damage_per_tier, "데미지": per_tier.damage_per_tier,
-                    "올스탯": per_tier.all_stat_per_tier}[match[1]]
-            amount = int(match[2])
-            tier = amount // step if amount % step == 0 else None
-        elif option.startswith(f"{attack_label} +"):
-            tier = weapon_attack_tier(item, attack_label, float(option.split("+")[1]))
+        option = entry["option"]
+        if option.startswith("보스 몬스터 데미지"):
+            key = "boss_damage"
+        elif option.startswith("데미지"):
+            key = "damage"
+        elif option.startswith("올스탯"):
+            key = "all_stat"
+        elif option.startswith(attack_label + " "):
+            key = attack_key
         else:
-            match = re.fullmatch(r"(STR|DEX|INT|LUK) \+(\d+)", option)
-            single = [line for line in stat_lines if match and list(line["stats"]) == [match[1].lower()]]
-            others = [line for line in stat_lines if match and match[1].lower() in line["stats"] and len(line["stats"]) > 1]
-            if single and not others:
-                tier = single[0]["tier"]
-        lines.append({"option": option, "tier": tier, "value": entry["value"]})
-    return lines
+            key = option.split(" ")[0].lower()
+        values[key] = entry["value"]
+    return flame_lines(item.get("item_add_option") or {}, level, char_class, main_stat=main_stat, values=values,
+                       attack_tier=lambda amount: weapon_attack_tier(item, attack_label, float(amount)))
 
 
 def exceptional_axis(item, part_name):
@@ -317,12 +312,13 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                 value, analysis = total_item_score, {"recognized": [entry], "ignored": [], "unsupported": []}
                 notes = [f"시드링 · 종류 가중치 × 레벨 ÷ {POTENTIAL.special.ring.max_level} (리스트레인트·컨티뉴어스 만렙 = 100)"]
             elif part in POTENTIAL.special.add_option_parts:
-                # 훈장·포켓: 추옵 로직. 환생의 불꽃 급수(주스탯 + 올스탯% × 10 + 공/마 × 계수 + 부스탯 ÷ 10)를
+                # 훈장·포켓: 추옵 로직. 환생의 불꽃 급수(캐릭터 효율 계수)를
                 # 최상 아이템 레벨(potential.toml [special.best] flame_level)의 불꽃 최대 급수와 비교합니다.
                 axis_key, axis_label = "add", "추가옵션"
                 flame_level = POTENTIAL.special.best.raw[part]["flame_level"]
-                value = calculate_item_score(item.get("item_add_option") or {}, char_class, main_stat=main_stat)
-                benchmark = calculate_item_score(flame_best_add_option(flame_level, char_class, main_stat, context.sub_names), char_class, main_stat=main_stat)
+                value = calculate_item_score(item.get("item_add_option") or {}, char_class, main_stat=main_stat, context=context)
+                benchmark = calculate_item_score(flame_best_add_option(flame_level, char_class, main_stat, context.sub_names, context),
+                                                 char_class, main_stat=main_stat, context=context)
                 total_item_score = round(100 * value / benchmark, 2) if benchmark > 0 else 0.0
                 analysis = {"recognized": [], "ignored": [], "unsupported": []}
                 notes = [f"추가옵션 급수 {value:g} ÷ {flame_level}제 불꽃 최대 급수 {benchmark:g} × 100 (기본 옵션은 보지 않음)"]
@@ -370,14 +366,15 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                     ] + ([
                         # 훈장·포켓은 추가옵션 급수가 점수라 줄별 급수를 함께 보여줍니다.
                         {**entry, "category": "추가옵션", "weighted_value": round(entry["value"] * factor, 2), "weight": round(factor, 3)}
-                        for entry in add_option_entries(item.get("item_add_option") or {}, char_class, main_stat=main_stat)
+                        for entry in add_option_entries(item.get("item_add_option") or {}, char_class, main_stat=main_stat, context=context)
                     ] if axis_key == "add" else []),
                     "unrecognized_options": [
                         {"category": "고유 옵션", "option": entry["option"], "reason": entry["reason"]} for entry in analysis["ignored"]
                     ] + [{"category": "고유 옵션", "option": option, "reason": "unsupported"} for option in analysis["unsupported"]],
                     "weights": notes,
                     "breakdown": special_breakdown,
-                    "add_lines": flame_lines(item.get("item_add_option") or {}, item_req_level, char_class, main_stat=main_stat) if axis_key == "add" else None,
+                    "add_lines": flame_lines(item.get("item_add_option") or {}, item_req_level, char_class, main_stat=main_stat,
+                                             context=context) if axis_key == "add" else None,
                     "benchmarks": {"special": benchmark},
                     "star_score": 0,
                 },
@@ -418,7 +415,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             if group == "weapon":
                 # 무기 추옵 = 공% 환산값 ÷ 레벨별 불꽃 최대 조합 × 100 × weights.add (방어구와 같은 척도)
                 add_raw_score, add_recognized = weapon_add_value(item.get("item_add_option"), weapon_context, char_level)
-                add_lines = weapon_flame_tiers(item, add_recognized, item_req_level, weapon_context.attack_label)
+                add_lines = weapon_flame_tiers(item, add_recognized, item_req_level, weapon_context.attack_label, char_class, main_stat)
                 add_best = weapon_add_best(item, weapon_context, char_level)
                 add_score = (100 * add_raw_score / add_best * weights.add) if add_best > 0 else 0.0
                 soul_analysis = analyze_weapon_item(item, "soul", weapon_context, char_level)
@@ -447,11 +444,14 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         else:
             # 추옵이 없는 부위(반지·어깨장식·기계 심장)는 추옵 축 자체를 두지 않습니다.
             # 추옵 축 = 급수 ÷ 그 레벨의 불꽃 최대 급수 × 100 × weights.add. 기준 만점은 100 × weights.add 입니다.
+            # 급수의 공/마·올스탯%·부스탯 계수는 잠재 환산과 같은 캐릭터 효율(context)입니다.
             if add_evaluated:
-                add_raw_score = calculate_item_score(item.get("item_add_option", {}), char_class, main_stat=main_stat)
-                add_recognized = add_option_entries(item.get("item_add_option", {}), char_class, main_stat=main_stat)
-                add_lines = flame_lines(item.get("item_add_option") or {}, item_req_level, char_class, main_stat=main_stat)
-                add_best = calculate_item_score(flame_best_add_option(item_req_level, char_class, main_stat, context.sub_names), char_class, main_stat=main_stat)
+                add_option = item.get("item_add_option") or {}
+                add_raw_score = calculate_item_score(add_option, char_class, main_stat=main_stat, context=context)
+                add_recognized = add_option_entries(add_option, char_class, main_stat=main_stat, context=context)
+                add_lines = flame_lines(add_option, item_req_level, char_class, main_stat=main_stat, context=context)
+                add_best = calculate_item_score(flame_best_add_option(item_req_level, char_class, main_stat, context.sub_names, context),
+                                                char_class, main_stat=main_stat, context=context)
                 add_score = (100 * add_raw_score / add_best * weights.add) if add_best > 0 else 0.0
             benchmarks = {
                 "add": round(100 * weights.add, 2),
