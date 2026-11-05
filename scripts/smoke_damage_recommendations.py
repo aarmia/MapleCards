@@ -1,17 +1,21 @@
-"""Read-only live smoke test; no raw API snapshots or credentials are printed."""
+"""Read-only live smoke test; no raw API snapshots, credentials or character names are printed.
+
+Run: python -m scripts.smoke_damage_recommendations  (실제 이름은 .env MECULATOR_SAMPLE_CHARACTERS)
+"""
 import asyncio
 import json
 import time
 
 from app.analyzer import build_report
 from app.scraper import NexonAPIHandler
+from scripts.sample_characters import LABELS, character_name
 
 
 async def main():
     handler = NexonAPIHandler()
     try:
-        for name in ('지아름', '강은호', '세나'):
-            ocid = await handler.get_ocid(name)
+        for name in LABELS:  # 출력은 익명 라벨, 조회만 실제 이름 (.env)
+            ocid = await handler.get_ocid(character_name(name))
             basic, stats, items, (extras, failures) = await asyncio.gather(
                 handler.get_character_basic(ocid), handler.get_character_stat(ocid),
                 handler.get_character_item(ocid), handler.get_stat_extras(ocid))

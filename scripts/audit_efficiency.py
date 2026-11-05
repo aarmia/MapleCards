@@ -1,6 +1,6 @@
 """Live reference comparison; prints Markdown only, never credentials or raw API data.
 
-Run: python -m scripts.audit_efficiency
+Run: python -m scripts.audit_efficiency  (실제 이름은 .env MECULATOR_SAMPLE_CHARACTERS, scripts/sample_characters.py)
 The old-buff column uses the SAME API snapshot, with preset optimization rerun.
 """
 import asyncio
@@ -16,11 +16,12 @@ from app.preset_optimizer import optimize_presets
 from app.preset_projection import active_items
 from app.scoring_config import POTENTIAL
 from app.scraper import NexonAPIHandler
+from scripts.sample_characters import character_name
 
 REFERENCES = {
-    "지아름": ("LUK", "DEX", [12.03, 8, 7.04, 6.81, 6, 5.67, 4.16, 4.01, 3.64, 3.52, 2.13, 1.92, 1.08, .81, .50, .25, .15, .14]),
-    "강은호": ("LUK", "DEX", [12.56, 8, 7.44, 6.84, 6, 5.70, 2.96, 4.19, 2.59, 3.72, 2.25, 2.03, 1.12, .84, .49, .25, .15, .13]),
-    "세나": ("DEX", "STR", [11.93, 8, 7.30, 6.91, 6, 5.76, 3.64, 3.98, 3.19, 3.65, 2.21, 1.99, 1.21, .91, .61, .31, .19, .17]),
+    "2고스펙": ("LUK", "DEX", [12.03, 8, 7.04, 6.81, 6, 5.67, 4.16, 4.01, 3.64, 3.52, 2.13, 1.92, 1.08, .81, .50, .25, .15, .14]),
+    "1랭커": ("LUK", "DEX", [12.56, 8, 7.44, 6.84, 6, 5.70, 2.96, 4.19, 2.59, 3.72, 2.25, 2.03, 1.12, .84, .49, .25, .15, .13]),
+    "5세나": ("DEX", "STR", [11.93, 8, 7.30, 6.91, 6, 5.76, 3.64, 3.98, 3.19, 3.65, 2.21, 1.99, 1.21, .91, .61, .31, .19, .17]),
 }
 
 
@@ -49,8 +50,8 @@ async def main():
     print("직전 버프 열: 동일 API 입력에서 올스탯 0, 공/마 355, 크뎀 54로 복원 후 최적화 재실행. 나머지 코드는 현재 버전.")
     handler = NexonAPIHandler()
     try:
-        for name, (main_stat, sub, refs) in REFERENCES.items():
-            ocid = await handler.get_ocid(name)
+        for name, (main_stat, sub, refs) in REFERENCES.items():  # name = 익명 라벨
+            ocid = await handler.get_ocid(character_name(name))
             basic, stats, items, (extras, failures) = await asyncio.gather(
                 handler.get_character_basic(ocid), handler.get_character_stat(ocid),
                 handler.get_character_item(ocid), handler.get_stat_extras(ocid))
