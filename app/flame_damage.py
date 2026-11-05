@@ -29,12 +29,15 @@ def distribution(level, class_name, main_stat, context):
     model = ReplacementModel(context)
     config = SPEC_UP.flame
     dp = [{0.0: [1.0] + [0.0] * 9}] + [{} for _ in range(config.lines)]
+    null_types = 0  # 급수 0 이고 스탯도 바꾸지 않는 종류: DP 에서 빼고 끝에서 조합 수로 채웁니다
     for key in config.options:
         choices = []
+        null = True
         for tier, prob in zip(config.tiers, config.tier_odds):
             option = _flame_option(key, tier + config.boss_bonus, level)
             grade = round(calculate_item_score(option, class_name, main_stat, context), 1)
             vec = vector(model, option)
+            null = null and grade == 0 and not any(vec)
             shifts = []
             for mask in MASKS:
                 terms = []
@@ -49,16 +52,33 @@ def distribution(level, class_name, main_stat, context):
                         terms.append((POSITIONS[sub], coefficient))
                 shifts.append(terms)
             choices.append((grade, shifts))
+        if null:
+            null_types += 1
+            continue
         for k in range(config.lines, 0, -1):
             target = dp[k]
             for grade, moments in dp[k - 1].items():
                 for add, shifts in choices:
                     total = round(grade + add, 1)
-                    dest = target.setdefault(total, [0.0] * 10)
-                    for i, terms in enumerate(shifts):
-                        dest[i] += sum(moments[j] * coefficient for j, coefficient in terms)
+                    dest = target.get(total)
+                    if dest is None:
+                        dest = target[total] = [0.0] * 10
+                    for i, terms in enumerate(shifts):  # 생성식 대신 직접 더해 반복 비용을 줄입니다 (같은 합)
+                        acc = 0.0
+                        for j, coefficient in terms:
+                            acc += moments[j] * coefficient
+                        dest[i] += acc
     combinations = math.comb(len(config.options), config.lines)
-    return {grade: [v / combinations for v in moments] for grade, moments in dp[config.lines].items()}
+    result: dict = {}
+    for j in range(config.lines + 1):  # 가치 있는 종류 j 개 + 가치 0 종류 (lines − j) 개
+        weight = math.comb(null_types, config.lines - j) / combinations
+        if not weight:
+            continue
+        for grade, moments in dp[j].items():
+            dest = result.setdefault(grade, [0.0] * 10)
+            for i, value in enumerate(moments):
+                dest[i] += value * weight
+    return result
 
 
 def rewards(moments, before, context):

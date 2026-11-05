@@ -16,7 +16,7 @@ import json
 import math
 
 from app.calculator import calculate_item_score, starforce_option
-from app.damage_index import ReplacementModel, flame_options, line_options
+from app.damage_index import ReplacementModel, cached_line_options, flame_options, line_options
 from app.flame_damage import distribution as flame_moments
 from app.flame_damage import rewards as flame_rewards
 from app.potential import StatContext, analyze_lines, convert_line
@@ -200,13 +200,20 @@ def potential_actions(item: dict, kind: str, part: str, level: int, context: Sta
     via = "" if legendary else f"{grade} → 레전드리 등급업 후 "
     names = ("main", "cooldown") if kind == "additional" and part == "모자" else ("all",)
     actions = []
-    try:
-        model = ReplacementModel(context)
-    except ValueError:
-        model = None
+    # 같은 진단 안에서는 계산 모델과 결과 구성별 옵션 해석을 재사용합니다 (부위·레벨이 같으면 결과 구성도 같음).
+    model_key = ("model", id(context))
+    if model_key not in memo:
+        try:
+            memo[model_key] = ReplacementModel(context)
+        except ValueError:
+            memo[model_key] = None
+    model = memo[model_key]
+    parsed_key = ("parsed", *key, char_level)
+    if model and parsed_key not in memo:
+        memo[parsed_key] = [cached_line_options(texts, char_level) for texts, _, _, _ in outcomes]
     before = line_options(lines, char_level)
-    outcome_gains = {texts: model.gain(before, line_options(texts, char_level))
-                     for texts, _, _, _ in outcomes} if model else {}
+    outcome_gains = {texts: model.gain(before, after)
+                     for (texts, _, _, _), after in zip(outcomes, memo[parsed_key])} if model else {}
     for name in names:
         prefix_label, value_of = VARIANTS[name]
         dist: dict = {}
@@ -260,17 +267,26 @@ def flame_distribution(level: int, class_name: str, main_stat: str, context: Sta
     tiers = [tier + flame.boss_bonus for tier in flame.tiers]
     # dp[k] = k 종류를 고른 합계 분포(조합마다 가중치 1). 끝에서 조합 수로 나눕니다.
     dp = [{0.0: 1.0}] + [{} for _ in range(flame.lines)]
+    null_types = 0  # 급수 0 인 종류: 분포를 바꾸지 않으므로 DP 에서 빼고 끝에서 조합 수로 채웁니다 (같은 결과)
     for key in flame.options:
         dist: dict = {}
         for tier, chance in zip(tiers, flame.tier_odds):
             grade = round(calculate_item_score(_flame_option(key, tier, level), class_name, main_stat, context), 1)
             dist[grade] = dist.get(grade, 0.0) + chance
+        if set(dist) == {0.0}:
+            null_types += 1
+            continue
         for k in range(flame.lines, 0, -1):
             if dp[k - 1]:
                 for value, weight in _convolve(dp[k - 1], dist, 1).items():
                     dp[k][value] = dp[k].get(value, 0.0) + weight
     combos = math.comb(len(flame.options), flame.lines)
-    return {value: weight / combos for value, weight in dp[flame.lines].items()}
+    result: dict = {}
+    for j in range(flame.lines + 1):  # 가치 있는 종류 j 개 + 급수 0 종류 (lines − j) 개
+        weight = math.comb(null_types, flame.lines - j) / combos
+        for value, chance in dp[j].items():
+            result[value] = result.get(value, 0.0) + chance * weight
+    return {value: chance for value, chance in result.items() if chance}
 
 
 def starforce_recommendation_cap(name: str) -> int:
