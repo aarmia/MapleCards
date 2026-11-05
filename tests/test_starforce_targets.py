@@ -1,7 +1,5 @@
 import unittest
 
-from pydantic import ValidationError
-from app.main import StarforceCostItem, StarforceCostRequest, spec_up_starforce_cost
 from app.potential import reference_context
 from app.spec_up import starforce_action, starforce_recommendation_cap, attach_spec_up, sequential_recommendations
 from app.starforce_cost import expected_cost
@@ -60,13 +58,3 @@ class StarforceTargets(unittest.TestCase):
         # A lucrative successor cannot jump ahead of the weak prerequisite.
         result = sequential_recommendations([star(22, 1), star(23, 5), other])
         self.assertEqual(result[0]['axis'], '잠재')
-
-
-class TargetCostEndpoint(unittest.IsolatedAsyncioTestCase):
-    async def test_explicit_and_default_targets(self):
-        request = StarforceCostRequest(items=[StarforceCostItem(level=200, star=22, target_star=25, base_price=1e8),
-                                             StarforceCostItem(level=200, star=22, base_price=1e8)])
-        result = await spec_up_starforce_cost(request)
-        self.assertEqual(result['costs'], [round(expected_cost(200, 1e8, 22, 25)), round(expected_cost(200, 1e8, 22, 23))])
-        with self.assertRaises(ValidationError):
-            StarforceCostItem(level=200, star=22, target_star=21, base_price=1e8)

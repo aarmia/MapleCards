@@ -443,7 +443,7 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
                    exclude_names=(), damage_total: float = 0.0) -> dict:
     """진단 행마다 축별 강화 행동(row["spec_up"], 효율 내림차순)을 붙이고 전체 상위 행동을 돌려줍니다.
     items 는 진단한 아이템 전체(예비 특수 반지 포함)입니다.
-    무기류·특수 장비·놀장·이벤트 반지(exclude_names)는 제외하고, 슈페리얼은 스타포스를 빼고 계산합니다."""
+    도전자의 장비·무기류·특수 장비·놀장·이벤트 반지(exclude_names)는 제외하고, 슈페리얼은 스타포스를 빼고 계산합니다."""
     from app.calculator import max_starforce  # 순환 import 방지
 
     by_slot = {item.get("item_equipment_slot"): item for item in items}
@@ -462,6 +462,10 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
     for row in rows:
         item = by_slot.get(row["slot"])
         row["spec_up"] = []
+        # Exclude every upgrade axis, including seed rings, without removing
+        # equipped stats from the character's baseline or changing item scores.
+        if "도전자의" in (row.get("name") or "") or "도전자의" in ((item or {}).get("item_name") or ""):
+            continue
         ring_name = next((name for name in rings if name in row["name"]), None)
         if item and ring_name:
             action = seed_ring_action(row["name"], int(float(item.get("special_ring_level") or 0)), class_name, context,

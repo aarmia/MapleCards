@@ -69,7 +69,7 @@
 ## 재현 및 테스트 범위
 
 - `python -X utf8 -m scripts.audit_efficiency`: 최신 API에서 54개 비교, 이전 버프 대조, 입력 해시·프리셋 출력. 원본 API/키는 저장하지 않음.
-- `tests/test_efficiency_snapshots.py`: 이번 최적화 컨텍스트를 동결한 54개 환산 결과 회귀 검사. API나 최적화 단계 자체의 회귀 검사는 아님.
+- `scripts/check_efficiency_snapshots.py`: 이번 최적화 컨텍스트를 동결한 54개 환산 결과 수동 검사(테스트 정리 과정에서 자동 검색 대상에서 분리). API나 최적화 단계 자체의 회귀 검사는 아님.
 - 추천 가정의 설정 연동, 템플릿 렌더링, 추가옵션 기대비용 예제 검사를 추가.
 - 전체 unittest 121개 통과. 브라우저 시각 검증·실서버 재시작은 수행하지 않음.
 

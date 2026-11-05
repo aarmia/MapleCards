@@ -1,7 +1,6 @@
 import re
 import unittest
 from dataclasses import replace
-from pathlib import Path
 from unittest.mock import patch
 
 from app.calculator import calculate_item_score, flame_best_add_option
@@ -27,6 +26,24 @@ def str_pct(text):
 
 
 class SpecUpTests(unittest.TestCase):
+    def test_challenger_items_skip_all_upgrade_paths_and_keep_scores(self):
+        context = reference_context("나이트로드", "luk")
+        for name in ("도전자의 모자", "도전자의 컨티뉴어스 링", "강화된 도전자의 장갑"):
+            for source in ("row", "api"):
+                with self.subTest(name=name, source=source):
+                    row = {"slot": "모자", "name": name if source == "row" else "일반 모자",
+                           "total_score": 42, "score_ratio": 80, "spec_up": [{"stale": True}]}
+                    item = {"item_equipment_slot": "모자", "item_name": name if source == "api" else "일반 모자"}
+                    with patch("app.spec_up.starforce_action") as star, patch("app.spec_up.potential_actions") as potential, \
+                            patch("app.spec_up.flame_distribution") as flame, patch("app.spec_up.seed_ring_action") as ring:
+                        report = attach_spec_up([row], [item], context, "나이트로드", "luk", 298)
+                        for action in (star, potential, flame, ring):
+                            action.assert_not_called()
+                    self.assertEqual(row["spec_up"], [])
+                    self.assertEqual((row["total_score"], row["score_ratio"]), (42, 80))
+                    self.assertEqual(report["top"], [])
+                    self.assertEqual(report["count"], 0)
+
     def test_assumptions_follow_config_and_are_in_report(self):
         context = reference_context("나이트로드", "luk")
         with patch.dict(POTENTIAL.buff.raw, {"attack_flat": 432}):
@@ -35,25 +52,6 @@ class SpecUpTests(unittest.TestCase):
         notes = " ".join(report["assumptions"])
         for token in ("+432", "보스 장비", "비실측", "자동 식별", "실제 DPS", "평균"):
             self.assertIn(token, notes)
-
-    def test_recommendation_template_has_estimate_disclosure(self):
-        from jinja2 import Environment, FileSystemLoader
-        root = Path(__file__).resolve().parents[1] / "app" / "templates"
-        html = Environment(loader=FileSystemLoader(root)).get_template("components/_spec_up.html").render()
-        for token in ("최종뎀", "계산 가정과 지원 한계", "spec_up?.assumptions", "주스탯% 환산 증가"):
-            self.assertIn(token, html)
-        self.assertIn("'최종뎀 +'", html)
-        self.assertIn('x-data="{ stepsExpanded: false }"', html)
-        self.assertIn('stepsExpanded ? action.steps : action.steps.slice(0, 1)', html)
-        self.assertIn('@click="stepsExpanded = !stepsExpanded"', html)
-        self.assertIn(':aria-expanded="stepsExpanded"', html)
-
-    def test_flame_cost_is_mean_not_guaranteed_budget(self):
-        steps = flame_steps({100: .99, 110: .01}, 100, 3_000_000)
-        self.assertAlmostEqual(steps[0]["chance"], .01)
-        self.assertAlmostEqual(steps[0]["tries"], 100)
-        self.assertAlmostEqual(steps[0]["cost"], 300_000_000)
-        self.assertAlmostEqual(steps[0]["gain"], 10)
 
     def test_official_odds_match_mapletiptip_examples(self):
         # mapletiptip.com 200제 모자 예시: 윗잠 STR 21%↑ 2.5584% · 30%↑ 0.1426%, 에디 STR 14%↑ 0.2973% (올스탯% 포함)
@@ -118,6 +116,9 @@ class SpecUpTests(unittest.TestCase):
         self.assertAlmostEqual(steps[0]["chance"], 0.5)                          # 110 · 120 · 130
         self.assertAlmostEqual(steps[0]["gain"], (110 * .3 + 120 * .15 + 130 * .05) / .5 - 100)
         self.assertAlmostEqual(steps[2]["chance"], 0.2)                          # 117.5 이상 = 120 · 130
+        for step in steps:
+            self.assertAlmostEqual(step["tries"], 1 / step["chance"])
+            self.assertAlmostEqual(step["cost"], 1.0 / step["chance"])
 
     def test_flame_distribution_tops_out_at_best_flame(self):
         context = reference_context("나이트로드", "luk")

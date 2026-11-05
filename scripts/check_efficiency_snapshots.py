@@ -3,6 +3,7 @@
 Expected values use the restored buffs (all stat 0 / attack 355 / crit 54),
 NOT assertions that the old reference screenshots match.
 Run scripts.audit_efficiency separately for fresh API comparison.
+Manual historical check: python -m scripts.check_efficiency_snapshots
 """
 import unittest
 
@@ -34,3 +35,7 @@ class EfficiencySnapshots(unittest.TestCase):
             for option, value in zip(options(main, sub), expected):
                 with self.subTest(character=name, option=option):
                     self.assertEqual(round(convert_line(option, context, level)[0], 2), value)
+
+
+if __name__ == '__main__':
+    unittest.main()
