@@ -3,15 +3,28 @@
     <div class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 shadow-sm">
         <h3 class="font-black text-slate-800">스펙업 추천</h3>
         <p class="mt-1 text-[12px] text-slate-500 leading-relaxed break-keep">
-            스타포스·잠재능력·에디셔널·추가옵션·시드링 강화마다 <span class="font-bold text-slate-700">기대 비용 100억 메소당 오르는 주스탯%</span>를 계산해 높은 순으로 보여줍니다.
+            스타포스·잠재능력·에디셔널·추가옵션·시드링 강화마다 <span class="font-bold text-slate-700">기대 비용 100억 메소당 최종뎀 증가율</span>을 추정해 높은 순으로 보여줍니다. 주스탯% 환산 증가량도 함께 표시합니다.
             스타포스는 샤타 이벤트(15~16 미포함) 기준이고, 노작 시세는 직접 바꿀 수 있습니다.
+            스타포스는 앞서 추천한 목표를 달성했다고 가정해 다음 단계의 효율을 비교합니다. 같은 아이템의 연속 추천은 마지막 목표까지 합쳐 표시합니다.
             잠재·추가옵션은 넥슨 공식 확률의 기대값이라 실제 비용은 운에 따라 크게 달라질 수 있습니다.
         </p>
+        <p class="mt-3 text-xs font-bold text-amber-800 bg-amber-50 rounded-lg p-3 leading-relaxed">
+            최종뎀은 고정 프리셋의 강화 전후 비교와 버프 가정에 따른 추정치이며 실제 DPS·전투력 상승을 보장하지 않습니다.
+            기대 비용은 평균입니다. 추가옵션은 모든 대상을 보스 장비·4줄로 가정하므로 예외 장비에는 부정확합니다.
+        </p>
+        <details class="mt-3 text-xs text-slate-600">
+            <summary class="cursor-pointer font-bold py-1">계산 가정과 지원 한계 확인</summary>
+            <ul class="mt-2 list-disc pl-5 space-y-2 leading-relaxed break-keep">
+                <template x-for="(assumption, i) in (report?.spec_up?.assumptions || [])" :key="i">
+                    <li x-text="assumption"></li>
+                </template>
+            </ul>
+        </details>
     </div>
 
-    <p x-show="!specUpActions().length" class="text-sm text-slate-500 bg-white rounded-2xl border border-slate-200 p-4">추천할 강화가 없습니다. 무기류·특수 장비는 아직 지원하지 않습니다.</p>
+    <p x-show="!specUpActions().length" class="text-sm text-slate-500 bg-white rounded-2xl border border-slate-200 p-4">추천할 강화가 없습니다. 무기류·일반 특수 장비는 미지원이며, 시드링은 리레·컨티 4→5·5→6레벨만 지원합니다.</p>
 
-    <template x-for="(action, index) in visibleSpecUp()" :key="action.item.slot + action.axis + (action.variant || '')">
+    <template x-for="(action, index) in visibleSpecUp()" :key="action.item.slot + action.axis + (action.variant || '') + (action.target_star || '')">
         <div class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 shadow-sm animate-fade-in">
             <div class="flex items-start gap-3">
                 <div @click="openItemDetail(action.item)" class="relative p-1.5 rounded-2xl cursor-pointer hover:scale-110 transition-transform active:scale-95 shrink-0"
@@ -40,7 +53,7 @@
 
             <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-[12px]">
                 <div class="rounded-lg bg-slate-50 px-2.5 py-2">
-                    <p class="text-[10px] font-bold text-slate-400">주스탯 증가</p>
+                    <p class="text-[10px] font-bold text-slate-400">주스탯% 환산 증가 (추정)</p>
                     <p class="font-black text-slate-700 tabular-nums" x-text="'+' + action.gain.toFixed(2) + '%'"></p>
                 </div>
                 <div class="rounded-lg bg-slate-50 px-2.5 py-2">
@@ -60,17 +73,28 @@
                     </div>
                 </template>
                 <template x-if="action.steps && action.steps.length">
-                    <div class="col-span-2 md:col-span-4 rounded-lg border border-slate-100 px-2.5 py-2">
-                        <p class="text-[10px] font-bold text-slate-400 mb-1" x-text="'단계별 목표 (현재 ' + action.current_grade + '급)'"></p>
+                    <div x-data="{ stepsExpanded: false }" class="col-span-2 md:col-span-4 rounded-lg border border-slate-100 px-2.5 py-2">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <p class="text-[10px] font-bold text-slate-400" x-text="'단계별 목표 (현재 ' + action.current_grade + '급)'"></p>
+                            <button type="button" x-show="action.steps.length > 1" @click="stepsExpanded = !stepsExpanded"
+                                    :aria-expanded="stepsExpanded" :aria-label="stepsExpanded ? '추가옵션 목표 접기' : '추가옵션 전체 목표 보기'"
+                                    class="inline-flex items-center gap-1 min-h-8 px-2 text-[11px] font-bold text-slate-600 hover:text-slate-900 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
+                                <span x-text="stepsExpanded ? '접기' : '더보기 (' + action.steps.length + ')'"></span>
+                                <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                                     class="w-4 h-4 transition-transform" :class="stepsExpanded ? 'rotate-180' : ''">
+                                    <path d="m5 7.5 5 5 5-5"></path>
+                                </svg>
+                            </button>
+                        </div>
                         <div class="grid grid-cols-[auto_1fr_1fr_auto] gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
                             <span class="font-bold text-slate-400">목표</span><span class="font-bold text-slate-400 text-right">확률</span>
-                            <span class="font-bold text-slate-400 text-right">기대 비용</span><span class="font-bold text-slate-400 text-right">100억당</span>
-                            <template x-for="step in action.steps" :key="step.plus">
-                                <div class="contents" :class="step.plus === action.steps.reduce((a, b) => b.efficiency > a.efficiency ? b : a).plus ? 'text-emerald-700 font-black' : 'text-slate-600 font-bold'">
+                            <span class="font-bold text-slate-400 text-right">기대 비용</span><span class="font-bold text-slate-400 text-right">최종뎀/100억</span>
+                            <template x-for="step in (stepsExpanded ? action.steps : action.steps.slice(0, 1))" :key="step.plus">
+                                <div class="contents" :class="step.plus === action.steps.reduce((a, b) => b.damage_efficiency > a.damage_efficiency ? b : a).plus ? 'text-emerald-700 font-black' : 'text-slate-600 font-bold'">
                                     <span x-text="'+' + step.plus + '급 (' + step.target + ')'"></span>
                                     <span class="text-right" x-text="(step.chance * 100).toFixed(step.chance >= 0.01 ? 2 : 4) + '%'"></span>
                                     <span class="text-right" x-text="formatMeso(step.cost)"></span>
-                                    <span class="text-right" x-text="'+' + formatEfficiency(step.efficiency) + '%'"></span>
+                                    <span class="text-right" x-text="(step.damage_efficiency >= 0 ? '+' : '') + formatEfficiency(step.damage_efficiency) + '%'"></span>
                                 </div>
                             </template>
                         </div>

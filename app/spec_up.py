@@ -1,4 +1,4 @@
-"""스펙업 추천: 강화 행동마다 기대 비용 100억 메소당 주스탯% 증가량(효율)을 계산합니다 (app/data/spec_up.toml).
+"""스펙업 추천: 고정 프리셋에서 기대 비용 100억 메소당 최종뎀 증가율로 정렬합니다.
 
 행동은 아이템마다 축별로 하나씩 만듭니다 (방어구·장신구만, 무기류는 이후 단계).
 - 스타포스: 다음 1성. 증가량 = 성별 증가표(scoring.toml starforce.gain)의 주스탯% 환산 차이, 비용 = starforce_cost 기대값.
@@ -7,7 +7,8 @@
   레전드리 미만이면 등급업 비용(천장 포함)을 더합니다.
 - 추가옵션: 메소 재설정으로 "N급 이상"이 나올 때까지. 19종 중 4종(중복 없음) × 단계 확률로 급수 분포를 정확히 계산하고
   같은 방식으로 목표를 고릅니다.
-증가량은 모두 캐릭터별 주스탯% 환산(StatContext)이라 축끼리 비교할 수 있습니다.
+주스탯%는 표시·목표 판정 단위로 유지합니다. 상시 옵션은 기존 옵션 제거 후 새 옵션을 적용한
+지수의 비율, 확률 강화는 성공 결과별 비율의 조건부 평균을 사용합니다.
 """
 
 import itertools
@@ -18,6 +19,9 @@ from app.calculator import calculate_item_score, starforce_option
 from app.potential import StatContext, analyze_lines, convert_line
 from app.scoring_config import DATA_DIR, POTENTIAL, SCORING, SPEC_UP
 from app.starforce_cost import EOK, base_price, expected_cost
+from app.damage_index import ReplacementModel, flame_options, line_options
+from app.flame_damage import distribution as flame_moments, rewards as flame_rewards
+from app.set_projection import MEMBERS, PITCHED, RADIANT, DAWN
 
 ODDS = json.loads((DATA_DIR / "potential_odds.json").read_text(encoding="utf-8"))
 KIND_LABEL = {"potential": "윗잠재", "additional": "에디셔널"}
@@ -83,14 +87,16 @@ def potential_distribution(kind: str, part: str, level: int, context: StatContex
 
 
 def best_target(dist: dict, current: float, cost_per_try: float, setup_cost: float = 0.0, first_try_free: bool = False,
-                min_target: float = float("-inf"), max_target: float = float("inf")):
+                min_target: float = float("-inf"), max_target: float = float("inf"), rewards: dict | None = None):
     """목표 X(min_target ≤ X ≤ max_target) 마다 (기대 증가량 ÷ 기대 비용)을 계산해 가장 좋은 X 를 고릅니다.
     기대 증가량은 X 이상 결과 전체(max_target 을 넘는 결과 포함)의 평균 − 현재입니다.
     first_try_free: 등급업 직후 첫 레전드리 결과도 성공일 수 있어 추가 재설정이 (1 − P) / P 회입니다."""
-    best, tail_p, tail_v = None, 0.0, 0.0
+    best, tail_p, tail_v, tail_reward = None, 0.0, 0.0, 0.0
     for value in sorted(dist, reverse=True):
         tail_p += dist[value]
         tail_v += dist[value] * value
+        if rewards is not None:
+            tail_reward += rewards.get(value, 0)
         if tail_p <= 0 or not (min_target - 1e-9 <= value <= max_target + 1e-9):
             continue
         gain = tail_v / tail_p - current
@@ -100,9 +106,13 @@ def best_target(dist: dict, current: float, cost_per_try: float, setup_cost: flo
         cost = setup_cost + tries * cost_per_try
         if cost <= 0:
             continue
-        efficiency = gain / cost
+        reward = tail_reward / tail_p if rewards is not None else gain
+        if reward <= 0:
+            continue
+        efficiency = reward / cost
         if best is None or efficiency > best["efficiency"]:
-            best = {"target": value, "chance": tail_p, "gain": gain, "cost": cost, "tries": tries, "efficiency": efficiency}
+            best = {"target": value, "chance": tail_p, "gain": gain, "cost": cost, "tries": tries, "efficiency": efficiency,
+                    "reward": reward}
     return best
 
 
@@ -119,7 +129,7 @@ def flame_steps(dist: dict, current: float, cost_per_try: float) -> list[dict]:
             break
         if chance > 0:
             gain = sum(v * p for v, p in hits) / chance - current
-            steps.append({"plus": round(target - current, 1), "target": round(target, 1), "chance": chance,
+            steps.append({"plus": round(target - current, 1), "target": round(target, 1), "threshold": target, "chance": chance,
                           "tries": 1 / chance, "cost": cost_per_try / chance, "gain": gain})
         target += flame.step
     return steps
@@ -137,7 +147,7 @@ def potential_outcomes(kind: str, part: str, level: int, context: StatContext, c
         for text, chance in line:
             converted = convert_line(text, context, char_level)
             value = round(converted[0], 2) if converted else 0.0
-            key = text if value > 0 else None
+            key = text if converted is not None else None  # retain capped crit rate: reroll can lose existing rate
             old = merged.get(key, (value if key else 0.0, 0.0))
             merged[key] = (old[0], old[1] + chance)
         reduced.append([(key, value, chance) for key, (value, chance) in merged.items()])
@@ -189,15 +199,26 @@ def potential_actions(item: dict, kind: str, part: str, level: int, context: Sta
     via = "" if legendary else f"{grade} → 레전드리 등급업 후 "
     names = ("main", "cooldown") if kind == "additional" and part == "모자" else ("all",)
     actions = []
+    try:
+        model = ReplacementModel(context)
+    except ValueError:
+        model = None
+    before = line_options(lines, char_level)
+    outcome_gains = {texts: model.gain(before, line_options(texts, char_level))
+                     for texts, _, _, _ in outcomes} if model else {}
     for name in names:
         prefix_label, value_of = VARIANTS[name]
         dist: dict = {}
-        for _texts, value, cooldown, prob in outcomes:
+        rewards: dict = {}
+        for texts, value, cooldown, prob in outcomes:
             variant_value = value_of(value, cooldown)
             slot_value = variant_value if variant_value is not None else float("-inf")
             dist[slot_value] = dist.get(slot_value, 0.0) + prob
+            if model:
+                rewards[slot_value] = rewards.get(slot_value, 0.0) + prob * outcome_gains[texts]
         best = best_target(dist, current, legendary_cost, setup, first_try_free=not legendary,
-                           min_target=current + cube["min_step"], max_target=cap if cap is not None else float("inf"))
+                           min_target=current + cube["min_step"], max_target=cap if cap is not None else float("inf"),
+                           rewards=rewards if model else None)
         if not best:
             continue
         hits = [(texts, prob) for texts, value, cooldown, prob in outcomes
@@ -207,10 +228,14 @@ def potential_actions(item: dict, kind: str, part: str, level: int, context: Sta
         if name == "cooldown":  # 표시는 쿨감 1초 몫을 뺀 주스탯% (판정·효율은 쿨감 포함 환산값 그대로)
             converted = convert_line("스킬 재사용 대기시간 -1초", context, char_level)
             shown = round(shown - (converted[0] if converted else 0.0), 2)
+        final_damage = best["reward"] if model else best["gain"] * final_damage_per_pct(context)
+        hybrid = before.get("cooldown", 0) or any(line_options(texts, char_level).get("cooldown", 0) for texts, _ in hits) or context.is_archer
         actions.append({"axis": KIND_LABEL[kind], "variant": name,
+                        "final_damage": final_damage,
+                        "model": ("direct_with_skill_estimate" if hybrid else "direct") if model else "legacy_special_stat",
                         "label": f"{via}{prefix_label}환산 {shown:g}% 이상까지 재설정",
                         "combo": _combo_text(top_texts), "combo_share": round(top_prob / best["chance"], 4),
-                        "gain": best["gain"], "cost": best["cost"], "chance": best["chance"], "tries": best["tries"]})
+                        "gain": final_damage / final_damage_per_pct(context), "cost": best["cost"], "chance": best["chance"], "tries": best["tries"]})
     return actions
 
 
@@ -247,23 +272,44 @@ def flame_distribution(level: int, class_name: str, main_stat: str, context: Sta
     return {value: weight / combos for value, weight in dp[flame.lines].items()}
 
 
+def starforce_recommendation_cap(name: str) -> int:
+    """User's recommendation ceiling, not the game's enhancement limit."""
+    name = ' '.join(name.split())
+    if name.startswith('에테르넬') or name in MEMBERS[RADIANT]:
+        return 26
+    if name in MEMBERS[PITCHED]:
+        return 25
+    if name.startswith('아케인셰이드') or name in MEMBERS[DAWN] or name == '마이스터링':
+        return 23
+    return 22
+
+
 def starforce_action(name: str, part: str, slot: str, level: int, star: int, max_star: int,
-                     class_name: str, main_stat: str, context: StatContext) -> dict | None:
-    """다음 1성 강화. 12성 미만은 비용 데이터가 없어 만들지 않습니다."""
-    if star < 12 or star + 1 > max_star:
+                     class_name: str, main_stat: str, context: StatContext, target_star: int | None = None) -> dict | None:
+    """Current → target cumulative gain/cost. Under 12 stars has no cost data."""
+    target_star = star + 1 if target_star is None else target_star
+    if star < 12 or not star < target_star <= min(max_star, starforce_recommendation_cap(name)):
         return None
     now = starforce_option(level, star, main_stat, context.sub_names, part)
-    nxt = starforce_option(level, star + 1, main_stat, context.sub_names, part)
+    nxt = starforce_option(level, target_star, main_stat, context.sub_names, part)
     if not now or not nxt:
         return None
     gain = (calculate_item_score(nxt, class_name, main_stat, context)
             - calculate_item_score(now, class_name, main_stat, context)) * context.pct_per_flat
+    try:
+        model = ReplacementModel(context)
+        final_damage = model.gain(flame_options(now), flame_options(nxt))
+        gain = final_damage / model.per_pct
+        method = "direct"
+    except ValueError:
+        final_damage, method = gain * final_damage_per_pct(context), "legacy_special_stat"
     price, registered = base_price(name, level, part, slot)
-    cost = expected_cost(level, price, star, star + 1)
+    cost = expected_cost(level, price, star, target_star)
     if gain <= 0 or cost <= 0:
         return None
-    return {"axis": "스타포스", "label": f"{star}→{star + 1}성", "gain": gain, "cost": cost,
-            "base_price": price, "base_price_registered": registered, "star": star, "level": level}
+    return {"axis": "스타포스", "label": f"{star}→{target_star}성", "gain": gain, "cost": cost,
+            "final_damage": final_damage, "model": method,
+            "base_price": price, "base_price_registered": registered, "star": star, "target_star": target_star, "level": level}
 
 
 STAT_LABEL = {"hp": "HP", "all_stat": "올스탯"}
@@ -272,6 +318,34 @@ STAT_LABEL = {"hp": "HP", "all_stat": "올스탯"}
 def stat_label(context: StatContext) -> str:
     """효율 앞에 붙이는 주스탯 이름: STR·DEX·INT·LUK·HP·올스탯"""
     return STAT_LABEL.get(context.main_stat, context.main_label)
+
+
+def sequential_recommendations(actions):
+    """Greedy eligible actions; unlock next star only after recommending its predecessor.
+
+    Collapse adjacent upgrades of the SAME item. Do not re-sort after collapsing:
+    that would move an upgrade ahead of its prerequisite.
+    """
+    pending, result = [dict(a) for a in actions], []
+    while pending:
+        eligible = [a for a in pending if a['axis'] != '스타포스' or not any(
+            b['axis'] == '스타포스' and b['slot'] == a['slot'] and b['star'] < a['star'] for b in pending)]
+        action = max(eligible, key=lambda a: a['damage_efficiency'])
+        pending.remove(action)
+        if (result and action['axis'] == '스타포스' and result[-1]['axis'] == '스타포스'
+                and result[-1]['slot'] == action['slot'] and result[-1]['target_star'] == action['star']):
+            previous = result[-1]
+            per_pct = previous.get('stat_conversion') or (previous['final_damage'] / previous['gain'] if previous['gain'] else 1)
+            previous['final_damage'] = 100 * ((1 + previous['final_damage'] / 100) * (1 + action['final_damage'] / 100) - 1)
+            previous['gain'] = previous['final_damage'] / per_pct
+            previous['cost'] += action['cost']
+            previous['target_star'] = action['target_star']
+            previous['label'] = f"{previous['star']}→{previous['target_star']}성"
+            previous['damage_efficiency'] = previous['final_damage'] / (previous['cost'] / SPEC_UP.ranking.unit)
+            previous['efficiency'] = previous['gain'] / (previous['cost'] / SPEC_UP.ranking.unit)
+        else:
+            result.append(action)
+    return result
 
 
 def final_damage_per_pct(context: StatContext) -> float:
@@ -330,20 +404,39 @@ def seed_ring_action(name: str, level: int, class_name: str, context: StatContex
         return None
     price = ring.materials[step["material"]] * EOK
     return {"axis": "시드링", "label": f"{level}→{level + 1}레벨 ({step['material']} {step['count']}개 + {step['meso'] / EOK:g}억)",
+            "final_damage": final_damage, "model": "seed_ring_uptime",
             "detail": detail, "gain": final_damage / per_pct, "cost": step["count"] * price + step["meso"],
             "material": {"name": step["material"], "count": step["count"], "meso": step["meso"], "price": price}}
 
 
 def finish(action: dict) -> dict:
-    """효율(100억당 주스탯%)을 붙이고 화면용으로 반올림합니다."""
+    """Display stat-equivalent efficiency and unrounded final-damage ranking key."""
     out = dict(action)
+    out['stat_conversion'] = action['final_damage'] / action['gain'] if action['gain'] else 0
     out["efficiency"] = round(action["gain"] / (action["cost"] / SPEC_UP.ranking.unit), 4)
+    out["damage_efficiency"] = action["final_damage"] / (action["cost"] / SPEC_UP.ranking.unit)
+    # Preserve unrounded damage for user-edited price sorting and tiny upgrades.
     out["gain"] = round(action["gain"], 2)
     out["cost"] = round(action["cost"])
     if "chance" in out:
         out["chance"] = round(out["chance"], 6)
         out["tries"] = round(out["tries"], 1)
     return out
+
+
+def recommendation_assumptions(context: StatContext, class_name: str) -> list[str]:
+    """Expose configured assumptions without independently maintained UI constants."""
+    buff, flame = POTENTIAL.buff, SPEC_UP.flame
+    s15, s20 = burst_share(class_name)
+    return [
+        "선택된 프리셋을 고정하고 기존 옵션을 제거한 뒤 새 옵션을 적용한 데미지 지수의 비율로 최종뎀을 추정합니다. 실제 DPS·전투력 상승이나 강화 후 재최적화 결과가 아닙니다. 쿨감·시드링·특수 주스탯은 별도 추정 모델입니다. 추천끼리 증가율을 단순 합산하지 마세요.",
+        f"효율용 버프 가정: 주스탯 +{buff.main_stat_flat:g}, 올스탯 +{buff.all_stat_flat:g}, 공/마 +{buff.attack_flat:g}, 공/마 +{buff.attack_pct:g}%p, AP 스탯 +{buff.ap_stat_pct:g}%, 크뎀 +{buff.crit_damage_pct:g}%p. API에 이미 포함된 버프는 자동 식별·제거하지 못합니다.",
+        f"쿨감 1초는 주스탯 {POTENTIAL.cooldown_per_second:g}% 상당의 고정 가정입니다. 직업별 실제 스킬 주기와 딜 상승을 재현하지 않습니다.",
+        "스타포스 비용은 샤타 이벤트(15→16 확정 미포함)와 설정된 파괴 방지·복구 전략 기준입니다. 노작·연마석 시세는 실시간 시세가 아니며 직접 수정할 수 있습니다.",
+        "잠재는 설정된 줄별 확률·등급업 천장 기준입니다. 기대 비용은 평균이지 예산 내 성공 보장이 아니며, 증가량은 목표 이상 결과들의 조건부 평균입니다.",
+        f"추가옵션은 대상 장비를 모두 보스 장비로 가정합니다(옵션 {len(flame.options)}종 중 중복 없이 {flame.lines}줄, 단계 보너스 +{flame.boss_bonus}, 1회 {flame.cost:g}억 메소). 개별 장비의 재설정 가능 여부·비보스 예외는 검증하지 않아 해당 장비의 비용은 신뢰할 수 없습니다.",
+        f"시드링은 {class_name}의 리레 15초/20초 딜 비중 {s15*100:.2f}%/{s20*100:.2f}%, 컨티 가동률 {SPEC_UP.seed_ring.continuous['uptime']*100:g}%를 가정합니다. 직업표에는 비실측 자료가 포함되며 개인 캐릭터 실측값이 아닙니다. 데미지/보공 도핑 +{buff.damage_pct:g}/+{buff.boss_damage_pct:g}%p 및 현재 API 데미지·보공을 사용합니다.",
+    ]
 
 
 def attach_spec_up(rows: list, items: list, context: StatContext, class_name: str, main_stat: str, char_level: int,
@@ -356,6 +449,7 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
     by_slot = {item.get("item_equipment_slot"): item for item in items}
     damage_per_pct = final_damage_per_pct(context)
     flame_memo: dict = {}
+    moment_memo: dict = {}
     cube_memo: dict = {}  # (종류, 부위, 레벨) → 세 줄 구성 (같은 부위·레벨이면 재사용)
     superior_keyword = SCORING.special_items.superior_keyword
     ranked = []
@@ -373,8 +467,6 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
             action = seed_ring_action(row["name"], int(float(item.get("special_ring_level") or 0)), class_name, context,
                                       damage_total, rings[CONTINUOUS])
             row["spec_up"] = [finish(action)] if action else []
-            for action in row["spec_up"]:
-                action["final_damage"] = round(action["gain"] * damage_per_pct, 2)
             ranked += [{**action, "slot": row["slot"], "name": row["name"], "icon": row.get("icon")} for action in row["spec_up"]]
             continue
         if (not item or row["is_wse"] or row["is_special"] or row.get("is_noljang")
@@ -384,8 +476,22 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
         superior = superior_keyword in name
         actions = []
         if not superior and item.get("starforce_scroll_flag") != "사용":
-            actions.append(starforce_action(name, part, slot, level, int(item.get("starforce") or 0),
-                                            max_starforce(level, name, superior), class_name, main_stat, context))
+            star = int(item.get("starforce") or 0)
+            cap = min(max_starforce(level, name, superior), starforce_recommendation_cap(name))
+            previous = None
+            for target in range(max(12, star) + 1, cap + 1):
+                cumulative = starforce_action(name, part, slot, level, star, cap, class_name, main_stat, context, target)
+                if not cumulative:
+                    break
+                action = dict(cumulative)
+                if previous:
+                    action['final_damage'] = 100 * ((1 + cumulative['final_damage'] / 100) / (1 + previous['final_damage'] / 100) - 1)
+                    action['gain'] = action['final_damage'] / damage_per_pct
+                    action['cost'] = cumulative['cost'] - previous['cost']
+                    action['star'] = target - 1
+                    action['label'] = f"{target - 1}→{target}성"
+                actions.append(action)
+                previous = cumulative
         benchmarks = (row.get("scoring_basis") or {}).get("benchmarks") or {}
         for kind, key in (("potential", "pot"), ("additional", "pot_additional")):
             actions += potential_actions(item, kind, part, level, context, char_level, benchmarks.get(key), cube_memo)
@@ -395,22 +501,37 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
                 flame_memo[floor] = flame_distribution(level, class_name, main_stat, context)
             current = calculate_item_score(item["item_add_option"], class_name, main_stat, context)
             steps = flame_steps(flame_memo[floor], current, SPEC_UP.flame.cost * EOK) if context.pct_per_flat > 0 else []
+            direct_rewards = None
+            try:
+                ReplacementModel(context)
+                if floor not in moment_memo:
+                    moment_memo[floor] = flame_moments(level, class_name, main_stat, context)
+                direct_rewards = flame_rewards(moment_memo[floor], item["item_add_option"], context)
+            except ValueError:
+                pass  # Special-stat classes retain an explicitly labelled legacy estimate.
             unit = SPEC_UP.ranking.unit
             for step in steps:  # 급수 증가를 주스탯% 로, 단계마다 효율
                 step["gain"] *= context.pct_per_flat
+                step["final_damage"] = (sum(value for grade, value in direct_rewards.items() if grade >= step["threshold"] - 1e-9)
+                                        / step["chance"] if direct_rewards is not None else step["gain"] * damage_per_pct)
+                step["gain"] = step["final_damage"] / damage_per_pct
                 step["efficiency"] = round(step["gain"] / (step["cost"] / unit), 4)
+                step["damage_efficiency"] = step["final_damage"] / (step["cost"] / unit)
             if steps:
-                best = max(steps, key=lambda step: step["efficiency"])
+                best = max(steps, key=lambda step: step["damage_efficiency"])
+                if best["final_damage"] <= 0:
+                    steps = []
+            if steps:
                 actions.append({"axis": "추가옵션", "label": f"+{best['plus']:g}급({best['target']:g}급) 이상까지 재설정",
+                                "final_damage": best["final_damage"], "model": "direct" if direct_rewards is not None else "legacy_special_stat",
                                 "gain": best["gain"], "cost": best["cost"], "chance": best["chance"], "tries": best["tries"],
                                 "current_grade": round(current, 1),
                                 "steps": [{**step, "gain": round(step["gain"], 2), "cost": round(step["cost"]),
                                            "chance": round(step["chance"], 8), "tries": round(step["tries"], 1)} for step in steps]})
-        row["spec_up"] = sorted((finish(a) for a in actions if a), key=lambda a: a["efficiency"], reverse=True)
-        for action in row["spec_up"]:  # 이 강화로 오르는 최종 데미지(%)
-            action["final_damage"] = round(action["gain"] * damage_per_pct, 2)
+        row["spec_up"] = sorted((finish(a) for a in actions if a), key=lambda a: a["damage_efficiency"], reverse=True)
         ranked += [{**action, "slot": slot, "name": name, "icon": row.get("icon")} for action in row["spec_up"]]
-    ranked.sort(key=lambda a: a["efficiency"], reverse=True)
+    ranked = sequential_recommendations(ranked)
     limit = int(SPEC_UP.ranking.top)
     return {"unit": SPEC_UP.ranking.unit, "limit": limit, "stat_label": stat_label(context),
+            "estimate": True, "assumptions": recommendation_assumptions(context, class_name),
             "final_damage_per_pct": round(damage_per_pct, 4), "top": ranked[:limit], "count": len(ranked)}

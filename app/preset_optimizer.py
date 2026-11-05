@@ -12,6 +12,7 @@ from app.calculator import final_stat_float, get_potential_options
 from app.character_profile import _effect_stats, build_stat_context
 from app.preset_projection import active_items, project_context
 from app.scoring_config import POTENTIAL
+from app.damage_index import boss_index
 from app.set_projection import sum_subs
 
 BOSS_DEFENSE = 380.0
@@ -120,13 +121,6 @@ def equipment_effects(items, context):
             texts.extend(get_potential_options(item, kind))
         texts.append(item.get("soul_option") or "")
     return effects(texts, context)
-
-
-def boss_index(context, damage, boss, remaining_defense, defense=BOSS_DEFENSE):
-    rate = min(100, max(0, context.crit_rate or 0)) / 100
-    critical = 1 + rate * (POTENTIAL.crit_base - 1 + context.crit_damage / 100)
-    defense_factor = max(0, 1 - defense / 100 * remaining_defense)
-    return max(0, context.stat_attack) * max(0, context.attack) * max(0, 1 + (damage + boss) / 100) * critical * defense_factor
 
 
 def optimize_presets(char_class, main_stat, level, item_data, stat_data, extras, current):

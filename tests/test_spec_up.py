@@ -1,6 +1,8 @@
 import re
 import unittest
 from dataclasses import replace
+from pathlib import Path
+from unittest.mock import patch
 
 from app.calculator import calculate_item_score, flame_best_add_option
 from app.potential import reference_context
@@ -14,7 +16,9 @@ from app.spec_up import (
     potential_actions,
     potential_distribution,
     seed_ring_action,
+    attach_spec_up,
 )
+from app.scoring_config import POTENTIAL
 
 
 def str_pct(text):
@@ -23,6 +27,34 @@ def str_pct(text):
 
 
 class SpecUpTests(unittest.TestCase):
+    def test_assumptions_follow_config_and_are_in_report(self):
+        context = reference_context("나이트로드", "luk")
+        with patch.dict(POTENTIAL.buff.raw, {"attack_flat": 432}):
+            report = attach_spec_up([], [], context, "나이트로드", "luk", 280)
+        self.assertTrue(report["estimate"])
+        notes = " ".join(report["assumptions"])
+        for token in ("+432", "보스 장비", "비실측", "자동 식별", "실제 DPS", "평균"):
+            self.assertIn(token, notes)
+
+    def test_recommendation_template_has_estimate_disclosure(self):
+        from jinja2 import Environment, FileSystemLoader
+        root = Path(__file__).resolve().parents[1] / "app" / "templates"
+        html = Environment(loader=FileSystemLoader(root)).get_template("components/_spec_up.html").render()
+        for token in ("최종뎀", "계산 가정과 지원 한계", "spec_up?.assumptions", "주스탯% 환산 증가"):
+            self.assertIn(token, html)
+        self.assertIn("'최종뎀 +'", html)
+        self.assertIn('x-data="{ stepsExpanded: false }"', html)
+        self.assertIn('stepsExpanded ? action.steps : action.steps.slice(0, 1)', html)
+        self.assertIn('@click="stepsExpanded = !stepsExpanded"', html)
+        self.assertIn(':aria-expanded="stepsExpanded"', html)
+
+    def test_flame_cost_is_mean_not_guaranteed_budget(self):
+        steps = flame_steps({100: .99, 110: .01}, 100, 3_000_000)
+        self.assertAlmostEqual(steps[0]["chance"], .01)
+        self.assertAlmostEqual(steps[0]["tries"], 100)
+        self.assertAlmostEqual(steps[0]["cost"], 300_000_000)
+        self.assertAlmostEqual(steps[0]["gain"], 10)
+
     def test_official_odds_match_mapletiptip_examples(self):
         # mapletiptip.com 200제 모자 예시: 윗잠 STR 21%↑ 2.5584% · 30%↑ 0.1426%, 에디 STR 14%↑ 0.2973% (올스탯% 포함)
         for kind, target, chance in (("potential", 21, 0.025584), ("potential", 30, 0.001426), ("additional", 14, 0.002973)):

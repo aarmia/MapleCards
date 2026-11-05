@@ -289,19 +289,40 @@ document.addEventListener('alpine:init', () => {
             return Math.round(n / 1e4).toLocaleString() + '만';
         },
 
-        // 스펙업 추천: 모든 아이템의 강화 행동을 100억 메소당 주스탯% 높은 순으로. 노작 시세를 바꾼 스타포스는 다시 계산한 비용을 씁니다.
-        specUpActions() {
+        // 스펙업 추천: 100억당 최종뎀으로 정렬. 사용자 변경 시세도 같은 기준으로 반영합니다.
+        specUpActions(raw = false) {
             if (!this.report?.results) return [];
             const unit = this.report.spec_up?.unit || 1e10;
             const rows = [];
             for (const item of this.report.results) {
                 for (const action of item.spec_up || []) {
-                    let cost = action.axis === '스타포스' ? (this.specUpCosts[item.slot] ?? action.cost) : action.cost;
+                    let cost = action.axis === '스타포스' ? (this.specUpCosts[this.specUpCostKey({ ...action, item })] ?? action.cost) : action.cost;
                     if (action.material) cost = action.material.count * this.materialPrice(action) * 1e8 + action.material.meso;
-                    rows.push({ ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0, item });
+                    rows.push({ ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0,
+                        damage_efficiency: cost > 0 ? action.final_damage / (cost / unit) : 0, item });
                 }
             }
-            return rows.sort((a, b) => b.efficiency - a.efficiency);
+            if (raw) return rows;
+            const pending = [...rows], result = [];
+            while (pending.length) {
+                const eligible = pending.filter(a => a.axis !== '스타포스' || !pending.some(b =>
+                    b.axis === '스타포스' && b.item.slot === a.item.slot && b.star < a.star));
+                const action = eligible.reduce((a, b) => b.damage_efficiency > a.damage_efficiency ? b : a);
+                pending.splice(pending.indexOf(action), 1);
+                const previous = result[result.length - 1];
+                if (previous && action.axis === '스타포스' && previous.axis === '스타포스'
+                    && previous.item.slot === action.item.slot && previous.target_star === action.star) {
+                    const perPct = previous.stat_conversion || this.report.spec_up?.final_damage_per_pct || previous.final_damage / previous.gain;
+                    previous.final_damage = 100 * ((1 + previous.final_damage / 100) * (1 + action.final_damage / 100) - 1);
+                    previous.gain = previous.final_damage / perPct;
+                    previous.cost += action.cost;
+                    previous.target_star = action.target_star;
+                    previous.label = previous.star + '→' + previous.target_star + '성';
+                    previous.efficiency = previous.gain / (previous.cost / unit);
+                    previous.damage_efficiency = previous.final_damage / (previous.cost / unit);
+                } else result.push({ ...action });
+            }
+            return result;
         },
 
         visibleSpecUp() {
@@ -319,6 +340,10 @@ document.addEventListener('alpine:init', () => {
             return saved ?? Math.round(action.base_price / 1e6) / 100;
         },
 
+        specUpCostKey(action) {
+            return action.item.slot + ':' + (action.target_star ?? action.star + 1);
+        },
+
         specUpPriceCustom(action) {
             return this.specUpPrices[action.item.name] !== undefined;
         },
@@ -328,7 +353,7 @@ document.addEventListener('alpine:init', () => {
             if (value === '' || !Number.isFinite(eok) || eok < 0) return;
             this.specUpPrices = { ...this.specUpPrices, [action.item.name]: eok };
             try { localStorage.setItem('specup-prices', JSON.stringify(this.specUpPrices)); } catch (e) { /* 저장 불가(사생활 보호 모드 등) */ }
-            await this.refreshSpecUpCosts([action]);
+            await this.refreshSpecUpCosts(this.specUpActions(true).filter(a => a.axis === '스타포스' && a.item.name === action.item.name));
         },
 
         resetSpecUpPrice(action) {
@@ -337,23 +362,28 @@ document.addEventListener('alpine:init', () => {
             this.specUpPrices = prices;
             try { localStorage.setItem('specup-prices', JSON.stringify(prices)); } catch (e) { /* 무시 */ }
             const costs = { ...this.specUpCosts };
-            delete costs[action.item.slot];
+            this.specUpActions(true).filter(a => a.axis === '스타포스' && a.item.name === action.item.name)
+                .forEach(a => { delete costs[this.specUpCostKey(a)]; });
             this.specUpCosts = costs;
         },
 
         // 바꾼 노작 시세로 스타포스 기대 비용만 서버에서 다시 계산합니다 (넥슨 API 호출 없음).
         async refreshSpecUpCosts(actions) {
             if (!actions.length) return;
+            if (actions.length > 40) {
+                for (let i = 0; i < actions.length; i += 40) await this.refreshSpecUpCosts(actions.slice(i, i + 40));
+                return;
+            }
             try {
                 const res = await fetch('/spec-up/starforce-cost', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: actions.map(a => ({ level: a.level, star: a.star, base_price: Math.round(this.specUpPrice(a) * 1e8) })) }),
+                    body: JSON.stringify({ items: actions.map(a => ({ level: a.level, star: a.star, target_star: a.target_star, base_price: Math.round(this.specUpPrice(a) * 1e8) })) }),
                 });
                 if (!res.ok) return;
                 const { costs } = await res.json();
                 const next = { ...this.specUpCosts };
-                actions.forEach((a, i) => { if (costs[i] !== null && costs[i] !== undefined) next[a.item.slot] = costs[i]; });
+                actions.forEach((a, i) => { if (costs[i] !== null && costs[i] !== undefined) next[this.specUpCostKey(a)] = costs[i]; });
                 this.specUpCosts = next;
             } catch (e) { /* 실패하면 기본 시세 비용을 그대로 씁니다 */ }
         },
@@ -387,7 +417,7 @@ document.addEventListener('alpine:init', () => {
             this.specUpCosts = {};
             this.specUpExpanded = false;
             try { this.specUpPrices = JSON.parse(localStorage.getItem('specup-prices') || '{}') || {}; } catch (e) { this.specUpPrices = {}; }
-            const saved = this.specUpActions().filter(a => a.axis === '스타포스' && this.specUpPriceCustom(a));
+            const saved = this.specUpActions(true).filter(a => a.axis === '스타포스' && this.specUpPriceCustom(a));
             this.refreshSpecUpCosts(saved);
         },
 

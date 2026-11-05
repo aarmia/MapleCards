@@ -13,7 +13,7 @@ from fastapi import FastAPI, Query, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from starlette.requests import ClientDisconnect
 
 from app.analyzer import build_report, unsupported_registry
@@ -163,7 +163,14 @@ async def request_status(request_id: str):
 class StarforceCostItem(BaseModel):
     level: int = Field(ge=0, le=300)
     star: int = Field(ge=0, le=LAST_STAR)
+    target_star: int | None = Field(default=None, ge=1, le=LAST_STAR)
     base_price: float = Field(ge=0, le=1e15)  # 노작 시세 (메소)
+
+    @model_validator(mode='after')
+    def validate_target(self):
+        if self.target_star is not None and self.target_star <= self.star:
+            raise ValueError('target_star must exceed star')
+        return self
 
 
 class StarforceCostRequest(BaseModel):
@@ -173,7 +180,7 @@ class StarforceCostRequest(BaseModel):
 @app.post("/spec-up/starforce-cost")
 async def spec_up_starforce_cost(body: StarforceCostRequest):
     """사용자가 노작 시세를 바꾸면 스타포스 다음 1성 기대 비용만 다시 계산합니다 (넥슨 API 호출 없음)."""
-    return {"costs": [round(expected_cost(row.level, row.base_price, row.star, row.star + 1))
+    return {"costs": [round(expected_cost(row.level, row.base_price, row.star, row.target_star or row.star + 1))
                       if FIRST_STAR <= row.star < LAST_STAR else None for row in body.items]}
 
 
