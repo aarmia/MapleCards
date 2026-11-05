@@ -5,7 +5,9 @@ from unittest.mock import patch
 
 from app.calculator import calculate_item_score, flame_best_add_option
 from app.potential import reference_context
+from app.scoring_config import POTENTIAL
 from app.spec_up import (
+    attach_spec_up,
     best_target,
     burst_share,
     expected_resets,
@@ -15,9 +17,7 @@ from app.spec_up import (
     potential_actions,
     potential_distribution,
     seed_ring_action,
-    attach_spec_up,
 )
-from app.scoring_config import POTENTIAL
 
 
 def str_pct(text):

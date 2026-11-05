@@ -10,7 +10,6 @@ import unittest
 from app.potential import StatContext, convert_line
 from scripts.audit_efficiency import REFERENCES, options
 
-
 SNAPSHOTS = [
     ("지아름", 298, [8794.485540334856, 9.530000000000001, 30155, 113966.44719939119,
                     13258.789999999999, 11193.04, 179.5, 100, 1489, 2.27, .1333506086992039, .07056663168940187],

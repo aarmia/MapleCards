@@ -1,7 +1,7 @@
 import unittest
 
 from app.potential import reference_context
-from app.spec_up import starforce_action, starforce_recommendation_cap, attach_spec_up, sequential_recommendations
+from app.spec_up import attach_spec_up, sequential_recommendations, starforce_action, starforce_recommendation_cap
 from app.starforce_cost import expected_cost
 
 

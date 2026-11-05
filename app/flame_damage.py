@@ -7,7 +7,7 @@ full flame results per item. Probability and grade rounding match flame_distribu
 import math
 
 from app.calculator import calculate_item_score
-from app.damage_index import ReplacementModel, flame_options
+from app.damage_index import ReplacementModel
 from app.scoring_config import SPEC_UP
 
 MASKS = (0, 1, 2, 4, 8, 6, 9, 10, 12, 14)  # 1, X, p, Z, a, Zp, Xa, pa, Za, Zpa

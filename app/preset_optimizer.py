@@ -10,9 +10,8 @@ from dataclasses import replace
 
 from app.calculator import final_stat_float, get_potential_options
 from app.character_profile import _effect_stats, build_stat_context
-from app.preset_projection import active_items, project_context
-from app.scoring_config import POTENTIAL
 from app.damage_index import boss_index
+from app.preset_projection import active_items, project_context
 from app.set_projection import sum_subs
 
 BOSS_DEFENSE = 380.0

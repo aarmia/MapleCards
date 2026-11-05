@@ -16,12 +16,13 @@ import json
 import math
 
 from app.calculator import calculate_item_score, starforce_option
+from app.damage_index import ReplacementModel, flame_options, line_options
+from app.flame_damage import distribution as flame_moments
+from app.flame_damage import rewards as flame_rewards
 from app.potential import StatContext, analyze_lines, convert_line
 from app.scoring_config import DATA_DIR, POTENTIAL, SCORING, SPEC_UP
+from app.set_projection import DAWN, MEMBERS, PITCHED, RADIANT
 from app.starforce_cost import EOK, base_price, expected_cost
-from app.damage_index import ReplacementModel, flame_options, line_options
-from app.flame_damage import distribution as flame_moments, rewards as flame_rewards
-from app.set_projection import MEMBERS, PITCHED, RADIANT, DAWN
 
 ODDS = json.loads((DATA_DIR / "potential_odds.json").read_text(encoding="utf-8"))
 KIND_LABEL = {"potential": "윗잠재", "additional": "에디셔널"}
