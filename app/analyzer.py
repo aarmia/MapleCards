@@ -561,7 +561,7 @@ def counted_items(evaluate_list):
 
 
 def standard_total(items, char_class, main_stat):
-    """표준 환산 합계: 모든 캐릭터에 같은 기준 캐릭터(potential.toml [reference], 같은 레벨·스탯)의 계수로 환산한 장비 점수 합.
+    """메큘레이터 지수(화면 단위 P): 모든 캐릭터에 같은 기준 캐릭터(potential.toml [reference], 같은 레벨·스탯)의 계수로 환산한 장비 점수 합.
     내 캐릭터 기준 합계는 캐릭터마다 '주스탯 1%' 의 크기가 달라 캐릭터끼리 비교할 수 없어서, 비교용으로 따로 계산합니다."""
     rows = evaluate_equipment(items, char_class, POTENTIAL.reference.level, main_stat=main_stat)
     return round(sum(item["total_score"] for item in counted_items(rows)), 1)
