@@ -582,14 +582,25 @@ document.addEventListener('alpine:init', () => {
             this.specUpFrozen = null;
         },
 
-        // 모바일 장비창: 부위 그룹별로 나눕니다. 비어 있는 예비 특수 반지는 숨깁니다.
+        // 모바일 장비창: 무기류 → 방어구 → 장신구 → 특수. 그룹 안은 점수 높은 순, 점수 없는 장비와 빈 칸은 뒤로.
+        // 시드링(리레·컨티 등)은 꽂힌 반지 칸과 관계없이 특수로, 마도서(포켓)와 기계 심장은 장신구로 둡니다.
         mobileEquipGroups() {
+            const ringSlots = ['반지1', '반지2', '반지3', '반지4', '예비 특수 반지'];
+            const seedRing = slot => ringSlots.includes(slot) && !!this.getSlotItem(slot)?.is_special;
             const groups = [
-                { title: '장신구', slots: ['반지1', '반지2', '반지3', '반지4', '펜던트', '펜던트2', '얼굴장식', '눈장식', '귀고리', '벨트'] },
-                { title: '방어구', slots: ['모자', '상의', '하의', '신발', '장갑', '망토', '어깨장식', '기계 심장'] },
-                { title: '무기류 · 특수', slots: ['무기', '보조무기', '엠블렘', '훈장', '뱃지', '포켓 아이템', '예비 특수 반지'] },
+                { title: '무기류', slots: ['무기', '보조무기', '엠블렘'] },
+                { title: '방어구', slots: ['모자', '상의', '하의', '신발', '장갑', '망토', '어깨장식'] },
+                { title: '장신구', slots: ['반지1', '반지2', '반지3', '반지4', '펜던트', '펜던트2', '얼굴장식', '눈장식', '귀고리', '벨트', '포켓 아이템', '기계 심장']
+                    .filter(slot => !seedRing(slot)) },
+                { title: '특수', slots: [...ringSlots.filter(seedRing), '훈장', '뱃지'] },
             ];
-            return groups.map(group => ({ ...group, slots: group.slots.filter(slot => slot !== '예비 특수 반지' || this.getSlotItem(slot)) }));
+            const rank = slot => {
+                const item = this.getSlotItem(slot);
+                if (!item) return -Infinity;                    // 빈 칸은 맨 뒤
+                return item.scored === false ? -1e9 : Number(item.total_score) || 0;
+            };
+            return groups.map(group => ({ ...group, slots: [...group.slots].sort((a, b) => rank(b) - rank(a)) }))
+                .filter(group => group.slots.length);
         },
 
         // 탭을 누르면 바뀐 영역이 보이도록 그 위치로 스크롤합니다(모바일에서 탭이 결과보다 위에 있기 때문).
