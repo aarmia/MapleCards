@@ -144,7 +144,7 @@
                             <p class="text-[10px] font-black text-blue-300 mb-0.5" x-text="entry.label"></p>
                             <p class="text-base font-black text-emerald-400" x-text="'+' + entry.value + '%p'"></p>
                             <p class="text-[10px] text-white/90 font-semibold mt-1"
-                               x-text="[entry.key === 'star' ? entry.raw + '★' : entry.key === 'add' && entry.raw != null ? entry.raw + '급' : entry.key === 'exceptional' ? entry.raw + '회' : null,
+                               x-text="[entry.key === 'star' ? entry.raw + '★' : entry.key === 'add' && entry.raw != null ? entry.raw + '급' : entry.key === 'exceptional' || entry.key === 'scroll' ? entry.raw + '회' : null,
                                         entry.max ? '만점 ' + entry.max + '%p' : '만점 밖 가산'].filter(Boolean).join(' · ')"></p>
                         </div>
                     </template>

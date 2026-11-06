@@ -235,6 +235,16 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertEqual(rows["star"]["value"], rows["star"]["max"])
         self.assertAlmostEqual(result["total_score"], sum(row["value"] for row in rows.values()), delta=0.3)
 
+    def test_scroll_axis_is_against_best_scrolls_for_the_slot_count(self):
+        # 주문서 만점 = 횟수(성공 + 남은 + 복구 가능) × 최상 1작(그 외: 올스탯 +6 · 공/마 +6). 기본 옵션은 만점 = 현재 값
+        item = {**self.challenger_top, "scroll_upgrade": "6", "scroll_upgradeable_count": "1", "scroll_resilience_count": "1",
+                "item_etc_option": {"int": "36", "luk": "36", "magic_power": "36"}}
+        row = evaluate_equipment([item], "레테", 285)[0]
+        scroll = next(entry for entry in row["scoring_basis"]["breakdown"] if entry["key"] == "scroll")
+        self.assertEqual(scroll["raw"], "6/8")
+        self.assertAlmostEqual(scroll["value"] / scroll["max"], 6 / 8, delta=0.02)  # 6장을 최상 주문서로 바른 상태
+
+
     def test_starforce_option_per_star_table(self):
         # 22성 합계는 만점 표와 같고, 23성부터는 공/마만 오르며, 장갑은 15성까지 공/마 +1 이 7번 붙습니다.
         self.assertEqual(starforce_option(250, 22, "luk", ("DEX",)), starforce_benchmark_option(250, "luk", ("DEX",)))

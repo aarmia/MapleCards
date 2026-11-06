@@ -31,7 +31,7 @@
                 <template x-for="(val, key) in item.detail">
                     <div class="relative">
                         <div class="flex justify-between items-center mb-1">
-                            <span class="text-[10px] md:text-[9px] font-bold text-slate-400 uppercase" x-text="key == 'pot_additional' ? '에디셔널' : key == 'pot' ? '잠재능력' : key == 'add' ? '추가옵션' : key == 'soul' ? '소울' : key == 'special' ? '고유 옵션' : key == 'exceptional' ? '익셉셔널' : '별'"></span>
+                            <span class="text-[10px] md:text-[9px] font-bold text-slate-400 uppercase" x-text="key == 'base' ? '기본 옵션' : key == 'scroll' ? '주문서' : key == 'pot_additional' ? '에디셔널' : key == 'pot' ? '잠재능력' : key == 'add' ? '추가옵션' : key == 'soul' ? '소울' : key == 'special' ? '고유 옵션' : key == 'exceptional' ? '익셉셔널' : '별'"></span>
                             <span class="text-xs md:text-[11px] font-black text-slate-700" x-text="val + '%p'"></span>
                         </div>
                         <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden border border-slate-50">

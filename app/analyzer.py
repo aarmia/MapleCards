@@ -221,8 +221,8 @@ def get_dynamic_guide(axes, star_val, part_name, item_name, ratio, item_req_leve
     return select_guide(GUIDES.rule, context, GUIDES.names.raw, item_name)
 
 
-AXIS_LABEL = {"add": "추가옵션", "star": "스타포스", "pot": "윗잠재", "pot_additional": "에디셔널", "soul": "소울",
-              "special": "고유 옵션", "exceptional": "익셉셔널"}   # 점수 축과 표시 순서
+AXIS_LABEL = {"base": "기본 옵션", "scroll": "주문서", "add": "추가옵션", "star": "스타포스", "pot": "윗잠재", "pot_additional": "에디셔널",
+              "soul": "소울", "special": "고유 옵션", "exceptional": "익셉셔널"}   # 점수 축과 표시 순서
 
 
 def evaluate_equipment(items, char_class, char_level, unsupported=None, main_stat=None, profile=None):
@@ -245,7 +245,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             "점수 = 축마다 주스탯 %p 로 환산한 값의 합 · 테두리 색 = 만점 대비 %",
             f"추가옵션·스타포스: 급수(고정 주스탯 1 = 1급) × {per_flat:.3g}%p",
             "윗잠재·에디셔널: 줄마다 유효 스탯% (주스탯 1% = 1%p)",
-            "만점: 추가옵션 = 그 레벨 불꽃 최대 조합 · 스타포스 = 22성 · 잠재 = 캐릭터별 최상 조합 (23성 이상·익셉셔널은 만점을 넘는 가산)",
+            "만점: 기본 옵션 = 그대로 · 주문서 = 횟수 × 최상 주문서 · 추가옵션 = 그 레벨 불꽃 최대 조합 · 스타포스 = 22성 · 잠재 = 캐릭터별 최상 조합 (23성 이상·익셉셔널은 만점을 넘는 가산)",
         ]
         notes.extend(context.notes())
         return notes
@@ -263,6 +263,28 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             "breakdown": [{"key": key, "label": AXIS_LABEL[key], "value": round(v, 1), "max": round(m, 1), "raw": raw.get(key)}
                           for key, (v, m) in axes.items()],
         }
+
+    def option_pct(option, weaponish):
+        """고정 옵션(기본 옵션·주문서)의 주스탯 %p. 방어구·장신구는 급수 × per_flat, 무기류는 공% 환산 ÷ per_unit.
+        보공·방무는 무기 환산과 같은 방식(보스 방어율 기준)으로 더합니다."""
+        option = option or {}
+        boss, ied = float(option.get("boss_damage") or 0), float(option.get("ignore_monster_armor") or 0)
+        extra = (weapon_context.ied_value(ied) if ied else 0.0) / per_unit
+        if weaponish:  # 보공·데미지는 weapon_add_value 가 포함
+            return weapon_add_value(option, weapon_context, char_level)[0] / per_unit + extra
+        return (calculate_item_score(option, char_class, main_stat=main_stat, context=context) * per_flat
+                + boss * weapon_context.boss_per_pct / per_unit + extra)
+
+    def best_scroll_option(slot, part, slots):
+        """최상 주문서 slots 장을 바른 스탯·공/마 (scoring.toml [scroll])"""
+        rules = SCORING.scroll.raw
+        rule = rules["weapon"] if slot == "무기" else rules["heart"] if "기계 심장" in part else rules["default"]
+        option = {"magic_power" if main_stat == "int" else "attack_power": rule["attack"] * slots}
+        if "all_stat" in rule:
+            option.update(dict.fromkeys(("str", "dex", "int", "luk"), rule["all_stat"] * slots))
+        else:
+            option.update(dict.fromkeys(("str", "dex", "luk") if main_stat == "all_stat" else (main_stat,), rule["main_stat"] * slots))
+        return option
 
     def exceptional_pct(item):
         option = item.get("item_exceptional_option") or {}
@@ -407,6 +429,23 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                     if is_noljang or item.get("starforce_scroll_flag") == "사용" else item.get("item_starforce_option")
                 pct_axes["star"] = (calculate_item_score(source or {}, char_class, main_stat=main_stat, context=context) * per_flat,
                                     calculate_item_score(star_bench, char_class, main_stat=main_stat, context=context) * per_flat)
+
+        # 기본 옵션: 만점 = 같은 값(같은 장비면 기본 옵션이 같아 테두리 비율에는 고정분). 주문서: 만점 = 횟수 × 최상 주문서.
+        base_option = {key: value for key, value in (item.get("item_base_option") or {}).items() if key != "base_equipment_level"}
+        base_value = option_pct(base_option, is_weapon)
+        if base_value > 0:
+            pct_axes["base"] = (base_value, base_value)
+        slots = sum(safe_int(item.get(key)) for key in ("scroll_upgrade", "scroll_upgradeable_count", "scroll_resilience_count"))
+        if slots > 0:
+            scroll_option = dict(etc_ops)
+            if is_noljang or item.get("starforce_scroll_flag") == "사용":  # 주문서 칸의 놀장 스타포스 스탯을 뺍니다
+                for key, amount in noljang_option(item_req_level, star, main_stat, context.sub_names).items():
+                    scroll_option[key] = max(0, safe_int(scroll_option.get(key)) - amount)
+            scroll_value = option_pct(scroll_option, is_weapon)
+            # 데몬어벤져(HP 주문서)는 최상 기준을 따로 정할 때까지 현재 값을 만점으로 둡니다
+            scroll_best = scroll_value if main_stat == "hp" else option_pct(best_scroll_option(slot, part, slots), is_weapon)
+            pct_axes["scroll"] = (scroll_value, scroll_best)
+            raw_axes["scroll"] = f"{safe_int(item.get('scroll_upgrade'))}/{slots}"
 
         soul_analysis, add_recognized, add_attack_tier = None, [], None
         add_evaluated = not any(k in part or k in slot for k in GUIDES.axes.no_add_parts)
