@@ -122,7 +122,7 @@
                                    class="w-24 rounded border border-amber-200 bg-white px-2 py-1 text-right font-black text-slate-700 tabular-nums"
                                    :value="specUpPrice(action)" @change="setSpecUpPrice(action, $event.target.value)">
                             <span class="text-[11px] font-bold text-slate-500">억</span>
-                            <span x-show="!specUpPriceCustom(action) && !action.base_price_registered" class="text-[10px] font-bold text-amber-600">기본값</span>
+                            <span x-show="!specUpPriceCustom(action) && !basePriceRegistered(action)" class="text-[10px] font-bold text-amber-600">기본값</span>
                             <button type="button" x-show="specUpPriceCustom(action)" @click="resetSpecUpPrice(action)"
                                     class="ml-auto text-[10px] font-bold text-slate-400 hover:text-slate-600 underline">기본 시세로</button>
                         </label>

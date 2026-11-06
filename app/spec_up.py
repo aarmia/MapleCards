@@ -1,7 +1,7 @@
 """스펙업 추천: 고정 프리셋에서 기대 비용 100억 메소당 최종뎀 증가율로 정렬합니다.
 
 행동은 아이템마다 축별로 하나씩 만듭니다 (방어구·장신구만, 무기류는 이후 단계).
-- 스타포스: 다음 1성. 증가량 = 성별 증가표(scoring.toml starforce.gain)의 주스탯% 환산 차이, 비용 = starforce_cost 기대값.
+- 스타포스: 다음 1성. 증가량 = 성별 증가표(scoring.toml starforce.gain)의 주스탯% 환산 차이. 비용은 노작 시세로 화면이 계산합니다.
 - 윗잠재·에디셔널: 메소 재설정으로 "환산 X% 이상"이 나올 때까지. 공식 줄별 확률(potential_odds.json)로 세 줄 합계 분포를 만들고,
   목표 X 마다 성공 확률 P 와 성공 시 기대값 E[V | V ≥ X] 를 구해 효율이 가장 높은 X 를 고릅니다.
   레전드리 미만이면 등급업 비용(천장 포함)을 더합니다.
@@ -20,11 +20,11 @@ from app.damage_index import ReplacementModel, flame_options, line_options
 from app.flame_damage import distribution as flame_moments
 from app.flame_damage import rewards as flame_rewards
 from app.potential import StatContext, analyze_lines, convert_line
-from app.scoring_config import DATA_DIR, POTENTIAL, SCORING, SPEC_UP
+from app.scoring_config import DATA_DIR, POTENTIAL, SCORING, SPEC_UP, STARFORCE_COST
 from app.set_projection import DAWN, MEMBERS, PITCHED, RADIANT
-from app.starforce_cost import EOK, base_price, expected_cost
 
 ODDS = json.loads((DATA_DIR / "potential_odds.json").read_text(encoding="utf-8"))
+EOK = 100_000_000  # 1억 메소
 KIND_LABEL = {"potential": "윗잠재", "additional": "에디셔널"}
 KIND_PREFIX = {"potential": "potential", "additional": "additional_potential"}
 MIN_STEP_CHANCE = 1e-6
@@ -304,7 +304,7 @@ def starforce_recommendation_cap(name: str) -> int:
 
 def starforce_action(name: str, part: str, slot: str, level: int, star: int, max_star: int,
                      class_name: str, main_stat: str, context: StatContext, target_star: int | None = None) -> dict | None:
-    """Current → target cumulative gain/cost. Under 12 stars has no cost data."""
+    """현재 → 목표 성의 누적 최종뎀. 비용은 노작 시세로 화면(app.js starforceCost)이 계산합니다. 12성 미만은 비용 자료가 없어 만들지 않습니다."""
     target_star = star + 1 if target_star is None else target_star
     if star < 12 or not star < target_star <= min(max_star, starforce_recommendation_cap(name)):
         return None
@@ -321,13 +321,10 @@ def starforce_action(name: str, part: str, slot: str, level: int, star: int, max
         method = "direct"
     except ValueError:
         final_damage, method = gain * final_damage_per_pct(context), "legacy_special_stat"
-    price, registered = base_price(name, level, part, slot)
-    cost = expected_cost(level, price, star, target_star)
-    if gain <= 0 or cost <= 0:
+    if gain <= 0:
         return None
-    return {"axis": "스타포스", "label": f"{star}→{target_star}성", "gain": gain, "cost": cost,
-            "final_damage": final_damage, "model": method,
-            "base_price": price, "base_price_registered": registered, "star": star, "target_star": target_star, "level": level}
+    return {"axis": "스타포스", "label": f"{star}→{target_star}성", "gain": gain,
+            "final_damage": final_damage, "model": method, "star": star, "target_star": target_star, "level": level}
 
 
 STAT_LABEL = {"hp": "HP", "all_stat": "올스탯"}
@@ -336,34 +333,6 @@ STAT_LABEL = {"hp": "HP", "all_stat": "올스탯"}
 def stat_label(context: StatContext) -> str:
     """효율 앞에 붙이는 주스탯 이름: STR·DEX·INT·LUK·HP·올스탯"""
     return STAT_LABEL.get(context.main_stat, context.main_label)
-
-
-def sequential_recommendations(actions):
-    """Greedy eligible actions; unlock next star only after recommending its predecessor.
-
-    Collapse adjacent upgrades of the SAME item. Do not re-sort after collapsing:
-    that would move an upgrade ahead of its prerequisite.
-    """
-    pending, result = [dict(a) for a in actions], []
-    while pending:
-        eligible = [a for a in pending if a['axis'] != '스타포스' or not any(
-            b['axis'] == '스타포스' and b['slot'] == a['slot'] and b['star'] < a['star'] for b in pending)]
-        action = max(eligible, key=lambda a: a['damage_efficiency'])
-        pending.remove(action)
-        if (result and action['axis'] == '스타포스' and result[-1]['axis'] == '스타포스'
-                and result[-1]['slot'] == action['slot'] and result[-1]['target_star'] == action['star']):
-            previous = result[-1]
-            per_pct = previous.get('stat_conversion') or (previous['final_damage'] / previous['gain'] if previous['gain'] else 1)
-            previous['final_damage'] = 100 * ((1 + previous['final_damage'] / 100) * (1 + action['final_damage'] / 100) - 1)
-            previous['gain'] = previous['final_damage'] / per_pct
-            previous['cost'] += action['cost']
-            previous['target_star'] = action['target_star']
-            previous['label'] = f"{previous['star']}→{previous['target_star']}성"
-            previous['damage_efficiency'] = previous['final_damage'] / (previous['cost'] / SPEC_UP.ranking.unit)
-            previous['efficiency'] = previous['gain'] / (previous['cost'] / SPEC_UP.ranking.unit)
-        else:
-            result.append(action)
-    return result
 
 
 def final_damage_per_pct(context: StatContext) -> float:
@@ -420,22 +389,20 @@ def seed_ring_action(name: str, level: int, class_name: str, context: StatContex
         return None
     if final_damage <= 0:
         return None
-    price = ring.materials[step["material"]] * EOK
     return {"axis": "시드링", "label": f"{level}→{level + 1}레벨 ({step['material']} {step['count']}개 + {step['meso'] / EOK:g}억)",
-            "final_damage": final_damage, "model": "seed_ring_uptime",
-            "detail": detail, "gain": final_damage / per_pct, "cost": step["count"] * price + step["meso"],
-            "material": {"name": step["material"], "count": step["count"], "meso": step["meso"], "price": price}}
+            "final_damage": final_damage, "model": "seed_ring_uptime", "detail": detail, "gain": final_damage / per_pct,
+            "material": {"name": step["material"], "count": step["count"], "meso": step["meso"]}}
 
 
 def finish(action: dict) -> dict:
-    """Display stat-equivalent efficiency and unrounded final-damage ranking key."""
+    """화면용 반올림. 비용이 시세와 무관한 행동(잠재·추옵)만 서버가 효율을 붙이고, 스타포스·시드링은 화면이 시세로 계산합니다."""
     out = dict(action)
     out['stat_conversion'] = action['final_damage'] / action['gain'] if action['gain'] else 0
-    out["efficiency"] = round(action["gain"] / (action["cost"] / SPEC_UP.ranking.unit), 4)
-    out["damage_efficiency"] = action["final_damage"] / (action["cost"] / SPEC_UP.ranking.unit)
-    # Preserve unrounded damage for user-edited price sorting and tiny upgrades.
+    if "cost" in action:
+        out["efficiency"] = round(action["gain"] / (action["cost"] / SPEC_UP.ranking.unit), 4)
+        out["damage_efficiency"] = action["final_damage"] / (action["cost"] / SPEC_UP.ranking.unit)
+        out["cost"] = round(action["cost"])
     out["gain"] = round(action["gain"], 2)
-    out["cost"] = round(action["cost"])
     if "chance" in out:
         out["chance"] = round(out["chance"], 6)
         out["tries"] = round(out["tries"], 1)
@@ -470,7 +437,7 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
     moment_memo: dict = {}
     cube_memo: dict = {}  # (종류, 부위, 레벨) → 세 줄 구성 (같은 부위·레벨이면 재사용)
     superior_keyword = SCORING.special_items.superior_keyword
-    ranked = []
+    count = 0
     # 쓰는 시드링 레벨. 반지를 바꿔 껴도 쿨타임이 바로 돌아(2026 상반기~) 예비 특수 반지 칸 반지도 함께 씁니다.
     rings = {RESTRAINT: 0, CONTINUOUS: 0}
     for item in items:
@@ -489,7 +456,7 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
             action = seed_ring_action(row["name"], int(float(item.get("special_ring_level") or 0)), class_name, context,
                                       damage_total, rings[CONTINUOUS])
             row["spec_up"] = [finish(action)] if action else []
-            ranked += [{**action, "slot": row["slot"], "name": row["name"], "icon": row.get("icon")} for action in row["spec_up"]]
+            count += len(row["spec_up"])
             continue
         if (not item or row["is_wse"] or row["is_special"] or row.get("is_noljang")
                 or any(keyword in row["name"] for keyword in exclude_names)):
@@ -509,7 +476,6 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
                 if previous:
                     action['final_damage'] = 100 * ((1 + cumulative['final_damage'] / 100) / (1 + previous['final_damage'] / 100) - 1)
                     action['gain'] = action['final_damage'] / damage_per_pct
-                    action['cost'] = cumulative['cost'] - previous['cost']
                     action['star'] = target - 1
                     action['label'] = f"{target - 1}→{target}성"
                 actions.append(action)
@@ -550,10 +516,17 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
                                 "current_grade": round(current, 1),
                                 "steps": [{**step, "gain": round(step["gain"], 2), "cost": round(step["cost"]),
                                            "chance": round(step["chance"], 8), "tries": round(step["tries"], 1)} for step in steps]})
-        row["spec_up"] = sorted((finish(a) for a in actions if a), key=lambda a: a["damage_efficiency"], reverse=True)
-        ranked += [{**action, "slot": slot, "name": name, "icon": row.get("icon")} for action in row["spec_up"]]
-    ranked = sequential_recommendations(ranked)
-    limit = int(SPEC_UP.ranking.top)
-    return {"unit": SPEC_UP.ranking.unit, "limit": limit, "stat_label": stat_label(context),
+        row["spec_up"] = [finish(a) for a in actions if a]
+        count += len(row["spec_up"])
+    # 순서(100억당 최종뎀)는 노작·연마석 시세에 따라 바뀌어 화면(app.js specUpActions)이 정합니다.
+    return {"unit": SPEC_UP.ranking.unit, "limit": int(SPEC_UP.ranking.top), "stat_label": stat_label(context),
             "estimate": True, "assumptions": recommendation_assumptions(context, class_name),
-            "final_damage_per_pct": round(damage_per_pct, 4), "top": ranked[:limit], "count": len(ranked)}
+            "final_damage_per_pct": round(damage_per_pct, 4), "count": count}
+
+
+def pricing_config() -> dict:
+    """화면이 시세로 비용을 계산하는 데 쓰는 설정 (페이지의 window.MECULATOR_PRICING).
+    starforce = 확률·비용 분모·이벤트·파괴 방지·복구, base_price = 노작 시세 기본값 표, materials = 연마석 기본 시세(억)."""
+    raw = STARFORCE_COST.raw
+    return {"starforce": {key: raw[key] for key in ("event", "odds", "cost_denominator", "prevention", "restore")},
+            "base_price": raw["base_price"], "materials": SPEC_UP.seed_ring.materials.raw}

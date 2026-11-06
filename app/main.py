@@ -23,7 +23,7 @@ from app.request_tracker import DiagnosticRequestTracker
 from app.scoring_config import GRADES
 from app.scraper import NexonAPIError, NexonAPIHandler
 from app.settings import Settings
-from app.starforce_cost import client_config
+from app.spec_up import pricing_config
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -107,8 +107,8 @@ def _static_asset_version(path: str) -> str:
 APP_JS_VERSION = _static_asset_version(os.path.join(static_dir, "js", "app.js"))
 # 등급·색 컷오프(app/data/grades.toml). 페이지에 심어 두어 진단 전에도 도움말이 같은 값을 보여줍니다.
 GRADES_JSON = json.dumps(GRADES.raw, ensure_ascii=False)
-# 스타포스 기대 비용 설정: 사용자가 노작 시세를 바꾸면 화면이 서버 요청 없이 바로 다시 계산합니다 (app.js starforceCost)
-STARFORCE_JSON = json.dumps(client_config(), ensure_ascii=False)
+# 시세 설정: 스타포스·시드링 비용은 화면이 노작·연마석 시세로 계산합니다 (app.js starforceCost · specUpActions)
+PRICING_JSON = json.dumps(pricing_config(), ensure_ascii=False)
 
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -135,7 +135,7 @@ async def read_root(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"app_js_version": APP_JS_VERSION, "grades_json": GRADES_JSON, "starforce_json": STARFORCE_JSON},
+        context={"app_js_version": APP_JS_VERSION, "grades_json": GRADES_JSON, "pricing_json": PRICING_JSON},
         headers={"Cache-Control": "no-cache"},
     )
 

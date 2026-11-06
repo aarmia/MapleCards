@@ -1,5 +1,7 @@
-// 스타포스 기대 비용: app/starforce_cost.py 와 같은 계산입니다. 설정은 서버가 페이지에 넣은 window.MECULATOR_STARFORCE.
-// 사용자가 노작 시세를 바꾸면 서버 요청 없이 여기서 바로 다시 계산합니다. tests/spec_up_ui.cjs 가 Python 결과와 대조합니다.
+// 시세로 정해지는 비용(스타포스 기대 비용·시드링 연마석 비용)은 모두 화면이 계산합니다. 서버는 설정만 페이지에 넣습니다:
+// window.MECULATOR_PRICING = { starforce: 확률·비용 분모·이벤트·파괴 방지·복구, base_price: 노작 시세 기본값 표, materials: 연마석 기본 시세(억) }
+// (app/data/starforce_cost.toml · spec_up.toml). 스타포스 계산은 starforce.gg/ev 와 같은 방식이며 tests/spec_up_ui.cjs 가 그 값과 대조합니다.
+const pricing = () => (typeof window !== 'undefined' && window.MECULATOR_PRICING) || null;
 const STARFORCE_MEMO = new Map();
 const sfRound = (x) => Math.floor(x + 0.5);
 
@@ -355,10 +357,10 @@ document.addEventListener('alpine:init', () => {
             const rows = [];
             for (const item of this.report.results) {
                 for (const action of item.spec_up || []) {
-                    let cost = action.cost;
-                    if (action.axis === '스타포스' && this.specUpPriceCustom({ item })) {
+                    let cost = action.cost;  // 잠재·추옵은 서버가 준 고정 비용
+                    if (action.axis === '스타포스') {
                         cost = this.starforceCost(action.level, Math.round(this.specUpPrice({ ...action, item }) * 1e8),
-                            action.star, action.target_star ?? action.star + 1) ?? cost;
+                            action.star, action.target_star ?? action.star + 1);
                     }
                     if (action.material) cost = action.material.count * this.materialPrice(action) * 1e8 + action.material.meso;
                     rows.push({ ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0,
@@ -400,15 +402,33 @@ document.addEventListener('alpine:init', () => {
             return n >= 0.1 ? n.toFixed(2) : n.toFixed(3);
         },
 
+        // 노작 시세(억): 사용자가 바꾼 값, 없으면 기본값 표(starforce_cost.toml base_price)에서 찾은 값
         specUpPrice(action) {
             const saved = this.specUpPrices[action.item.name];
-            return saved ?? Math.round(action.base_price / 1e6) / 100;
+            return saved ?? this.defaultBasePrice(action.item).price;
         },
 
-        // start 성에서 end 성까지 기대 메소 (12성 미만은 0). 설정이 없으면 null 이고 서버가 준 비용을 그대로 씁니다.
+        // 노작 시세 기본값: 이름에 name 이 들어 있고 (parts 가 있으면 부위나 장착 칸도 맞는) 첫 항목, 없으면 레벨별 기본값.
+        // 무기류는 부위가 무기 종류(단검 등)라 장착 칸(무기·보조무기)으로 맞춥니다.
+        defaultBasePrice(item) {
+            const table = pricing()?.base_price;
+            if (!table) return { price: 0, registered: false };
+            const name = item.name || '';
+            const hit = table.item.find(row => name.includes(row.name)
+                && (!row.parts || row.parts.includes(item.part) || row.parts.includes(item.slot)));
+            if (hit) return { price: hit.price, registered: true };
+            const band = table.default.find(([floor]) => (item.level || 0) >= floor);
+            return { price: band ? band[1] : 0, registered: false };
+        },
+
+        basePriceRegistered(action) {
+            return this.defaultBasePrice(action.item).registered;
+        },
+
+        // start 성에서 end 성까지 기대 메소 (12성 미만은 0). 설정이 없으면 0 입니다.
         starforceCost(level, basePrice, start, end) {
-            const cfg = window.MECULATOR_STARFORCE;
-            if (!cfg) return null;
+            const cfg = pricing()?.starforce;
+            if (!cfg) return 0;
             const costs = sfStepCosts(cfg, level, basePrice);
             let sum = 0;
             for (let star = Math.max(start, 12); star < Math.min(end, 30); star++) sum += costs[star];
@@ -436,7 +456,7 @@ document.addEventListener('alpine:init', () => {
         // 시드링 연마석 시세(억): 사용자가 바꾼 값, 없으면 기본 시세. 같은 연마석을 쓰는 모든 반지에 함께 적용됩니다.
         materialPrice(action) {
             const saved = this.specUpMaterials[action.material.name];
-            return saved ?? Math.round(action.material.price / 1e6) / 100;
+            return saved ?? (pricing()?.materials?.[action.material.name] || 0);
         },
 
         materialPriceCustom(action) {

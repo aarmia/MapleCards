@@ -98,7 +98,7 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('window.MECULATOR_GRADES = {"item_grade": [[90, "SSS+"]', response.text)
         self.assertIn("gradeCutText('SSS+')", response.text)
-        self.assertIn('window.MECULATOR_STARFORCE = {"event"', response.text)  # 노작 시세 변경은 화면에서 바로 계산
+        self.assertIn('window.MECULATOR_PRICING = {"starforce"', response.text)  # 시세 비용은 화면이 계산
 
     async def test_nexon_error_becomes_json_with_code_and_retry_after(self):
         error = NexonAPIError("메이플스토리 점검 중입니다.", status_code=503, code="OPENAPI00010", retry_after=600)

@@ -41,7 +41,6 @@ class SpecUpTests(unittest.TestCase):
                             action.assert_not_called()
                     self.assertEqual(row["spec_up"], [])
                     self.assertEqual((row["total_score"], row["score_ratio"]), (42, 80))
-                    self.assertEqual(report["top"], [])
                     self.assertEqual(report["count"], 0)
 
     def test_assumptions_follow_config_and_are_in_report(self):
@@ -90,12 +89,12 @@ class SpecUpTests(unittest.TestCase):
         base = context.attack_multiplier_effective * 100 + 12  # 컨티 5레벨 공/마 12%
         # 지금 레벨의 전체 딜(1 + 구간 비중 × 공/마 ÷ 배율) 대비 증가
         self.assertAlmostEqual(r45["gain"] * final_damage_per_pct(context), 100 * ((1 + s20 * 68 / base) / (1 + s15 * 68 / base) - 1), places=6)
-        self.assertEqual(r45["cost"], 10 * 8.43e8 + 50e8)  # 생명의 연마석 10개 + 50억
+        self.assertEqual(r45["material"], {"name": "생명의 연마석", "count": 10, "meso": 50e8})  # 비용은 연마석 시세로 화면이 계산
         r56 = seed_ring_action("리스트레인트 링", 5, "나이트로드", context, 0.0, 5)
         self.assertAlmostEqual(r56["gain"] * final_damage_per_pct(context), 100 * ((1 + s20 * 85 / base) / (1 + s20 * 68 / base) - 1), places=6)
         self.assertIsNone(seed_ring_action("리스트레인트 링", 6, "나이트로드", context, 0.0, 5))  # 만렙
         c56 = seed_ring_action("컨티뉴어스 링", 5, "처음 보는 직업", context, 100.0, 5)  # 표에 없는 직업은 평균
-        self.assertEqual(c56["cost"], 20 * 31.67e8 + 200e8)
+        self.assertEqual(c56["material"], {"name": "신념의 연마석", "count": 20, "meso": 200e8})
         self.assertGreater(c56["gain"], 0)
 
     def test_best_target_trades_gain_against_cost(self):
