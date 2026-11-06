@@ -729,7 +729,8 @@ def radiant_chain_actions(rows: list, items: list, context: StatContext, class_n
     """광휘 교체 순서 (spec_up.toml radiant_order, 부위 단위): 불멸의 유산 → 광휘 반지 → 광휘 반지 + 죽음의 맹세 → 원혼 → 원죄.
     칠흑 radiant_needs_pitched 세트를 완성했거나 이미 광휘를 낀 캐릭터만. 단계마다 앞 단계를 마친 장비로 세트 변화를 계산합니다.
     바꿀 칸은 세트를 덜 깨뜨리는(세트 변화 %p 가 큰) 칸, 같으면 지금 점수가 낮은 칸. 광휘는 1단계 매물로만 (그 위는 같은 아이템 매물).
-    한 단계라도 추천할 수 없으면(바꿀 칸이 없거나 이득·지수 기준 미달) 그 뒤 단계는 만들지 않습니다. 화면은 chain 순서대로만 고릅니다."""
+    순서가 정해진 경로라 메큘레이터 지수 기준(min_index_gain_pct)은 보지 않습니다. 바꿀 칸이 없거나 이득이 없으면 그 뒤 단계는 만들지 않습니다.
+    화면은 chain 순서대로만 고릅니다."""
     from app.set_projection import _name, count_sets
     if weapon is None or final_damage_per_pct(context) <= 0:
         return []
@@ -772,7 +773,7 @@ def radiant_chain_actions(rows: list, items: list, context: StatContext, class_n
             names = [target for _, target in swaps]
             pieces = [_piece(target, row["slot"], weapon, std_weapon, class_name, main_stat, char_level) for row, target in swaps]
             target = _with_set({"axis": UPGRADE_AXIS, "names": names, "pieces": pieces, "rank": ACCESSORY_TIERS.index(RADIANT),
-                                "max_grade": 1, "radiant": True,
+                                "max_grade": 1, "radiant": True, "index_gate": False,
                                 "title": " + ".join(f"{name}({row['slot']})" for row, name in swaps) if len(swaps) > 1 else None,
                                 "price_item": {"name": names[0], "part": pieces[0]["part"], "slot": first["slot"], "level": pieces[0]["level"]}},
                                state, after, context, weapon, standard, char_level)
@@ -876,7 +877,7 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
         index_gain = None
         if std_row is not None and all(piece["fixed"]["std"] is not None for piece in target["pieces"]):  # 메큘레이터 지수가 의미 있게 오를 때만
             index_gain = value("std", standard["context"]) - std_row["total_score"]
-            if index_gain < standard["total"] * config.min_index_gain_pct / 100:
+            if target.get("index_gate", True) and index_gain < standard["total"] * config.min_index_gain_pct / 100:
                 continue
         _, pot, eddy, _, add, _, _ = states[0]
         spec = f"{grade['star']}성 · 윗잠 {pot:g}% · 에디 {eddy:g}%" + (f" · 추옵 {add}급" if add is not None else "")

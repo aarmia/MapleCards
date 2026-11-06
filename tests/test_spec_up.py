@@ -266,6 +266,10 @@ class SpecUpTests(unittest.TestCase):
         self.assertEqual(steps[0]["price_item"]["name"], "불멸의 유산")
         self.assertEqual([p["name"] for p in steps[2]["price_items"]], ["황홀한 악몽", "죽음의 맹세"])
         self.assertTrue(all(a["grade"] == 1 and a["target_star"] == 18 for a in steps[1:]))  # 광휘는 1단계 매물로만
+        # 순서가 정해진 경로라 메큘레이터 지수 기준은 보지 않음 (기준이 아주 커도 다섯 단계 그대로)
+        strict = {"total": 1e6, "rows": {row["slot"]: row for row in rows}, "context": context, "weapon": weapon}
+        gated = radiant_chain_actions(rows, [*worn, *filler], context, job, "int", 285, {}, strict, weapon)
+        self.assertEqual([action["chain"] for _, action in gated], [1, 2, 3, 4, 5])
         self.assertEqual(chain([*worn, *filler[:-1]]), [])  # 칠흑 9세트면 광휘 순서 없음
 
 
