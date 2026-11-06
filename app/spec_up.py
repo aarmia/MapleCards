@@ -512,7 +512,8 @@ def special_replace_action(row: dict, item: dict, items: list, context: StatCont
     return {"axis": UPGRADE_AXIS, "label": to_replace(target), "final_damage": gain * final_damage_per_pct(context), "gain": gain,
             "model": "listing_linear", "level": level, "pieces": 1, "star": 0, "target_star": 0, "listing_fixed": 0.0, "rank": 30,
             "price_item": {"name": target, "part": part, "slot": row.get("slot"), "level": level},
-            "detail": f"{note} + 세트 {set_text} ({set_value:+.1f}%p) · 비용 = {target} 시세 (교환 불가라 직접 입력)"}
+            "detail": f"{note} + 세트 {set_text} ({set_value:+.1f}%p) · 비용 = {target} 시세 (교환 불가라 직접 입력)",
+            "set_change": f"세트 {set_text} ({set_value:+.1f}%p)" if set_text else ""}
 ARMOR_TIERS = ("루타비스", "앱솔랩스", "아케인셰이드", "에테르넬")   # 방어구 계열 순서 (상위 교체 후보는 지금보다 뒤 계열)
 
 
@@ -925,8 +926,9 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
         if any(discounted(piece) for piece in target["pieces"]):
             craft = f"({craft}) × {config.radiant_craft_share:g}"
         notes = [f"기대 비용 = 노작 시세 + 스타포스 0→{grade['star']}성 + {craft}" + (f" (부위 {len(states)}개)" if len(states) > 1 else "")]
-        if target["set_text"]:
-            notes.append(f"세트 {target['set_text']} ({target['set']['own']:+.1f}%p)")
+        set_change = f"세트 {target['set_text']} ({target['set']['own']:+.1f}%p)" if target["set_text"] else ""
+        if set_change:
+            notes.append(set_change)
         if len(target["names"]) > 1:  # 여러 아이템을 한꺼번에: 화면이 칸마다 한 줄씩 (from·아이콘은 attach_spec_up)
             # 서로 다른 아이템이라 노작 시세도 아이템마다 (화면이 아이템별로 더함)
             swaps = {"swaps": [{"slot": piece["slot"], "to": name} for name, piece in zip(target["names"], target["pieces"])],
@@ -940,6 +942,7 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
                   "level": target["pieces"][0]["level"], "pieces": len(states),
                   "star": 0, "target_star": grade["star"], "listing_fixed": sum(state[5] for state in states),
                   "index_gain": round(index_gain, 1) if index_gain is not None else None, "detail": " · ".join(notes),
+                  "set_change": set_change,   # 화면은 상위 교체 카드에 이것만 보여줍니다
                   "rank": target.get("rank", 0) * 10 + number}   # 교체 수준: 경로 순번 × 10 + 등급 (높을수록 상위)
         if target.get("price_item"):
             action["price_item"] = target["price_item"]

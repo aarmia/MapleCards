@@ -223,6 +223,7 @@ class SpecUpTests(unittest.TestCase):
         self.assertTrue(heart)
         self.assertEqual({(a["axis"], a["price_item"]["name"]) for a in heart}, {("상위 교체", "컴플리트 언더컨트롤")})
         self.assertTrue(all(a["grade"] <= 3 for a in heart))  # 기계 심장은 3단계까지 (하트 전용 주문서)
+        self.assertTrue(all("set_change" in a and "비용" not in a["set_change"] for a in heart))
         # 뱃지 → 창세의 뱃지 (뱃지 옵션 + 칠흑 세트 +1), 비용은 뱃지 시세
         from app.spec_up import special_replace_action
         badge = {"item_equipment_part": "뱃지", "item_equipment_slot": "뱃지", "item_name": "크리스탈 웬투스 뱃지",
@@ -231,6 +232,10 @@ class SpecUpTests(unittest.TestCase):
         action = special_replace_action(badge_row, badge, [badge], context, weapon, 285, job, "int")
         self.assertEqual((action["price_item"]["name"], action["listing_fixed"]), ("창세의 뱃지", 0.0))
         self.assertIn("칠흑의 보스 세트 0→1", action["detail"])
+        # 화면의 상위 교체 카드는 세트 변화만 (비용 계산식 없음)
+        self.assertTrue(action["set_change"].startswith("세트 "))
+        self.assertIn("칠흑의 보스 세트 0→1", action["set_change"])
+        self.assertNotIn("비용", action["set_change"])
         # 훈장 → 불멸의 유산 (기본 옵션 + 추옵 205급, 1단계). 칠흑 조건·순서는 radiant_chain_actions
         medal = {"item_equipment_part": "훈장", "item_equipment_slot": "훈장", "item_name": "THE RED",
                  "item_add_option": {}, "item_base_option": {"base_equipment_level": 0, "int": "5"}}

@@ -68,7 +68,8 @@
                               :class="action.listing_fixed !== undefined ? 'bg-green-700' : 'bg-blue-600'" x-text="action.axis"></span>
                         <span x-text="specActionLabel(action)"></span>
                     </p>
-                    <p x-show="action.detail" class="mt-0.5 text-[11px] font-bold text-slate-500 break-keep" x-text="action.detail"></p>
+                    <!-- 교체 카드는 기대 비용 계산식을 보여주지 않습니다: 매물 교체는 설명 없음, 상위 교체는 세트 변화만 -->
+                    <p x-show="specActionNote(action)" class="mt-1 text-[11px] font-medium text-slate-400 leading-snug break-keep" x-text="specActionNote(action)"></p>
                     <p x-show="action.combo" class="mt-0.5 text-[11px] font-bold text-slate-500 break-keep"
                        x-text="'대표 구성: ' + action.combo + ' (성공의 ' + Math.round((action.combo_share || 0) * 100) + '%)'"></p>
                 </div>
