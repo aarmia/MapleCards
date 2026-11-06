@@ -321,6 +321,26 @@ def starforce_recommendation_cap(name: str) -> int:
     return 22
 
 
+def starforce_steps(name: str, part: str, slot: str, level: int, star: int, cap: int,
+                    class_name: str, main_stat: str, context: StatContext) -> list[dict]:
+    """star → cap 까지 한 성씩의 추천. 단계 최종뎀 = 누적 최종뎀의 비율 차이."""
+    damage_per_pct = final_damage_per_pct(context)
+    actions, previous = [], None
+    for target in range(max(12, star) + 1, cap + 1):
+        cumulative = starforce_action(name, part, slot, level, star, cap, class_name, main_stat, context, target)
+        if not cumulative:
+            break
+        action = dict(cumulative)
+        if previous:
+            action['final_damage'] = 100 * ((1 + cumulative['final_damage'] / 100) / (1 + previous['final_damage'] / 100) - 1)
+            action['gain'] = action['final_damage'] / damage_per_pct
+            action['star'] = target - 1
+            action['label'] = f"{target - 1}→{target}성"
+        actions.append(action)
+        previous = cumulative
+    return actions
+
+
 def starforce_action(name: str, part: str, slot: str, level: int, star: int, max_star: int,
                      class_name: str, main_stat: str, context: StatContext, target_star: int | None = None) -> dict | None:
     """현재 → 목표 성의 누적 최종뎀. 비용은 노작 시세로 화면(app.js starforceCost)이 계산합니다. 12성 미만은 비용 자료가 없어 만들지 않습니다."""
@@ -541,7 +561,7 @@ def listing_actions(row: dict, item: dict, context: StatContext, class_name: str
             or any(keyword in part for keyword in LISTING_PARTS_SKIP):
         return []
     std_row = (standard or {}).get("rows", {}).get(slot)
-    same_item = {"level": level, "part": part, "slot": slot,
+    same_item = {"name": " ".join((item.get("item_name") or "").split()), "level": level, "part": part, "slot": slot,
                  "slots": sum(int(item.get(k) or 0) for k in ("scroll_upgrade", "scroll_upgradeable_count", "scroll_resilience_count")),
                  "has_add": "add" in (row.get("detail") or {}),
                  # 같은 아이템: 그대로인 몫(기본 옵션·익셉셔널)은 지금 행의 값
@@ -622,7 +642,7 @@ def _piece(name: str, slot: str, weapon, std_weapon, class_name, main_stat, char
     entry = CATALOG_ITEMS[name]
     base = entry.get("base") or {}
     part = entry.get("part") or entry["slot"]
-    return {"level": entry["level"], "part": part, "slot": slot, "slots": entry.get("slots", 0),
+    return {"name": name, "level": entry["level"], "part": part, "slot": slot, "slots": entry.get("slots", 0),
             "has_add": not any(k in part or k in slot for k in SCORING.special_items.no_add_parts),
             "fixed": {"own": fixed_option_pct(base, weapon, class_name, main_stat, char_level, False),
                       "std": fixed_option_pct(base, std_weapon, class_name, main_stat, char_level, False) if std_weapon else None}}
@@ -732,6 +752,7 @@ def radiant_chain_actions(rows: list, items: list, context: StatContext, class_n
     radiant_grade2_from 단계(원혼)부터는 1단계가 지금 아이템보다 못하면 2단계 매물로 바로.
     순서가 정해진 경로라 메큘레이터 지수 기준(min_index_gain_pct)은 보지 않습니다. 바꿀 칸이 없거나 이득이 없으면 그 뒤 단계는 만들지 않습니다.
     화면은 chain 순서대로만 고릅니다."""
+    from app.calculator import max_starforce
     from app.set_projection import _name, count_sets
     if weapon is None or final_damage_per_pct(context) <= 0:
         return []
@@ -791,6 +812,16 @@ def radiant_chain_actions(rows: list, items: list, context: StatContext, class_n
             return out
         action["chain"], action["slots"] = number, sorted(row["slot"] for row, _ in swaps)
         out.append((first, action))
+        for row, name in swaps:  # 광휘 4종: 교체한 매물(목표 성)에서 이어지는 스타포스 (화면은 이 교체를 고른 뒤에만)
+            if name not in SPEC_UP.listing.radiant_followup_items:
+                continue
+            entry = CATALOG_ITEMS[name]
+            cap = min(max_starforce(entry["level"], name, False), starforce_recommendation_cap(name))
+            for step in starforce_steps(name, entry["part"], row["slot"], entry["level"], action["target_star"], cap,
+                                        class_name, main_stat, context):
+                step.update(after_chain=number, prefix=f"{name} ", label=f"{name} {step['label']}",
+                            price_item={"name": name, "part": entry["part"], "slot": row["slot"], "level": entry["level"]})
+                out.append((row, step))
         state = after
     return out
 
@@ -856,7 +887,12 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
             if chance <= 0:
                 return None
             cost += SPEC_UP.flame.cost * EOK / chance * flame_share
+        if discounted(piece):
+            cost *= config.radiant_craft_share
         return star_option, pot, eddy, scroll, add, cost, f"주문서 {slots}회 × {slot_cost:g}억"
+
+    def discounted(piece):  # 광휘 4종: 큐브·불꽃·주문서 몫 × radiant_craft_share
+        return bool(target.get("radiant")) and piece.get("name") in config.radiant_followup_items
 
     actions = []
     for number, grade in enumerate(config.radiant_grades if target.get("radiant") else config.grades, 1):
@@ -885,9 +921,11 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
         if target.get("title") or target["names"]:
             spec = f"{target.get('title') or ' + '.join(target['names'])} · {spec}"
         flame_share = config.radiant_flame_cost_share if target.get("radiant") else config.flame_cost_share
-        notes = [f"기대 비용 = 노작 시세 + 스타포스 0→{grade['star']}성 + 잠재·에디 큐브 기댓값 × 1/{round(1 / config.cube_cost_share)}"
-                 + (f" + 추옵 불꽃 × 1/{round(1 / flame_share)}" if add is not None else "") + " + " + " · ".join(dict.fromkeys(state[6] for state in states))
-                 + (f" (부위 {len(states)}개)" if len(states) > 1 else "")]
+        craft = (f"잠재·에디 큐브 기댓값 × 1/{round(1 / config.cube_cost_share)}"
+                 + (f" + 추옵 불꽃 × 1/{round(1 / flame_share)}" if add is not None else "") + " + " + " · ".join(dict.fromkeys(state[6] for state in states)))
+        if any(discounted(piece) for piece in target["pieces"]):
+            craft = f"({craft}) × {config.radiant_craft_share:g}"
+        notes = [f"기대 비용 = 노작 시세 + 스타포스 0→{grade['star']}성 + {craft}" + (f" (부위 {len(states)}개)" if len(states) > 1 else "")]
         if target["set_text"]:
             notes.append(f"세트 {target['set_text']} ({target['set']['own']:+.1f}%p)")
         action = {"axis": target["axis"], "label": to_replace(spec), "grade": number,
@@ -1049,6 +1087,22 @@ def recommendation_assumptions(context: StatContext, class_name: str) -> list[st
     ]
 
 
+AXIS_DETAIL = {"스타포스": "star", "윗잠재": "pot", "에디셔널": "pot_additional", "추가옵션": "add", SOUL_AXIS: "soul"}
+
+
+def index_estimate(action: dict, row: dict, std_row: dict | None, overall: float) -> float:
+    """매물·상위 교체 밖 추천의 메큘레이터 지수 증가 추정: 이득 %p × (같은 칸·같은 축의 표준 값 ÷ 내 값).
+    축 값이 없으면 칸 합계 비율, 그것도 없으면 전체 비율 (지수 ÷ 내 합계)."""
+    key = AXIS_DETAIL.get(action["axis"])
+    pairs = []
+    if std_row:
+        if key:
+            pairs.append(((std_row.get("detail") or {}).get(key, 0), (row.get("detail") or {}).get(key, 0)))
+        pairs.append((std_row.get("total_score") or 0, row.get("total_score") or 0))
+    ratio = next((std / own for std, own in pairs if std > 0 and own > 0), overall)
+    return round(action["gain"] * ratio, 1)
+
+
 def attach_spec_up(rows: list, items: list, context: StatContext, class_name: str, main_stat: str, char_level: int,
                    exclude_names=(), damage_total: float = 0.0, weapon: WeaponContext | None = None, standard: dict | None = None) -> dict:
     """진단 행마다 축별 강화 행동(row["spec_up"], 효율 내림차순)을 붙이고 전체 상위 행동을 돌려줍니다.
@@ -1108,19 +1162,7 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
         if not superior and item.get("starforce_scroll_flag") != "사용":
             star = int(item.get("starforce") or 0)
             cap = min(max_starforce(level, name, superior), starforce_recommendation_cap(name))
-            previous = None
-            for target in range(max(12, star) + 1, cap + 1):
-                cumulative = starforce_action(name, part, slot, level, star, cap, class_name, main_stat, context, target)
-                if not cumulative:
-                    break
-                action = dict(cumulative)
-                if previous:
-                    action['final_damage'] = 100 * ((1 + cumulative['final_damage'] / 100) / (1 + previous['final_damage'] / 100) - 1)
-                    action['gain'] = action['final_damage'] / damage_per_pct
-                    action['star'] = target - 1
-                    action['label'] = f"{target - 1}→{target}성"
-                actions.append(action)
-                previous = cumulative
+            actions += starforce_steps(name, part, slot, level, star, cap, class_name, main_stat, context)
         benchmarks = (row.get("scoring_basis") or {}).get("benchmarks") or {}
         for kind, key in (("potential", "pot"), ("additional", "pot_additional")):
             actions += potential_actions(item, kind, part, level, context, char_level, benchmarks.get(key), cube_memo)
@@ -1165,8 +1207,16 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
                         *radiant_chain_actions(rows, items, context, class_name, main_stat, char_level, cube_memo, standard, weapon)]:
         row["spec_up"].append(finish(action))
         count += 1
+    if standard:
+        own_total = sum(row.get("total_score") or 0 for row in rows)
+        overall = standard["total"] / own_total if own_total > 0 else 1.0
+        for row in rows:
+            for action in row["spec_up"]:
+                if action.get("index_gain") is None:
+                    action["index_gain"] = index_estimate(action, row, standard["rows"].get(row["slot"]), overall)
     # 순서(100억당 최종뎀)는 노작·연마석 시세에 따라 바뀌어 화면(app.js specUpActions)이 정합니다.
-    return {"unit": SPEC_UP.ranking.unit, "limit": int(SPEC_UP.ranking.top), "stat_label": stat_label(context),
+    return {"unit": SPEC_UP.ranking.unit, "limit": int(SPEC_UP.ranking.top), "max": int(SPEC_UP.ranking.max_shown),
+            "stat_label": stat_label(context),
             "estimate": True, "assumptions": recommendation_assumptions(context, class_name),
             "final_damage_per_pct": round(damage_per_pct, 4), "count": count}
 

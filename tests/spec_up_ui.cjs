@@ -141,3 +141,21 @@ assert.deepEqual(JSON.parse(JSON.stringify(radiant.map(a => a.chain))), [1, 2]);
 const craft = name => { const clean = Math.round(app.specUpPrice({ price_item: { name, level: 250 } }) * 1e8); return clean + app.starforceCost(250, clean, 0, 18); };
 assert.ok(Math.abs(radiant[1].cost - (craft('황홀한 악몽') + craft('죽음의 맹세') + 1e9)) < 1e-3);
 console.log('radiant chain order and per-item prices: OK');
+
+// 9. 광휘 교체 뒤 스타포스(after_chain)는 교체를 고른 뒤에만, 지금 아이템 스타포스와 섞이지 않고 이어지면 한 카드로
+const follow = (from, damage) => ({axis: '스타포스', after_chain: 2, prefix: '근원의 속삭임 ', label: `근원의 속삭임 ${from}→${from + 1}성`,
+    star: from, target_star: from + 1, level: 250, gain: damage * 10, final_damage: damage, index_gain: 1.2,
+    price_item: {name: '근원의 속삭임', part: '반지', level: 250}});
+app.report = {spec_up: {unit: 1e10}, results: [
+    {slot: 'r', name: '마이스터링', part: '반지', level: 140, spec_up: [
+        {axis: '스타포스', star: 17, target_star: 18, level: 140, gain: 1, final_damage: 0.001},
+        {axis: '상위 교체', chain: 2, rank: 31, level: 250, star: 0, target_star: 18, listing_fixed: 1e9, gain: 10, final_damage: 1,
+         price_item: {name: '근원의 속삭임', level: 250}},
+        follow(18, 50), follow(19, 50),
+    ]},
+]};
+const after = app.specUpActions();
+assert.deepEqual([...after.map(a => a.chain || a.label)], [2, '근원의 속삭임 18→20성']);  // 교체 → 이어진 스타포스
+assert.equal(after[1].index_gain, 2.4);  // 합친 카드의 지수 증가는 합
+assert.ok(!after.some(a => a.label === '17→18성'));  // 교체한 칸의 지금 아이템 스타포스는 숨김
+console.log('radiant follow-up starforce after the replacement: OK');

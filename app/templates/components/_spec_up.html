@@ -25,7 +25,7 @@
 
     <p x-show="!specActions.length" class="text-sm text-slate-500 bg-white rounded-2xl border border-slate-200 p-4">추천할 강화가 없습니다. 무기는 소울 증폭만, 보조무기·엠블렘·일반 특수 장비는 미지원이며, 시드링은 리레·컨티 4→5·5→6레벨만 지원합니다.</p>
 
-    <template x-for="(action, index) in (specUpExpanded ? specActions : specActions.slice(0, report?.spec_up?.limit || 5))" :key="action.item.slot + action.axis + (action.variant || '') + (action.target_star || '')">
+    <template x-for="(action, index) in specActions.slice(0, specUpExpanded ? (report?.spec_up?.max || 50) : (report?.spec_up?.limit || 5))" :key="action.item.slot + action.axis + (action.variant || '') + (action.target_star || '') + (action.after_chain || '')">
         <div class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 shadow-sm animate-fade-in">
             <div class="flex items-start gap-3">
                 <div @click="openItemDetail(action.item)" class="relative p-1.5 rounded-2xl cursor-pointer hover:scale-110 transition-transform active:scale-95 shrink-0"
@@ -50,9 +50,9 @@
                        x-text="(report?.spec_up?.stat_label || '주스탯') + ' +' + formatEfficiency(action.efficiency) + '% / 100억'"></p>
                     <p class="text-base md:text-2xl font-black text-emerald-600 tabular-nums leading-tight whitespace-nowrap"
                        x-text="'최종뎀 +' + (action.final_damage ?? 0).toFixed(2) + '%'"></p>
-                    <!-- 매물·상위 교체: 메큘레이터 지수 증가 -->
+                    <!-- 메큘레이터 지수 증가 (매물·상위 교체는 계산값, 나머지는 같은 축 비율로 추정) -->
                     <p x-show="action.index_gain != null" class="mt-0.5 text-[13px] font-black text-blue-600 tabular-nums whitespace-nowrap"
-                       x-text="'메큘레이터 지수 +' + action.index_gain + 'P'"></p>
+                       x-text="'+' + action.index_gain + 'P'"></p>
                 </div>
             </div>
 
@@ -145,7 +145,10 @@
         </div>
     </template>
 
+    <p x-show="specUpExpanded && specActions.length > (report?.spec_up?.max || 50)"
+       class="text-center text-sm font-bold text-slate-400 py-2">너무나도 먼 미래입니다...</p>
+
     <button type="button" x-show="specActions.length > (report?.spec_up?.limit || 5)" @click="specUpExpanded = !specUpExpanded"
             class="w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
-            x-text="specUpExpanded ? '접기' : '전체 ' + specActions.length + '개 보기'"></button>
+            x-text="specUpExpanded ? '접기' : '전체 ' + Math.min(specActions.length, report?.spec_up?.max || 50) + '개 보기'"></button>
 </div>

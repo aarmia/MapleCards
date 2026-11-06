@@ -416,42 +416,50 @@ document.addEventListener('alpine:init', () => {
                 if (rows[i].listing_fixed !== undefined && bestListing[key] !== rows[i]) rows.splice(i, 1);
             }
             // 같은 아이템의 스타포스는 낮은 성부터: 슬롯별 대기열의 맨 앞만 고를 수 있습니다.
+            // 광휘 교체 뒤 스타포스(after_chain)는 지금 아이템과 따로 줄을 섭니다
+            const queue = a => a.item.slot + '|' + (a.after_chain || '');
             const queues = {};
-            for (const a of rows) if (a.axis === '스타포스') (queues[a.item.slot] ||= []).push(a);
+            for (const a of rows) if (a.axis === '스타포스') (queues[queue(a)] ||= []).push(a);
             for (const queue of Object.values(queues)) queue.sort((a, b) => a.star - b.star);
-            const pending = new Set(rows), result = [];
+            const pending = new Set(rows), result = [], pickedChains = new Set();
             const slotsOf = a => a.slots || [a.item.slot];
             while (pending.size) {
                 let action = null;
                 for (const a of pending) {
-                    if (a.axis === '스타포스' && queues[a.item.slot][0] !== a) continue;
+                    if (a.axis === '스타포스' && queues[queue(a)][0] !== a) continue;
                     if (a.chain && [...pending].some(p => p.chain && p.chain < a.chain)) continue;  // 광휘는 정해진 순서대로
+                    if (a.after_chain && !pickedChains.has(a.after_chain)) continue;  // 그 광휘 교체를 고른 뒤에만
                     if (!action || a.damage_efficiency > action.damage_efficiency) action = a;
                 }
                 if (!action) break;
                 pending.delete(action);
+                if (action.chain) pickedChains.add(action.chain);
                 // 교체(매물·상위)를 추천했으면, 그 칸의 이후 추천은 더 높은 수준의 교체만 남깁니다 (지금 아이템 강화·낮은 매물 숨김)
                 if (action.listing_fixed !== undefined) {
                     // 같은 아이템(예: 광휘 반지)은 한 칸에만: 다른 칸의 같은 목표 교체는 빼고 남은 후보로 추천합니다
                     const target = !action.bundle && action.price_item ? action.price_item.name : null;
-                    if (target) for (const p of [...pending]) if (p.price_item && p.price_item.name === target && !p.bundle) pending.delete(p);
+                    if (target) for (const p of [...pending]) if (p.price_item && p.price_item.name === target && !p.bundle && !p.after_chain) pending.delete(p);
                     const covered = new Set(slotsOf(action));
                     for (const p of [...pending]) {
+                        if (p.after_chain) continue;  // 광휘 교체 뒤 스타포스는 그 교체가 남아 있는 동안 유지
                         const higher = p.listing_fixed !== undefined && ((p.rank || 0) > (action.rank || 0)
                             || ((p.rank || 0) === (action.rank || 0) && slotsOf(p).length > slotsOf(action).length));  // 더 큰 묶음
                         if (slotsOf(p).some(slot => covered.has(slot)) && !higher) pending.delete(p);
                     }
                 }
-                if (action.axis === '스타포스') queues[action.item.slot].shift();
+                if (action.axis === '스타포스') queues[queue(action)].shift();
                 const previous = result[result.length - 1];
                 if (previous && action.axis === '스타포스' && previous.axis === '스타포스'
-                    && previous.item.slot === action.item.slot && previous.target_star === action.star) {
+                    && previous.item.slot === action.item.slot && previous.target_star === action.star
+                    && (previous.after_chain || 0) === (action.after_chain || 0)) {
                     const perPct = previous.stat_conversion || this.report.spec_up?.final_damage_per_pct || previous.final_damage / previous.gain;
                     previous.final_damage = 100 * ((1 + previous.final_damage / 100) * (1 + action.final_damage / 100) - 1);
                     previous.gain = previous.final_damage / perPct;
                     previous.cost += action.cost;
                     previous.target_star = action.target_star;
-                    previous.label = previous.star + '→' + previous.target_star + '성';
+                    previous.label = (previous.prefix || '') + previous.star + '→' + previous.target_star + '성';
+                    if (previous.index_gain != null || action.index_gain != null)
+                        previous.index_gain = Math.round(((previous.index_gain || 0) + (action.index_gain || 0)) * 10) / 10;
                     previous.efficiency = previous.gain / (previous.cost / unit);
                     previous.damage_efficiency = previous.final_damage / (previous.cost / unit);
                 } else result.push({ ...action });

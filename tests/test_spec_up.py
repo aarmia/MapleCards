@@ -257,8 +257,9 @@ class SpecUpTests(unittest.TestCase):
             ["커맨더 포스 이어링", "몽환의 벨트", "저주받은 황의 마도서", "미트라의 분노 : 마법사", "컴플리트 언더컨트롤", "창세의 뱃지", "거대한 공포"])]
         rows = evaluate_equipment(worn, job, 285, profile={"context": context, "weapon": weapon})
 
-        def chain(items):
-            return [action for _, action in radiant_chain_actions(rows, items, context, job, "int", 285, {}, None, weapon)]
+        def chain(items, scored=rows, standard=None):  # 교체 단계만 (교체 뒤 스타포스 제외)
+            return [action for _, action in radiant_chain_actions(scored, items, context, job, "int", 285, {}, standard, weapon)
+                    if "chain" in action]
         steps = chain([*worn, *filler])
         # 불멸의 유산 → 마이스터링 칸(세트 안 깨짐) → 남은 반지 + 여명 펜던트(칠흑 고통의 근원은 유지) → 원혼 → 원죄
         self.assertEqual([(a["chain"], a["slots"]) for a in steps],
@@ -266,15 +267,30 @@ class SpecUpTests(unittest.TestCase):
         self.assertEqual(steps[0]["price_item"]["name"], "불멸의 유산")
         self.assertEqual([p["name"] for p in steps[2]["price_items"]], ["황홀한 악몽", "죽음의 맹세"])
         self.assertTrue(all(a["grade"] == 1 and a["target_star"] == 18 for a in steps[1:]))  # 광휘는 1단계 매물로만
+        self.assertIn("× 0.4", steps[1]["detail"])  # 광휘 4종 제작 비용 할인 (원죄는 그대로)
+        self.assertNotIn("× 0.4", steps[4]["detail"])
+        # 광휘 4종은 교체 뒤 18성부터 스타포스도 (원죄 제외), 그 교체를 고른 뒤에만
+        follow = [action for _, action in radiant_chain_actions(rows, [*worn, *filler], context, job, "int", 285, {}, None, weapon)
+                  if action.get("after_chain")]
+        self.assertEqual({a["after_chain"] for a in follow}, {2, 3, 4})
+        self.assertEqual(min(a["star"] for a in follow), 18)
+        self.assertTrue(all(a["price_item"]["name"] in a["label"] for a in follow))
         # 원혼부터는 1단계가 지금 아이템보다 못하면 2단계(21성)로 바로
         strong = [{**row, "total_score": row["total_score"] + steps[4]["gain"] + 0.1} if row["slot"] == "얼굴장식" else row for row in rows]
-        top = [action for _, action in radiant_chain_actions(strong, [*worn, *filler], context, job, "int", 285, {}, None, weapon)]
+        top = chain([*worn, *filler], strong)
         self.assertEqual([(a["chain"], a["grade"], a["target_star"]) for a in top[3:]], [(4, 1, 18), (5, 2, 21)])
         # 순서가 정해진 경로라 메큘레이터 지수 기준은 보지 않음 (기준이 아주 커도 다섯 단계 그대로)
         strict = {"total": 1e6, "rows": {row["slot"]: row for row in rows}, "context": context, "weapon": weapon}
-        gated = radiant_chain_actions(rows, [*worn, *filler], context, job, "int", 285, {}, strict, weapon)
-        self.assertEqual([action["chain"] for _, action in gated], [1, 2, 3, 4, 5])
+        self.assertEqual([action["chain"] for action in chain([*worn, *filler], standard=strict)], [1, 2, 3, 4, 5])
         self.assertEqual(chain([*worn, *filler[:-1]]), [])  # 칠흑 9세트면 광휘 순서 없음
+
+    def test_index_estimate_uses_the_same_axis_ratio(self):
+        from app.spec_up import index_estimate
+        row = {"total_score": 10.0, "detail": {"star": 2.0, "pot": 0.0}}
+        std = {"total_score": 30.0, "detail": {"star": 3.0, "pot": 0.0}}
+        self.assertEqual(index_estimate({"axis": "스타포스", "gain": 1.0}, row, std, 5.0), 1.5)  # 같은 축 3 ÷ 2
+        self.assertEqual(index_estimate({"axis": "윗잠재", "gain": 1.0}, row, std, 5.0), 3.0)   # 축 값 없음 → 칸 합계 30 ÷ 10
+        self.assertEqual(index_estimate({"axis": "시드링", "gain": 1.0}, row, None, 5.0), 5.0)  # 표준 행 없음 → 전체 비율
 
 
 if __name__ == "__main__":
