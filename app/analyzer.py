@@ -617,20 +617,10 @@ def generate_overall_review(evaluate_list):
     counted = [item for item in evaluate_list if item["part"] != "칭호" and item.get("scored", True)]
     avg_score = sum(item["score_ratio"] for item in counted) / len(counted) if counted else 0
     all_sorted_results = sorted(evaluate_list, key=lambda x: x["score_ratio"])
-    worst_item = next((item for item in all_sorted_results if item in counted), None)
 
-    # 랭크 컷과 문구는 app/data/grades.toml 의 overall 표. 평균이 min 이상인 첫 항목, 없으면 마지막 항목을 씁니다.
+    # 랭크 컷은 app/data/grades.toml 의 overall 표. 평균이 min 이상인 첫 항목, 없으면 마지막 항목을 씁니다.
     entry = next((candidate for candidate in GRADES.overall if avg_score >= candidate["min"]), GRADES.overall[-1])
-    rank, comment = entry["rank"], entry["comment"]
-    keyword = entry.get("weapon_keyword")
-    if keyword and any(keyword in item.get("name", "") for item in evaluate_list):
-        comment = entry["with_weapon"]
-
-    overall_review = {
-        "rank": rank, "avg_score": round(avg_score, 1), "main_comment": comment,
-        "priority_target": worst_item["name"] if worst_item else "없음",
-        "next_step": f"'{worst_item['name']}' 부위의 보완이 가장 시급합니다." if worst_item else ""
-    }
+    overall_review = {"rank": entry["rank"], "avg_score": round(avg_score, 1)}
 
     return overall_review, all_sorted_results
 

@@ -34,44 +34,31 @@ soul = 20.0                   # 소울 잠재 기준 만점과 같음
 special = 100.0               # 특수부위 고유 옵션 (이미 % 척도)
 
 # 총평 랭크. 칭호·뱃지를 뺀 모든 아이템의 기준 대비 % 평균이 min 이상인 첫 항목 (최상위 랭커 98% 가 ABSOLUTE 에 들어오는 선).
-# weapon_keyword 가 장비 이름에 있으면 with_weapon 문구를 씁니다. 랭크별 색은 app/templates/components/_overall_review.html 이 정합니다.
+# 랭크별 색은 app/templates/components/_overall_review.html 이 정합니다.
 [[overall]]
 min = 97
 rank = "ABSOLUTE"
-comment = "전서버 최상위권 장비입니다. 컨텐츠가 없으시군요."
 
 [[overall]]
 min = 92
 rank = "DESTINY+"
-comment = "서버권 최상위권 장비입니다. 이제 데스티니 2차 초월의 영역입니다."
 
 [[overall]]
 min = 87
 rank = "ELDER"
-comment = "데스티니 초월에 충분히 도전할만한 스펙입니다.  당신의 가능성을 믿고 초월에 도전하세요!"
-weapon_keyword = "데스티니"
-with_weapon = "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 2차 초월을 향한 성장을 준비하세요!"
 
 [[overall]]
 min = 80
 rank = "DESTINY"
-comment = "데스티니 초월이 가시권에 들어왔습니다.  천천히 부족한 부위를 강화하고 데스티니 초월에 도전하세요!"
-weapon_keyword = "데스티니"
-with_weapon = "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 더 높은 곳으로의 성장을 준비하세요!"
 
 [[overall]]
 min = 70
 rank = "ASTRA"
-comment = "본격적으로 아스트라 해방에 도전하세요.  2차 해방까지는 가성비의 영역으로 들어섰습니다."
 
 [[overall]]
 min = 55
 rank = "GENESIS"
-comment = "제네시스 해방을 위한 준비를 할 때 입니다.  해방 준비를 해 보세요."
-weapon_keyword = "제네시스"
-with_weapon = "제네시스 해방에 성공하셨군요!  더 높은 곳을 위한 성장의 준비가 필요한 단계입니다."
 
 [[overall]]
 min = 0
 rank = "EPIC"
-comment = "성장 가능성이 큽니다. 낮은 점수 부위부터 교체해보세요."

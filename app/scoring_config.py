@@ -195,10 +195,8 @@ def load_grades(path: Path = DATA_DIR / "grades.toml") -> Section:
         check_bands(data["stat_bar"][name], f"{path.name}: stat_bar.{name}", 3)
     previous = None
     for entry in data["overall"]:
-        if not isinstance(entry, dict) or not {"min", "rank", "comment"} <= set(entry):
-            raise ConfigError(f"{path.name}: overall 항목에는 min, rank, comment 가 필요합니다")
-        if ("weapon_keyword" in entry) != ("with_weapon" in entry):
-            raise ConfigError(f"{path.name}: overall 의 weapon_keyword 와 with_weapon 은 함께 있어야 합니다")
+        if not isinstance(entry, dict) or not {"min", "rank"} <= set(entry):
+            raise ConfigError(f"{path.name}: overall 항목에는 min, rank 가 필요합니다")
         if previous is not None and entry["min"] > previous:
             raise ConfigError(f"{path.name}: overall 의 min 은 내림차순이어야 합니다")
         previous = entry["min"]
