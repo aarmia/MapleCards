@@ -190,10 +190,27 @@ class SpecUpTests(unittest.TestCase):
             row = evaluate_equipment([it], job, 285, profile={"context": context})[0]
             return row, listing_actions(row, it, context, job, "int", 285, {}, weapon=weapon, items=items or [it])
 
-        # 앱솔랩스는 상위 계열을 한 칸씩 (아케인셰이드·에테르넬 모두)
+        # 앱솔랩스는 에테르넬로만 (아케인셰이드 건너뜀), 같은 아이템 매물 없음. 교체 우선 구간이라 표시됩니다
         _, absolab = actions(item("어깨장식", "어깨장식", "앱솔랩스 메이지숄더", 160))
         names = {a["price_item"]["name"] for a in absolab if a["axis"] == "상위 교체"}
-        self.assertEqual(names, {"아케인셰이드 메이지숄더", "에테르넬 메이지숄더"})
+        self.assertEqual(names, {"에테르넬 메이지숄더"})
+        self.assertFalse([a for a in absolab if a["axis"] == "매물 교체"])
+        self.assertTrue(all(a.get("replace_first") for a in absolab))
+        # 루타비스도 에테르넬로만
+        _, root = actions(item("모자", "모자", "하이네스 던위치햇", 150))
+        self.assertEqual({a["price_item"]["name"] for a in root if a["axis"] == "상위 교체"}, {"에테르넬 메이지햇"})
+        # 도전자의 방어구: 직업군(마법사) 에테르넬로, 교체 우선
+        _, challenger = actions(item("모자", "모자", "도전자의 모자", 140))
+        self.assertEqual({a["price_item"]["name"] for a in challenger if a["axis"] == "상위 교체"}, {"에테르넬 메이지햇"})
+        self.assertTrue(all(a.get("replace_first") for a in challenger if a["axis"] == "상위 교체"))
+        # 여명 장신구 → 칠흑 교체는 교체 우선, 행에는 교체만 남습니다 (스타포스·큐브 등은 replace_first_only 가 뺌)
+        from app.spec_up import replace_first_only
+        _, dawn = actions(item("펜던트", "펜던트", "데이브레이크 펜던트", 140))
+        upgrades = [a for a in dawn if a["axis"] == "상위 교체"]
+        self.assertTrue(upgrades and all(a.get("replace_first") for a in upgrades))
+        kept = replace_first_only([*dawn, {"axis": "스타포스", "label": "17→18성"}])
+        self.assertTrue(kept and all(a["axis"] == "상위 교체" for a in kept))
+        self.assertEqual(replace_first_only([{"axis": "스타포스"}, None]), [{"axis": "스타포스"}])  # 교체가 없으면 그대로
         # 아케인셰이드 → 에테르넬은 한 칸 교체 없이 묶음만, 한벌옷은 에테르넬 상의 + 하의
         shoulder, suit = item("어깨장식", "어깨장식", "아케인셰이드 메이지숄더"), item("상의", "한벌옷", "아케인셰이드 메이지슈트")
         row, arcane = actions(shoulder)
