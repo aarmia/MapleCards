@@ -25,8 +25,12 @@ other_per_tier = 1            # 올스탯 %·공격력·마력은 등급당 1
 # 최상 주문서 1작에는 두 옵션이 함께 붙습니다. 놀장 장비는 주문서 칸에 들어 있는 놀장 스타포스 스탯을 빼고 계산합니다.
 [scroll]
 weapon = { main_stat = 4, attack = 9 }     # 무기: 주스탯 +4 · 공/마 +9
-heart = { all_stat = 3, attack = 11 }      # 기계 심장: 올스탯 +3 · 공/마 +11
 default = { all_stat = 6, attack = 6 }     # 그 외(방어구·장갑·장신구): 올스탯 +6 · 공/마 +6
+
+[scroll.parts]                             # 부위 이름(item_equipment_part)에 이 말이 있으면 그 기준. 위 무기·그 외보다 먼저 봅니다
+"기계 심장" = { all_stat = 3, attack = 11 }
+"방패" = { all_stat = 30, attack = 10 }     # 보조무기 방패
+"블레이드" = { all_stat = 15, attack = 9 }  # 보조무기 블레이드
 
 # ── 잠재능력 (방어구·장신구) ──────────────────────────────
 # 환산 규칙과 계수는 app/data/potential.toml 에 있습니다. 여기는 옵션 분류 규칙만 둡니다.

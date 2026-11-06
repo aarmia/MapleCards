@@ -83,7 +83,7 @@ _CLASSES_SPEC = {
     "secondary_stat": dict, "secondary_stat_overrides": dict, "archer_classes": list, "stat_weight": dict,
 }
 _SCORING_SPEC = {
-    "scroll": {"weapon": dict, "heart": dict, "default": dict},
+    "scroll": {"weapon": dict, "default": dict, "parts": dict},
     "add_option": {
         "grade": {k: NUMBER for k in ("all_stat_pct_default", "all_stat_pct_all_stat", "attack_default", "attack_all_stat", "attack_hp", "magic_int", "sub_stat_divisor")},
         "flame": {"max_tier": NUMBER, "bands": list, "other_per_tier": NUMBER},
@@ -119,7 +119,8 @@ def load_classes(path: Path = DATA_DIR / "classes.toml") -> Section:
 def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
     data = load_toml(path)
     validate(data, _SCORING_SPEC, path.name)
-    for name, rule in data["scroll"].items():
+    scroll = data["scroll"]
+    for name, rule in [("weapon", scroll["weapon"]), ("default", scroll["default"]), *scroll["parts"].items()]:
         if not isinstance(rule, dict) or not isinstance(rule.get("attack"), NUMBER) or \
                 not any(isinstance(rule.get(key), NUMBER) for key in ("main_stat", "all_stat")):
             raise ConfigError(f"{path.name}: scroll.{name} 에는 attack 과 main_stat 또는 all_stat 숫자가 필요합니다")

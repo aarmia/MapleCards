@@ -278,7 +278,8 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
     def best_scroll_option(slot, part, slots):
         """최상 주문서 slots 장을 바른 스탯·공/마 (scoring.toml [scroll])"""
         rules = SCORING.scroll.raw
-        rule = rules["weapon"] if slot == "무기" else rules["heart"] if "기계 심장" in part else rules["default"]
+        rule = next((rule for keyword, rule in rules["parts"].items() if keyword in (part or "")),
+                    rules["weapon"] if slot == "무기" else rules["default"])
         option = {"magic_power" if main_stat == "int" else "attack_power": rule["attack"] * slots}
         if "all_stat" in rule:
             option.update(dict.fromkeys(("str", "dex", "int", "luk"), rule["all_stat"] * slots))
