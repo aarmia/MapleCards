@@ -5,6 +5,7 @@
 [ranking]
 unit = 10_000_000_000            # 효율 단위: 100억 메소
 top = 5                          # 화면에 보여 줄 추천 개수
+max_shown = 50                   # '전체 보기'의 최대 개수 (그 뒤는 안내 문구)
 
 # ── 잠재능력·에디셔널 재설정(메소) ──
 # 비용 출처: mapletiptip.com/calculator/potential · additional 표 (2026-11-05, 0.01억 단위로 반올림된 값)
@@ -25,6 +26,115 @@ cost = [[250, [0.12, 0.34, 0.83, 0.98]], [200, [0.11, 0.31, 0.75, 0.88]], [160, 
 grade_up = [0.02381, 0.009804, 0.007]
 pity = [62, 152, 214]
 min_step = 1.0
+
+# ── 매물 교체 (같은 아이템, 방어구·장신구) ──
+# 등급마다 [250제, 200제 이하] 값. pot·eddy 는 윗잠재·에디셔널의 주스탯 %p, add 는 추옵 급수(200제 미만은 200제 값 × 레벨별 불꽃 최대 급수 비율).
+# 주문서는 1작당 옵션: armor(방어구) · accessory(장신구). first_attack 이 있으면 첫 작만 그 공/마, 나머지는 attack.
+# 매물 비용 = 직접 만드는 기댓값: 노작 시세 + 스타포스 0→star 성(화면) + 윗잠재·에디셔널 레어→목표 큐브 × cube_cost_share + 추옵 불꽃
+#            + 주문서 횟수 × scroll_cost(억, armor·accessory).
+# 추천 조건: 교체로 오르는 메큘레이터 지수가 지금 지수의 min_index_gain_pct % 이상일 때만 (스펙에 비해 의미 있는 교체만).
+[listing]
+cube_cost_share = 0.3333333      # 잠재·에디 큐브 기댓값에 곱하는 비율 (관리자 입력: 기댓값의 1/3)
+flame_cost_share = 0.3333333     # 추옵 불꽃 기댓값에 곱하는 비율 (1/3)
+radiant_flame_cost_share = 0.25  # 광휘 아이템의 추옵 불꽃 비율 (1/4)
+radiant_star_cap = 23            # 광휘로 바꿀 수 있는 칠흑 아이템의 스타포스 추천 상한
+min_index_gain_pct = 0.5         # 메큘레이터 지수 대비 최소 증가 %
+grade_cap = { "보스 장신구 세트" = 4, "여명의 보스 세트" = 5 }   # 이 세트 아이템의 매물은 이 등급까지만 (같은 아이템·교체 대상 모두)
+eternal_bundle_sets = [4, 8]
+# 기계 심장은 3단계까지: 스타포스·잠재·에디는 공통 1~3등급 값, 주문서 1작 옵션과 비용(억)만 하트 전용
+heart_scroll = [{ all_stat = 3, attack = 9 }, { all_stat = 3, attack = 10 }, { all_stat = 3, attack = 11 }]
+heart_scroll_cost = [0, 1, 25]
+final_items = ["거대한 공포"]       # 최종 아이템: 상위 아이템 교체 없이 같은 아이템의 상위 매물만
+# 광휘 교체 순서 (부위 단위, 앞 단계를 마친 뒤에만 다음 단계). 세트를 덜 깨뜨리는 칸부터 바꾸고, 광휘는 1단계 매물로만 교체
+radiant_order = [["훈장"], ["반지"], ["반지", "펜던트"], ["눈장식"], ["얼굴장식"]]
+# 광휘 4종: 제작 비용(큐브·불꽃·주문서 몫)에 radiant_craft_share 를 곱하고, 교체 추천 뒤 그 아이템의 스타포스도 추천
+radiant_followup_items = ["근원의 속삭임", "황홀한 악몽", "죽음의 맹세", "굶주리는 핏빛 원혼"]
+radiant_craft_share = 0.4          # 1단계(18성) 기대 비용이 약 1100~1360억이 되도록 정한 값
+radiant_grade2_from = 4            # 이 순서(원혼)부터는 1단계 매물이 지금 아이템보다 못하면 2단계 매물로 바로 추천
+radiant_needs_pitched = 10         # 광휘 세트 아이템(장신구·불멸의 유산)은 칠흑 세트를 이만큼 착용했을 때만 추천
+medal_add = 205                    # 불멸의 유산 교체: 1단계 하나, 추옵 급수     # 아케인셰이드 → 에테르넬은 묶음만: 에테르넬이 이 세트 수에 닿는 최소 묶음과 바꿀 수 있는 전체 묶음
+
+[[listing.grades]]
+star = 17
+pot = [17, 15]
+eddy = [8, 6]
+add = [150, 135]
+armor = { main = 7 }
+accessory = { attack = 4 }
+scroll_cost = { armor = 0, accessory = 1 }   # 주문서 1작 비용(억). 방어구 1·2등급 0, 3·4등급 0.5
+
+[[listing.grades]]
+star = 18
+pot = [23, 21]
+eddy = [8, 6]
+add = [165, 150]
+armor = { main = 7 }
+accessory = { attack = 4 }
+scroll_cost = { armor = 0, accessory = 1 }
+
+[[listing.grades]]
+star = 21
+pot = [30, 27]
+eddy = [10, 8]
+add = [175, 155]
+armor = { main = 10 }
+accessory = { attack = 4, first_attack = 6 }
+scroll_cost = { armor = 0.5, accessory = 1 }
+
+[[listing.grades]]
+star = 22
+pot = [33, 30]
+eddy = [14, 12]
+add = [180, 160]
+armor = { main = 10 }
+accessory = { attack = 4, first_attack = 6 }
+scroll_cost = { armor = 0.5, accessory = 1 }
+
+[[listing.grades]]
+star = 22
+pot = [36, 33]
+eddy = [16, 14]
+add = [190, 170]
+armor = { attack = 6, main = 1.5 }
+accessory = { attack = 6, main = 1.5 }
+scroll_cost = { armor = 70, accessory = 70 }
+
+[[listing.grades]]
+star = 23
+pot = [36, 33]
+eddy = [21, 18]
+add = [205, 185]
+armor = { attack = 6, main = 2.25 }
+accessory = { attack = 6, main = 2.25 }
+scroll_cost = { armor = 85, accessory = 85 }
+
+# 광휘 아이템 전용 매물 등급 (250제라 [250제, 200제 이하] 두 값이 같음). 주문서 비용은 관리자 미지정이라 6등급과 같은 작당 85억
+[[listing.radiant_grades]]
+star = 18
+pot = [33, 33]
+eddy = [21, 21]
+add = [200, 200]
+armor = { attack = 6, main = 2 }
+accessory = { attack = 6, main = 2 }
+scroll_cost = { armor = 85, accessory = 85 }
+
+[[listing.radiant_grades]]
+star = 21
+pot = [33, 33]
+eddy = [21, 21]
+add = [205, 205]
+armor = { attack = 6, main = 2.5 }
+accessory = { attack = 6, main = 2.5 }
+scroll_cost = { armor = 85, accessory = 85 }
+
+[[listing.radiant_grades]]
+star = 22
+pot = [36, 36]
+eddy = [22, 22]
+add = [210, 210]
+armor = { attack = 6, main = 3 }
+accessory = { attack = 6, main = 3 }
+scroll_cost = { armor = 85, accessory = 85 }
 
 # ── 시드링 (리스트레인트 링 · 컨티뉴어스 링) ──
 # 레벨별 효과 출처: 나무위키 「특수 스킬 반지」 (2026-11-05 확인).

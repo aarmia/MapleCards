@@ -25,10 +25,13 @@ from app.flame_damage import distribution as flame_moments
 from app.flame_damage import rewards as flame_rewards
 from app.potential import StatContext, analyze_lines, convert_line
 from app.scoring_config import DATA_DIR, POTENTIAL, SCORING, SPEC_UP, STARFORCE_COST
-from app.set_projection import DAWN, MEMBERS, PITCHED, RADIANT
-from app.weapon import _BOSS, _DAMAGE, _IED, SOUL_KEYS, WeaponContext, analyze_weapon_lines
+from app.set_projection import BOSS, DAWN, MEMBERS, PITCHED, RADIANT
+from app.weapon import _BOSS, _DAMAGE, _IED, SOUL_KEYS, WeaponContext, analyze_weapon_lines, fixed_option_pct
 
 ODDS = json.loads((DATA_DIR / "potential_odds.json").read_text(encoding="utf-8"))
+# 상위 아이템 교체용 카탈로그·세트 효과 표 (scripts/collect_catalog.py 가 수집, 없는 항목은 관리자가 추가)
+CATALOG_ITEMS = json.loads((DATA_DIR / "catalog_items.json").read_text(encoding="utf-8"))
+CATALOG_SETS = json.loads((DATA_DIR / "catalog_sets.json").read_text(encoding="utf-8"))
 EOK = 100_000_000  # 1억 메소
 KIND_LABEL = {"potential": "윗잠재", "additional": "에디셔널"}
 KIND_PREFIX = {"potential": "potential", "additional": "additional_potential"}
@@ -295,9 +298,20 @@ def flame_distribution(level: int, class_name: str, main_stat: str, context: Sta
     return {value: chance for value, chance in result.items() if chance}
 
 
+def radiant_replaceable() -> set:
+    """칠흑 아이템 중 같은 부위에 광휘 아이템이 있는 것 (최종 아이템 제외): 스타포스는 radiant_star_cap 까지만 추천"""
+    radiant_parts = {CATALOG_ITEMS[name]["part"] for name in MEMBERS[RADIANT] if name in CATALOG_ITEMS}
+    return {name for name in MEMBERS[PITCHED] if name in CATALOG_ITEMS and CATALOG_ITEMS[name]["part"] in radiant_parts
+            and name not in SPEC_UP.listing.final_items}
+
+
 def starforce_recommendation_cap(name: str) -> int:
     """User's recommendation ceiling, not the game's enhancement limit."""
     name = ' '.join(name.split())
+    if name == '플라즈마 하트':
+        return 18
+    if name in radiant_replaceable():
+        return int(SPEC_UP.listing.radiant_star_cap)
     if name.startswith('에테르넬') or name in MEMBERS[RADIANT]:
         return 26
     if name in MEMBERS[PITCHED]:
@@ -305,6 +319,26 @@ def starforce_recommendation_cap(name: str) -> int:
     if name.startswith('아케인셰이드') or name in MEMBERS[DAWN] or name == '마이스터링':
         return 23
     return 22
+
+
+def starforce_steps(name: str, part: str, slot: str, level: int, star: int, cap: int,
+                    class_name: str, main_stat: str, context: StatContext) -> list[dict]:
+    """star → cap 까지 한 성씩의 추천. 단계 최종뎀 = 누적 최종뎀의 비율 차이."""
+    damage_per_pct = final_damage_per_pct(context)
+    actions, previous = [], None
+    for target in range(max(12, star) + 1, cap + 1):
+        cumulative = starforce_action(name, part, slot, level, star, cap, class_name, main_stat, context, target)
+        if not cumulative:
+            break
+        action = dict(cumulative)
+        if previous:
+            action['final_damage'] = 100 * ((1 + cumulative['final_damage'] / 100) / (1 + previous['final_damage'] / 100) - 1)
+            action['gain'] = action['final_damage'] / damage_per_pct
+            action['star'] = target - 1
+            action['label'] = f"{target - 1}→{target}성"
+        actions.append(action)
+        previous = cumulative
+    return actions
 
 
 def starforce_action(name: str, part: str, slot: str, level: int, star: int, max_star: int,
@@ -403,6 +437,514 @@ def seed_ring_action(name: str, level: int, class_name: str, context: StatContex
     return {"axis": "시드링", "label": f"{level}→{level + 1}레벨 ({step['material']} {step['count']}개 + {step['meso'] / EOK:g}억)",
             "final_damage": final_damage, "model": "seed_ring_uptime", "detail": detail, "gain": final_damage / per_pct,
             "material": {"name": step["material"], "count": step["count"], "meso": step["meso"]}}
+
+
+LISTING_AXIS = "매물 교체"
+LISTING_PARTS_SKIP = ()   # 매물 교체를 하지 않는 부위
+ACCESSORY_TIERS = (BOSS, DAWN, PITCHED, RADIANT)   # 장신구 교체 순서: 보스 → 여명 → 칠흑 → 광휘 (상위가 없으면 지금이 최상위)
+LOWER_HEARTS = ("리튬 하트", "페어리 하트", "티타늄 하트", "플라즈마 하트")   # 같은 아이템 매물 없이 컴플리트 언더컨트롤 교체만
+TOP_HEART, GENESIS_BADGE = "컴플리트 언더컨트롤", "창세의 뱃지"
+
+
+def item_tier(name: str, slot: str) -> tuple[str, int, str]:
+    """교체 순서상의 위치: (경로, 순번, 세트 이름). 경로가 아니면 ("", -1, "")"""
+    from app.set_projection import membership
+    group = membership({"item_name": name, "item_equipment_slot": slot})
+    family = next((tier for tier in ARMOR_TIERS if group.startswith(tier)), None)
+    if family:
+        return "armor", ARMOR_TIERS.index(family), group
+    if group in ACCESSORY_TIERS:
+        return "accessory", ACCESSORY_TIERS.index(group), group
+    if name == "마이스터링":  # 마이스터링은 광휘 반지(근원의 속삭임·황홀한 악몽)로 바로
+        return "accessory", ACCESSORY_TIERS.index(PITCHED), group
+    if name in LOWER_HEARTS:
+        return "heart", 0, ""
+    if name == TOP_HEART:
+        return "heart", 1, group
+    return "", -1, group
+
+
+UPGRADE_AXIS = "상위 교체"
+
+
+IMMORTAL_MEDAL = "불멸의 유산"
+
+
+def to_replace(text: str) -> str:
+    """'…(으)로 교체': 마지막 글자에 받침이 있으면 '으로'(ㄹ 받침 제외), 없거나 숫자·기호면 '로'"""
+    last = text[-1:]
+    code = ord(last) - 0xAC00 if last else -1
+    final = code % 28 if 0 <= code < 11172 else 0
+    return text + ("으로 교체" if final not in (0, 8) else "로 교체")
+
+
+def pitched_count(items: list) -> int:
+    """착용한 칠흑 세트 수 (광휘 추천 조건)"""
+    from app.set_projection import count_sets
+    return count_sets(items, tuple(CATALOG_SETS))[PITCHED]
+
+
+def special_replace_action(row: dict, item: dict, items: list, context: StatContext, weapon: WeaponContext | None, char_level: int,
+                           class_name: str, main_stat: str) -> dict | None:
+    """특수 부위 최상 아이템으로 교체 (비용 = 그 아이템 시세, 화면에서 입력):
+    뱃지 → 창세의 뱃지 (뱃지 옵션 = 부위 최상 + 칠흑 세트 +1),
+    훈장 → 불멸의 유산 (기본 옵션 + 추옵 medal_add 급, 1단계 하나 + 광휘 세트 +1). 훈장은 광휘 순서(radiant_chain_actions)의 첫 단계로만 씁니다."""
+    part, name = row.get("part"), item.get("item_name") or ""
+    if weapon is None or final_damage_per_pct(context) <= 0:
+        return None
+    if part == "뱃지" and name != GENESIS_BADGE:
+        target, level, target_value = GENESIS_BADGE, 200, row.get("benchmark_total") or 0
+        note = "뱃지 옵션"
+    elif part == "훈장" and name != IMMORTAL_MEDAL and IMMORTAL_MEDAL in CATALOG_ITEMS:
+        entry, flame = CATALOG_ITEMS[IMMORTAL_MEDAL], SPEC_UP.listing.medal_add
+        target, level = IMMORTAL_MEDAL, entry["level"]
+        target_value = fixed_option_pct(entry.get("base") or {}, weapon, class_name, main_stat, char_level, False) + flame * context.pct_per_flat
+        note = f"기본 옵션 + 추옵 {flame:g}급"
+    else:
+        return None
+    after = [{**other, "item_name": target} if other is item else other for other in items]
+    delta, changes = set_change(items, after)
+    set_value = set_fields_pct(delta, context, weapon, char_level) if delta else 0.0
+    gain = target_value - (row.get("total_score") or 0) + set_value
+    if gain <= 0.05:
+        return None
+    set_text = ", ".join(f"{set_name} {old}→{new}" for set_name, (old, new) in sorted(changes.items()))
+    return {"axis": UPGRADE_AXIS, "label": to_replace(target), "final_damage": gain * final_damage_per_pct(context), "gain": gain,
+            "model": "listing_linear", "level": level, "pieces": 1, "star": 0, "target_star": 0, "listing_fixed": 0.0, "rank": 30,
+            "price_item": {"name": target, "part": part, "slot": row.get("slot"), "level": level},
+            "detail": f"{note} + 세트 {set_text} ({set_value:+.1f}%p) · 비용 = {target} 시세 (교환 불가라 직접 입력)"}
+ARMOR_TIERS = ("루타비스", "앱솔랩스", "아케인셰이드", "에테르넬")   # 방어구 계열 순서 (상위 교체 후보는 지금보다 뒤 계열)
+
+
+def set_effect_fields(set_name: str, count: int) -> dict:
+    """세트 효과 표(catalog_sets.json)에서 count 개 효과의 합 (set_projection 의 필드). 표가 없으면 0"""
+    from app.set_projection import _parse, _zero
+    total = _zero()
+    for need, text in (CATALOG_SETS.get(set_name) or {}).get("options", []):
+        if need <= count:
+            fields, _ = _parse(text)
+            for key, value in fields.items():
+                total[key] = total[key] * value if key == "ied_ratio" else total[key] + value
+    return total
+
+
+def set_fields_pct(fields: dict, context: StatContext, weapon: WeaponContext, char_level: int) -> float:
+    """세트 효과 필드의 주스탯 %p: 고정 스탯·공/마는 급수, %스탯·크리는 잠재 줄 환산, 공/마%·보공·데미지·방무는 무기 환산과 같은 방식"""
+    from app.calculator import calculate_item_score
+    per_unit = weapon.stat_pct_unit
+    flat = {key: fields[key] for key in ("str", "dex", "int", "luk") if fields[key]}
+    flat.update({"attack_power": fields["attack"], "magic_power": fields["magic"], "max_hp": fields["hp"]})
+    value = calculate_item_score(flat, "", main_stat=context.main_stat, context=context) * context.pct_per_flat
+    lines = [f"{stat.upper()} +{fields[stat + '_pct']:g}%" for stat in ("str", "dex", "int", "luk") if fields[stat + "_pct"]]
+    lines += [f"크리티컬 데미지 +{fields['crit']:g}%"] if fields["crit"] else []
+    lines += [f"크리티컬 확률 +{fields['rate']:g}%"] if fields["rate"] else []
+    lines += [f"최대 HP +{fields['hp_pct']:g}%"] if fields["hp_pct"] else []
+    value += sum((convert_line(line, context, char_level) or (0.0, ""))[0] for line in lines)
+    attack_pct = fields["magic_pct"] if context.main_stat == "int" else fields["attack_pct"]
+    value += (attack_pct + (fields["boss"] + fields["damage"]) * weapon.boss_per_pct) / per_unit
+    if fields["ied_ratio"] != 1:
+        value += weapon.ied_value(100 * (1 - fields["ied_ratio"])) / per_unit
+    return value
+
+
+def listing_actions(row: dict, item: dict, context: StatContext, class_name: str, main_stat: str, char_level: int,
+                    memo: dict, standard: dict | None = None, weapon: WeaponContext | None = None, items: list | None = None) -> list[dict]:
+    """매물 교체 추천. 같은 아이템의 매물 등급(spec_up.toml [listing])과, 방어구면 같은 직업군의 상위 계열 아이템(카탈로그)까지.
+    등급마다 하나씩 만들고 화면이 시세로 비용을 매겨 아이템·종류마다 효율이 가장 좋은 하나만 보여줍니다. 지금보다 나빠지면 만들지 않습니다.
+    교체 대상은 부품 목록입니다: 보통 한 개, 한벌옷(아케인·앱솔) → 에테르넬은 상의 + 하의 두 개.
+    standard = {"total", "rows", "context", "weapon"} 가 있으면 교체로 오르는 메큘레이터 지수가 지금 지수의 min_index_gain_pct % 미만이면 뺍니다.
+    서버 비용(listing_fixed) = 잠재·에디 큐브 기댓값 × cube_cost_share + 추옵 불꽃 + 주문서. 노작 시세·스타포스 0→목표 성은 화면이 더합니다(부품마다)."""
+    from app.set_projection import ARMOR_SLOTS, count_sets, membership
+
+    level, part, slot, current = row.get("level"), row.get("part") or "", row.get("slot"), row.get("total_score")
+    if current is None or not level or context.pct_per_flat <= 0 or final_damage_per_pct(context) <= 0 \
+            or any(keyword in part for keyword in LISTING_PARTS_SKIP):
+        return []
+    std_row = (standard or {}).get("rows", {}).get(slot)
+    same_item = {"name": " ".join((item.get("item_name") or "").split()), "level": level, "part": part, "slot": slot,
+                 "slots": sum(int(item.get(k) or 0) for k in ("scroll_upgrade", "scroll_upgradeable_count", "scroll_resilience_count")),
+                 "has_add": "add" in (row.get("detail") or {}),
+                 # 같은 아이템: 그대로인 몫(기본 옵션·익셉셔널)은 지금 행의 값
+                 "fixed": {"own": _fixed_of(row.get("detail") or {}), "std": _fixed_of(std_row["detail"]) if std_row else None}}
+    path, tier, group = item_tier(item.get("item_name") or "", slot)
+    targets = [] if item.get("item_name") in LOWER_HEARTS else [{
+        "axis": LISTING_AXIS, "names": [], "pieces": [same_item], "set": {"own": 0.0, "std": 0.0}, "set_text": "",
+        "max_grade": SPEC_UP.listing.grade_cap.get(group), "rank": tier, "radiant": group == RADIANT}]
+    if weapon is not None and items is not None and path:
+        if path == "armor" and slot in ARMOR_SLOTS:
+            targets += _upgrade_targets(item, part, slot, group, ARMOR_TIERS[tier], items, context, weapon, standard, class_name, main_stat,
+                                        char_level, count_sets, membership)
+        elif path in ("accessory", "heart"):
+            targets += _accessory_targets(item, part, slot, path, tier, items, context, weapon, standard, class_name, main_stat, char_level)
+    actions = []
+    for target in targets:
+        actions += _grade_actions(target, current, std_row, context, standard, class_name, main_stat, char_level, memo)
+    return actions
+
+
+def _fixed_of(detail: dict) -> float:
+    """같은 아이템이라 그대로인 몫: 기본 옵션 · 익셉셔널"""
+    return detail.get("base", 0.0) + detail.get("exceptional", 0.0)
+
+
+def _upgrade_targets(item, part, slot, group, family, items, context, weapon, standard, class_name, main_stat, char_level,
+                     count_sets, membership) -> list[dict]:
+    """같은 직업군의 상위 계열 아이템 (카탈로그). 세트 변화는 세트 효과 표로 %p 환산.
+    한벌옷 → 같은 칸 한벌옷(앱솔 → 아케인) 또는 상의 + 하의(에테르넬). 따로 된 상의·하의는 한벌옷으로 바꾸지 않습니다."""
+    job = group[group.index("(") + 1:group.index(")")]
+    overall = part == "한벌옷"
+    std_weapon = (standard or {}).get("weapon")
+
+    def find(tier, piece_slot, want_overall):
+        wanted = f"{tier} 세트({job})"
+        return next((name for name, entry in CATALOG_ITEMS.items()
+                     if entry.get("slot") == piece_slot and (entry.get("part") == "한벌옷") == want_overall
+                     and membership({"item_name": name, "item_equipment_slot": piece_slot}) == wanted), None)
+
+    targets = []
+    for tier in ARMOR_TIERS[ARMOR_TIERS.index(family) + 1:]:
+        if family == "아케인셰이드" and tier == "에테르넬":
+            continue  # 아케인셰이드 → 에테르넬은 묶음 추천만 (bundle_actions)
+        if overall:  # 한벌옷: 같은 계열 한벌옷이 있으면 그것, 없으면(에테르넬) 상의 + 하의가 모두 카탈로그에 있을 때만
+            single = find(tier, slot, True)
+            top, bottom = find(tier, "상의", False), find(tier, "하의", False)
+            names = [single] if single else [top, bottom] if top and bottom else []
+        else:
+            names = [n for n in [find(tier, slot, False)] if n]
+        if not names:
+            continue
+        swapped = [{**other, "item_name": names[0]} if other is item else other for other in items]
+        swapped += [{"item_name": name, "item_equipment_slot": CATALOG_ITEMS[name]["slot"]} for name in names[1:]]
+        pieces = [_piece(name, CATALOG_ITEMS[name]["slot"], weapon, std_weapon, class_name, main_stat, char_level) for name in names]
+        targets.append(_with_set({"axis": UPGRADE_AXIS, "names": names, "pieces": pieces, "rank": ARMOR_TIERS.index(tier), "max_grade": None,
+                                  "price_item": {"name": names[0], "part": CATALOG_ITEMS[names[0]].get("part"), "slot": slot,
+                                                 "level": pieces[0]["level"]}},
+                                 items, swapped, context, weapon, standard, char_level))
+    return targets
+
+
+def set_change(items_before: list, items_after: list) -> tuple[dict | None, dict]:
+    """교체 전후 세트 수 변화와 그 효과 차이 필드 (set_projection 필드, ied_ratio 는 곱)"""
+    from app.set_projection import count_sets
+    api_names = tuple(CATALOG_SETS)
+    before, after = count_sets(items_before, api_names), count_sets(items_after, api_names)
+    changes = {key: (before[key], after[key]) for key in set(before) | set(after) if before[key] != after[key]}
+    delta = None
+    for set_name, (old, new) in changes.items():
+        old_fields, new_fields = set_effect_fields(set_name, old), set_effect_fields(set_name, new)
+        diff = {key: (new_fields[key] / old_fields[key] if key == "ied_ratio" else new_fields[key] - old_fields[key]) for key in new_fields}
+        delta = diff if delta is None else {key: (delta[key] * diff[key] if key == "ied_ratio" else delta[key] + diff[key]) for key in diff}
+    return delta, changes
+
+
+def _piece(name: str, slot: str, weapon, std_weapon, class_name, main_stat, char_level) -> dict:
+    """카탈로그 아이템 한 개를 교체 부품으로: 레벨·부위·주문서 횟수·추옵 유무와 기본 옵션 %p (내 캐릭터·표준)"""
+    entry = CATALOG_ITEMS[name]
+    base = entry.get("base") or {}
+    part = entry.get("part") or entry["slot"]
+    return {"name": name, "level": entry["level"], "part": part, "slot": slot, "slots": entry.get("slots", 0),
+            "has_add": not any(k in part or k in slot for k in SCORING.special_items.no_add_parts),
+            "fixed": {"own": fixed_option_pct(base, weapon, class_name, main_stat, char_level, False),
+                      "std": fixed_option_pct(base, std_weapon, class_name, main_stat, char_level, False) if std_weapon else None}}
+
+
+def _with_set(target: dict, items_before: list, items_after: list, context, weapon, standard, char_level) -> dict:
+    delta, changes = set_change(items_before, items_after)
+    std_ctx, std_weapon = (standard or {}).get("context"), (standard or {}).get("weapon")
+    target["set"] = {"own": set_fields_pct(delta, context, weapon, char_level) if delta else 0.0,
+                     "std": set_fields_pct(delta, std_ctx, std_weapon, char_level) if delta and std_ctx else 0.0}
+    target["set_text"] = ", ".join(f"{name} {old}→{new}" for name, (old, new) in sorted(changes.items()))
+    return target
+
+
+def _accessory_targets(item, part, slot, path, tier, items, context, weapon, standard, class_name, main_stat, char_level) -> list[dict]:
+    """장신구: 같은 부위의 상위 세트 아이템(보스 → 여명 → 칠흑, 이미 낀 아이템 제외). 광휘는 radiant_chain_actions. 하트: 컴플리트 언더컨트롤."""
+    from app.set_projection import _name
+    equipped = {_name(other.get("item_name") or "") for other in items}
+    std_weapon = (standard or {}).get("weapon")
+    if _name(item.get("item_name") or "") in SPEC_UP.listing.final_items:
+        return []  # 최종 아이템 (거대한 공포): 같은 아이템의 상위 매물만
+    if path == "heart":
+        candidates = [(TOP_HEART, 1)] if tier == 0 and TOP_HEART in CATALOG_ITEMS else []
+    else:
+        candidates = [(name, index) for index, set_name in enumerate(ACCESSORY_TIERS) if index > tier
+                      and set_name != RADIANT  # 광휘는 정해진 순서로만 (radiant_chain_actions)
+                      for name in sorted(MEMBERS[set_name])
+                      if name in CATALOG_ITEMS and CATALOG_ITEMS[name].get("part") == part and name not in equipped]
+    targets = []
+    for name, index in candidates:
+        after = [{**other, "item_name": name} if other is item else other for other in items]
+        set_name = TOP_HEART if path == "heart" else ACCESSORY_TIERS[index]
+        targets.append(_with_set({"axis": UPGRADE_AXIS, "names": [name], "rank": index,
+                                  "max_grade": SPEC_UP.listing.grade_cap.get(set_name), "radiant": set_name == RADIANT,
+                                  "pieces": [_piece(name, slot, weapon, std_weapon, class_name, main_stat, char_level)],
+                                  "price_item": {"name": name, "part": part, "slot": slot, "level": CATALOG_ITEMS[name]["level"]}},
+                                 items, after, context, weapon, standard, char_level))
+    return targets
+
+
+def bundle_actions(rows: list, items: list, context: StatContext, class_name: str, main_stat: str, char_level: int, memo: dict,
+                   standard: dict | None, weapon: WeaponContext | None) -> list[tuple[dict, dict]]:
+    """아케인셰이드 → 에테르넬 묶음 교체 (spec_up.toml eternal_bundle_sets): 에테르넬이 4세트에 닿는 최소 묶음과 바꿀 수 있는 전체 묶음.
+    부위 순서는 지금 점수 비율이 낮은 것부터, 묶음 안의 모든 부위는 같은 등급 상태로 봅니다. (첫 행, 추천) 목록을 돌려줍니다."""
+    from app.set_projection import ARMOR_SLOTS, count_sets, membership
+    if weapon is None:
+        return []
+    by_slot = {other.get("item_equipment_slot"): other for other in items}
+    arcane = sorted((row for row in rows if row["slot"] in ARMOR_SLOTS and by_slot.get(row["slot"])
+                     and membership(by_slot[row["slot"]]).startswith("아케인셰이드")), key=lambda row: row["score_ratio"])
+    if not arcane:
+        return []
+    group = membership(by_slot[arcane[0]["slot"]])
+    job = group[group.index("(") + 1:group.index(")")]
+    eternal_set = f"에테르넬 세트({job})"
+
+    def find(piece_slot):
+        return next((name for name, entry in CATALOG_ITEMS.items() if entry.get("slot") == piece_slot and entry.get("part") != "한벌옷"
+                     and membership({"item_name": name, "item_equipment_slot": piece_slot}) == eternal_set), None)
+
+    def replacement(row):  # 한벌옷은 에테르넬 상의 + 하의
+        item = by_slot[row["slot"]]
+        slots = ["상의", "하의"] if item.get("item_equipment_part") == "한벌옷" else [row["slot"]]
+        names = [find(piece_slot) for piece_slot in slots]
+        return list(zip(names, slots)) if all(names) else None
+
+    usable = [(row, replacement(row)) for row in arcane if replacement(row)]
+    if not usable:
+        return []
+    api_names = tuple(CATALOG_SETS)
+    have = count_sets(items, api_names)[eternal_set]
+    bundles, chosen = [], []
+    for row, swap in usable:
+        chosen.append((row, swap))
+        reached = have + sum(len(pair) for _, pair in chosen)
+        if any(reached >= goal > have for goal in SPEC_UP.listing.eternal_bundle_sets) and len(bundles) == 0:
+            bundles.append(list(chosen))
+    if not bundles or len(bundles[0]) < len(usable):
+        bundles.append(list(usable))
+    std_weapon, std_rows = (standard or {}).get("weapon"), (standard or {}).get("rows", {})
+    out = []
+    for bundle in bundles:
+        swapped_slots = {row["slot"] for row, _ in bundle}
+        after = [other for other in items if other.get("item_equipment_slot") not in swapped_slots]
+        after += [{"item_name": name, "item_equipment_slot": piece_slot} for _, swap in bundle for name, piece_slot in swap]
+        pieces = [_piece(name, piece_slot, weapon, std_weapon, class_name, main_stat, char_level) for _, swap in bundle for name, piece_slot in swap]
+        names = [name for _, swap in bundle for name, _ in swap]
+        target = _with_set({"axis": UPGRADE_AXIS, "names": names, "pieces": pieces, "rank": ARMOR_TIERS.index("에테르넬"), "max_grade": None,
+                            "title": f"에테르넬 {len(pieces)}부위 묶음 ({' · '.join(piece['slot'] for piece in pieces)})",
+                            "price_item": {"name": names[0], "part": pieces[0]["part"], "slot": pieces[0]["slot"], "level": pieces[0]["level"]}},
+                           items, after, context, weapon, standard, char_level)
+        current = sum(row["total_score"] for row, _ in bundle)
+        std_current = {"total_score": sum(std_rows[row["slot"]]["total_score"] for row, _ in bundle)} \
+            if all(row["slot"] in std_rows for row, _ in bundle) else None
+        for action in _grade_actions(target, current, std_current, context, standard, class_name, main_stat, char_level, memo):
+            action["slots"] = sorted(swapped_slots)
+            action["bundle"] = True
+            out.append((bundle[0][0], action))
+    return out
+
+
+def radiant_chain_actions(rows: list, items: list, context: StatContext, class_name: str, main_stat: str, char_level: int, memo: dict,
+                          standard: dict | None, weapon: WeaponContext | None) -> list[tuple[dict, dict]]:
+    """광휘 교체 순서 (spec_up.toml radiant_order, 부위 단위): 불멸의 유산 → 광휘 반지 → 광휘 반지 + 죽음의 맹세 → 원혼 → 원죄.
+    칠흑 radiant_needs_pitched 세트를 완성했거나 이미 광휘를 낀 캐릭터만. 단계마다 앞 단계를 마친 장비로 세트 변화를 계산합니다.
+    바꿀 칸은 세트를 덜 깨뜨리는(세트 변화 %p 가 큰) 칸, 같으면 지금 점수가 낮은 칸. 광휘는 1단계 매물로 (그 위는 같은 아이템 매물),
+    radiant_grade2_from 단계(원혼)부터는 1단계가 지금 아이템보다 못하면 2단계 매물로 바로.
+    순서가 정해진 경로라 메큘레이터 지수 기준(min_index_gain_pct)은 보지 않습니다. 바꿀 칸이 없거나 이득이 없으면 그 뒤 단계는 만들지 않습니다.
+    화면은 chain 순서대로만 고릅니다."""
+    from app.calculator import max_starforce
+    from app.set_projection import _name, count_sets
+    if weapon is None or final_damage_per_pct(context) <= 0:
+        return []
+    if pitched_count(items) < SPEC_UP.listing.radiant_needs_pitched and not count_sets(items, tuple(CATALOG_SETS))[RADIANT]:
+        return []
+    by_slot = {other.get("item_equipment_slot"): other for other in items}
+    std_weapon, std_rows = (standard or {}).get("weapon"), (standard or {}).get("rows", {})
+    state, used, out = list(items), set(), []
+    for number, parts in enumerate(SPEC_UP.listing.radiant_order, 1):
+        swaps, after = [], state
+        for part in parts:
+            worn = {_name(other.get("item_name") or "") for other in after}
+            target = next((name for name in sorted(MEMBERS[RADIANT]) if name in CATALOG_ITEMS
+                           and CATALOG_ITEMS[name].get("part") == part and name not in worn), None)
+            if target is None:
+                continue  # 이미 낀 부위
+            options = []
+            for row in rows:
+                item = by_slot.get(row["slot"])
+                if not item or row.get("part") != part or row["slot"] in used or row.get("total_score") is None:
+                    continue
+                name = _name(item.get("item_name") or "")
+                if name in MEMBERS[RADIANT] or name in SPEC_UP.listing.final_items \
+                        or (part != "훈장" and item_tier(item.get("item_name") or "", row["slot"])[0] != "accessory"):
+                    continue  # 시드링·이벤트 반지 등 교체 경로 밖, 최종 아이템은 그대로
+                swapped = [{**other, "item_name": target} if other.get("item_equipment_slot") == row["slot"] else other for other in after]
+                delta, _ = set_change(after, swapped)
+                options.append(((set_fields_pct(delta, context, weapon, char_level) if delta else 0.0, -row["total_score"]), row, swapped))
+            if not options:
+                return out  # 바꿀 칸이 없으면 순서가 끊깁니다
+            _, row, after = max(options, key=lambda option: option[0])
+            swaps.append((row, target))
+            used.add(row["slot"])
+        if not swaps:
+            continue  # 이미 마친 단계
+        first = swaps[0][0]
+        if first.get("part") == "훈장":
+            action = special_replace_action(first, by_slot[first["slot"]], state, context, weapon, char_level, class_name, main_stat)
+        else:
+            names = [target for _, target in swaps]
+            pieces = [_piece(target, row["slot"], weapon, std_weapon, class_name, main_stat, char_level) for row, target in swaps]
+            target = _with_set({"axis": UPGRADE_AXIS, "names": names, "pieces": pieces, "rank": ACCESSORY_TIERS.index(RADIANT),
+                                "max_grade": 2 if number >= SPEC_UP.listing.radiant_grade2_from else 1, "radiant": True, "index_gate": False,
+                                "title": " + ".join(f"{name}({row['slot']})" for row, name in swaps) if len(swaps) > 1 else None,
+                                "price_item": {"name": names[0], "part": pieces[0]["part"], "slot": first["slot"], "level": pieces[0]["level"]}},
+                               state, after, context, weapon, standard, char_level)
+            std_current = {"total_score": sum(std_rows[row["slot"]]["total_score"] for row, _ in swaps)} \
+                if all(row["slot"] in std_rows for row, _ in swaps) else None
+            found = _grade_actions(target, sum(row["total_score"] for row, _ in swaps), std_current, context, standard,
+                                   class_name, main_stat, char_level, memo)
+            action = found[0] if found else None
+            if action:
+                action["bundle"] = len(swaps) > 1
+        if not action:
+            return out
+        action["chain"], action["slots"] = number, sorted(row["slot"] for row, _ in swaps)
+        out.append((first, action))
+        for row, name in swaps:  # 광휘 4종: 교체한 매물(목표 성)에서 이어지는 스타포스 (화면은 이 교체를 고른 뒤에만)
+            if name not in SPEC_UP.listing.radiant_followup_items:
+                continue
+            entry = CATALOG_ITEMS[name]
+            cap = min(max_starforce(entry["level"], name, False), starforce_recommendation_cap(name))
+            for step in starforce_steps(name, entry["part"], row["slot"], entry["level"], action["target_star"], cap,
+                                        class_name, main_stat, context):
+                step.update(after_chain=number, prefix=f"{name} ", label=f"{name} {step['label']}",
+                            price_item={"name": name, "part": entry["part"], "slot": row["slot"], "level": entry["level"]})
+                out.append((row, step))
+        state = after
+    return out
+
+
+def _grade_actions(target, current, std_row, context, standard, class_name, main_stat, char_level, memo) -> list[dict]:
+    """한 교체 대상(부품 목록)을 6개 매물 등급 상태로 만들었을 때의 추천들. 부품마다 같은 등급 상태로 봅니다."""
+    from app.calculator import calculate_item_score, flame_best_add_option, starforce_option
+    from app.set_projection import ARMOR_SLOTS
+
+    config = SPEC_UP.listing
+    attack_key = "magic_power" if main_stat == "int" else "attack_power"
+    mains = ("str", "dex", "luk") if main_stat == "all_stat" else ("max_hp",) if main_stat == "hp" else (main_stat,)
+
+    def add_scale(level):  # 200제 미만은 200제 값을 레벨별 불꽃 최대 급수 비율로 줄입니다
+        if level >= 200:
+            return 1.0
+        def best(lv):
+            return calculate_item_score(flame_best_add_option(lv, class_name, main_stat, context.sub_names, context),
+                                        class_name, main_stat=main_stat, context=context)
+        return best(level) / best(200) if best(200) > 0 else 1.0
+
+    def pct(option, ctx):
+        return calculate_item_score(option, class_name, main_stat=main_stat, context=ctx) * ctx.pct_per_flat
+
+    def reach_cost(kind, part, level, wanted):
+        """레어에서 레전드리 등급업 후 wanted 이상이 나올 때까지의 기대 메소 (첫 레전드리 결과도 성공일 수 있음)"""
+        key = ("listing", kind, part, level)
+        if key not in memo:
+            memo[key] = potential_distribution(kind, part, level, context, char_level)
+        chance = sum(p for value, p in (memo[key] or {}).items() if value >= wanted - 1e-9)
+        if chance <= 0:
+            return None
+        legendary = _cost_row(SPEC_UP.cube[kind]["cost"], level)[-1] * EOK
+        return grade_up_cost(kind, SPEC_UP.cube.grades[0], level) + (1 - chance) / chance * legendary
+
+    def piece_state(piece, grade, number):
+        """부품 하나의 등급 상태: (스타포스 옵션, 윗잠, 에디, 주문서 옵션, 추옵 급수, 서버 비용, 주문서 문구) 또는 None"""
+        level, part, slot, slots = piece["level"], piece["part"], piece["slot"], piece["slots"]
+        column = 0 if level >= 250 else 1
+        star_option = starforce_option(level, grade["star"], main_stat, context.sub_names, part)
+        pot, eddy = grade["pot"][column], grade["eddy"][column]
+        pot_cost, eddy_cost = reach_cost("potential", part, level, pot), reach_cost("additional", part, level, eddy)
+        if star_option is None or pot_cost is None or eddy_cost is None:
+            return None
+        kind_of_slot = "armor" if slot in ARMOR_SLOTS else "accessory"
+        rule, slot_cost = grade[kind_of_slot], grade["scroll_cost"][kind_of_slot]
+        if part == "기계 심장":  # 하트 전용 (spec_up.toml heart_scroll · heart_scroll_cost)
+            rule, slot_cost = config.heart_scroll[number - 1], config.heart_scroll_cost[number - 1]
+        scroll = {attack_key: rule.get("attack", 0) * slots + (rule.get("first_attack", rule.get("attack", 0)) - rule.get("attack", 0) if slots else 0)}
+        for key in mains:
+            scroll[key] = rule.get("main", 0) * slots
+        for key in ("str", "dex", "int", "luk"):
+            scroll[key] = scroll.get(key, 0) + rule.get("all_stat", 0) * slots
+        cost = (pot_cost + eddy_cost) * config.cube_cost_share + slots * slot_cost * EOK
+        flame_share = config.radiant_flame_cost_share if target.get("radiant") else config.flame_cost_share
+        add = None
+        if piece["has_add"]:
+            add = round(grade["add"][column] * add_scale(level))
+            key = ("listing_flame", level)
+            if key not in memo:
+                memo[key] = flame_distribution(level, class_name, main_stat, context)
+            chance = sum(p for value, p in memo[key].items() if value >= add - 1e-9)
+            if chance <= 0:
+                return None
+            cost += SPEC_UP.flame.cost * EOK / chance * flame_share
+        if discounted(piece):
+            cost *= config.radiant_craft_share
+        return star_option, pot, eddy, scroll, add, cost, f"주문서 {slots}회 × {slot_cost:g}억"
+
+    def discounted(piece):  # 광휘 4종: 큐브·불꽃·주문서 몫 × radiant_craft_share
+        return bool(target.get("radiant")) and piece.get("name") in config.radiant_followup_items
+
+    actions = []
+    for number, grade in enumerate(config.radiant_grades if target.get("radiant") else config.grades, 1):
+        if target.get("max_grade") and number > target["max_grade"]:
+            break  # 보스 장신구 4등급 · 여명 5등급까지만
+        if any(piece["part"] == "기계 심장" for piece in target["pieces"]) and number > len(config.heart_scroll):
+            break  # 기계 심장은 3단계까지
+        states = [piece_state(piece, grade, number) for piece in target["pieces"]]
+        if any(state is None for state in states):
+            continue
+
+        def value(kind, ctx):
+            return target["set"][kind] + sum(piece["fixed"][kind] + pct(star, ctx) + pot + eddy + pct(scroll, ctx)
+                                             + (add * ctx.pct_per_flat if add is not None else 0.0)
+                                             for piece, (star, pot, eddy, scroll, add, _, _) in zip(target["pieces"], states))
+        gain = value("own", context) - current
+        if gain <= 0.05:
+            continue
+        index_gain = None
+        if std_row is not None and all(piece["fixed"]["std"] is not None for piece in target["pieces"]):  # 메큘레이터 지수가 의미 있게 오를 때만
+            index_gain = value("std", standard["context"]) - std_row["total_score"]
+            if target.get("index_gate", True) and index_gain < standard["total"] * config.min_index_gain_pct / 100:
+                continue
+        _, pot, eddy, _, add, _, _ = states[0]
+        spec = f"{grade['star']}성 · 윗잠 {pot:g}% · 에디 {eddy:g}%" + (f" · 추옵 {add}급" if add is not None else "")
+        grade_spec = spec
+        if target.get("title") or target["names"]:
+            spec = f"{target.get('title') or ' + '.join(target['names'])} · {spec}"
+        flame_share = config.radiant_flame_cost_share if target.get("radiant") else config.flame_cost_share
+        craft = (f"잠재·에디 큐브 기댓값 × 1/{round(1 / config.cube_cost_share)}"
+                 + (f" + 추옵 불꽃 × 1/{round(1 / flame_share)}" if add is not None else "") + " + " + " · ".join(dict.fromkeys(state[6] for state in states)))
+        if any(discounted(piece) for piece in target["pieces"]):
+            craft = f"({craft}) × {config.radiant_craft_share:g}"
+        notes = [f"기대 비용 = 노작 시세 + 스타포스 0→{grade['star']}성 + {craft}" + (f" (부위 {len(states)}개)" if len(states) > 1 else "")]
+        if target["set_text"]:
+            notes.append(f"세트 {target['set_text']} ({target['set']['own']:+.1f}%p)")
+        if len(target["names"]) > 1:  # 여러 아이템을 한꺼번에: 화면이 칸마다 한 줄씩 (from·아이콘은 attach_spec_up)
+            # 서로 다른 아이템이라 노작 시세도 아이템마다 (화면이 아이템별로 더함)
+            swaps = {"swaps": [{"slot": piece["slot"], "to": name} for name, piece in zip(target["names"], target["pieces"])],
+                     "spec_label": to_replace(grade_spec),
+                     "price_items": [{"name": name, "part": piece["part"], "slot": piece["slot"], "level": piece["level"]}
+                                     for name, piece in zip(target["names"], target["pieces"])]}
+        else:
+            swaps = {}
+        action = {**swaps, "axis": target["axis"], "label": to_replace(spec), "grade": number,
+                  "final_damage": gain * final_damage_per_pct(context), "gain": gain, "model": "listing_linear",
+                  "level": target["pieces"][0]["level"], "pieces": len(states),
+                  "star": 0, "target_star": grade["star"], "listing_fixed": sum(state[5] for state in states),
+                  "index_gain": round(index_gain, 1) if index_gain is not None else None, "detail": " · ".join(notes),
+                  "rank": target.get("rank", 0) * 10 + number}   # 교체 수준: 경로 순번 × 10 + 등급 (높을수록 상위)
+        if target.get("price_item"):
+            action["price_item"] = target["price_item"]
+        actions.append(action)
+    return actions
 
 
 SOUL_AXIS = "소울 증폭"
@@ -547,12 +1089,29 @@ def recommendation_assumptions(context: StatContext, class_name: str) -> list[st
         "스타포스 비용은 샤타 이벤트(15→16 확정 미포함)와 설정된 파괴 방지·복구 전략 기준입니다. 노작·연마석 시세는 실시간 시세가 아니며 직접 수정할 수 있습니다.",
         "잠재는 설정된 줄별 확률·등급업 천장 기준입니다. 기대 비용은 평균이지 예산 내 성공 보장이 아니며, 증가량은 목표 이상 결과들의 조건부 평균입니다.",
         "소울 증폭은 지금 소울 잠재 줄을 넥슨 공식 확률표의 다음 단계 수치로 바꿔 비교합니다. 비용은 게이지를 반영한 기대 시도 수 × (메소 + 에테르 시세)입니다. 0→1단계는 소울 잠재가 레어로 생긴다고 보고 미라클 기준으로 레전드리까지 올린 뒤 첫 줄 포함 공/마% 두 줄이 나올 때까지의 평균 재설정 비용을 더합니다.",
+        f"매물 교체는 같은 아이템을 등급별 목표 상태(spec_up.toml [listing], 6등급)로 직접 만드는 기댓값을 비용으로 봅니다: 노작 시세 + 스타포스 0→목표 성 + 레어부터 잠재·에디 큐브 기댓값의 1/3 + 추옵 불꽃 기댓값의 1/3(광휘 1/4) + 주문서. 광휘 아이템은 전용 3단계 매물. 메큘레이터 지수가 {SPEC_UP.listing.min_index_gain_pct:g}% 이상 오를 때만 추천하고, 아이템마다 효율이 가장 좋은 등급 하나만 보여 줍니다.",
         f"시드링은 {class_name}의 리레 15초/20초 딜 비중 {s15*100:.2f}%/{s20*100:.2f}%, 컨티 가동률 {SPEC_UP.seed_ring.continuous['uptime']*100:g}%를 가정합니다. 직업표에는 비실측 자료가 포함되며 개인 캐릭터 실측값이 아닙니다.",
     ]
 
 
+AXIS_DETAIL = {"스타포스": "star", "윗잠재": "pot", "에디셔널": "pot_additional", "추가옵션": "add", SOUL_AXIS: "soul"}
+
+
+def index_estimate(action: dict, row: dict, std_row: dict | None, overall: float) -> float:
+    """매물·상위 교체 밖 추천의 메큘레이터 지수 증가 추정: 이득 %p × (같은 칸·같은 축의 표준 값 ÷ 내 값).
+    축 값이 없으면 칸 합계 비율, 그것도 없으면 전체 비율 (지수 ÷ 내 합계)."""
+    key = AXIS_DETAIL.get(action["axis"])
+    pairs = []
+    if std_row:
+        if key:
+            pairs.append(((std_row.get("detail") or {}).get(key, 0), (row.get("detail") or {}).get(key, 0)))
+        pairs.append((std_row.get("total_score") or 0, row.get("total_score") or 0))
+    ratio = next((std / own for std, own in pairs if std > 0 and own > 0), overall)
+    return round(action["gain"] * ratio, 1)
+
+
 def attach_spec_up(rows: list, items: list, context: StatContext, class_name: str, main_stat: str, char_level: int,
-                   exclude_names=(), damage_total: float = 0.0, weapon: WeaponContext | None = None) -> dict:
+                   exclude_names=(), damage_total: float = 0.0, weapon: WeaponContext | None = None, standard: dict | None = None) -> dict:
     """진단 행마다 축별 강화 행동(row["spec_up"], 효율 내림차순)을 붙이고 전체 상위 행동을 돌려줍니다.
     items 는 진단한 아이템 전체(예비 특수 반지 포함)입니다.
     도전자의 장비·무기류·특수 장비·놀장·이벤트 반지(exclude_names)는 제외하고, 슈페리얼은 스타포스를 빼고 계산합니다.
@@ -578,11 +1137,22 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
         # Exclude every upgrade axis, including seed rings, without removing
         # equipped stats from the character's baseline or changing item scores.
         if "도전자의" in (row.get("name") or "") or "도전자의" in ((item or {}).get("item_name") or ""):
+            # 도전자의 장비는 강화 추천 없이 매물 교체만 (방어구·장신구)
+            if item and not row.get("is_wse") and not row.get("is_special"):
+                row["spec_up"] = [finish(a) for a in listing_actions(row, item, context, class_name, main_stat, char_level, cube_memo, standard,
+                                                                     weapon, items)]
+                count += len(row["spec_up"])
             continue
         ring_name = next((name for name in rings if name in row["name"]), None)
         if item and ring_name:
             action = seed_ring_action(row["name"], int(float(item.get("special_ring_level") or 0)), class_name, context,
                                       damage_total, rings[CONTINUOUS])
+            row["spec_up"] = [finish(action)] if action else []
+            count += len(row["spec_up"])
+            continue
+        if item and row.get("part") in ("뱃지", "훈장"):  # 훈장(불멸의 유산)은 아래 광휘 순서로
+            action = special_replace_action(row, item, items, context, weapon, char_level, class_name, main_stat) \
+                if row.get("part") == "뱃지" else None
             row["spec_up"] = [finish(action)] if action else []
             count += len(row["spec_up"])
             continue
@@ -599,22 +1169,12 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
         if not superior and item.get("starforce_scroll_flag") != "사용":
             star = int(item.get("starforce") or 0)
             cap = min(max_starforce(level, name, superior), starforce_recommendation_cap(name))
-            previous = None
-            for target in range(max(12, star) + 1, cap + 1):
-                cumulative = starforce_action(name, part, slot, level, star, cap, class_name, main_stat, context, target)
-                if not cumulative:
-                    break
-                action = dict(cumulative)
-                if previous:
-                    action['final_damage'] = 100 * ((1 + cumulative['final_damage'] / 100) / (1 + previous['final_damage'] / 100) - 1)
-                    action['gain'] = action['final_damage'] / damage_per_pct
-                    action['star'] = target - 1
-                    action['label'] = f"{target - 1}→{target}성"
-                actions.append(action)
-                previous = cumulative
+            actions += starforce_steps(name, part, slot, level, star, cap, class_name, main_stat, context)
         benchmarks = (row.get("scoring_basis") or {}).get("benchmarks") or {}
         for kind, key in (("potential", "pot"), ("additional", "pot_additional")):
             actions += potential_actions(item, kind, part, level, context, char_level, benchmarks.get(key), cube_memo)
+        if not superior:
+            actions += listing_actions(row, item, context, class_name, main_stat, char_level, cube_memo, standard, weapon, items)
         if "add" in (row.get("detail") or {}) and item.get("item_add_option"):
             floor = next(entry[0] for entry in SCORING.add_option.flame.bands if level >= entry[0])
             if floor not in flame_memo:
@@ -650,8 +1210,28 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
                                            "chance": round(step["chance"], 8), "tries": round(step["tries"], 1)} for step in steps]})
         row["spec_up"] = [finish(a) for a in actions if a]
         count += len(row["spec_up"])
+    for row, action in [*bundle_actions(rows, items, context, class_name, main_stat, char_level, cube_memo, standard, weapon),
+                        *radiant_chain_actions(rows, items, context, class_name, main_stat, char_level, cube_memo, standard, weapon)]:
+        row["spec_up"].append(finish(action))
+        count += 1
+    for row in rows:  # 다른 아이템으로 바꾸는 추천(교체·교체 뒤 스타포스)은 그 아이템 아이콘 (카탈로그에 있을 때)
+        for action in row["spec_up"]:
+            icon = (CATALOG_ITEMS.get((action.get("price_item") or {}).get("name")) or {}).get("icon")
+            if icon:
+                action["icon"] = icon
+            for swap in action.get("swaps") or []:  # 지금 그 칸의 아이템과 바꿀 아이템 아이콘
+                swap["from"] = (by_slot.get(swap["slot"]) or {}).get("item_name")
+                swap["icon"] = (CATALOG_ITEMS.get(swap["to"]) or {}).get("icon")
+    if standard:
+        own_total = sum(row.get("total_score") or 0 for row in rows)
+        overall = standard["total"] / own_total if own_total > 0 else 1.0
+        for row in rows:
+            for action in row["spec_up"]:
+                if action.get("index_gain") is None:
+                    action["index_gain"] = index_estimate(action, row, standard["rows"].get(row["slot"]), overall)
     # 순서(100억당 최종뎀)는 노작·연마석 시세에 따라 바뀌어 화면(app.js specUpActions)이 정합니다.
-    return {"unit": SPEC_UP.ranking.unit, "limit": int(SPEC_UP.ranking.top), "stat_label": stat_label(context),
+    return {"unit": SPEC_UP.ranking.unit, "limit": int(SPEC_UP.ranking.top), "max": int(SPEC_UP.ranking.max_shown),
+            "stat_label": stat_label(context),
             "estimate": True, "assumptions": recommendation_assumptions(context, class_name),
             "final_damage_per_pct": round(damage_per_pct, 4), "count": count}
 

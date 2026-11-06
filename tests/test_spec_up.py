@@ -15,6 +15,7 @@ from app.spec_up import (
     final_damage_per_pct,
     flame_distribution,
     flame_steps,
+    listing_actions,
     potential_actions,
     potential_distribution,
     seed_ring_action,
@@ -29,7 +30,7 @@ def str_pct(text):
 
 
 class SpecUpTests(unittest.TestCase):
-    def test_challenger_items_skip_all_upgrade_paths_and_keep_scores(self):
+    def test_challenger_items_get_listing_only_and_keep_scores(self):
         context = reference_context("나이트로드", "luk")
         for name in ("도전자의 모자", "도전자의 컨티뉴어스 링", "강화된 도전자의 장갑"):
             for source in ("row", "api"):
@@ -38,10 +39,11 @@ class SpecUpTests(unittest.TestCase):
                            "total_score": 42, "score_ratio": 80, "spec_up": [{"stale": True}]}
                     item = {"item_equipment_slot": "모자", "item_name": name if source == "api" else "일반 모자"}
                     with patch("app.spec_up.starforce_action") as star, patch("app.spec_up.potential_actions") as potential, \
-                            patch("app.spec_up.flame_distribution") as flame, patch("app.spec_up.seed_ring_action") as ring:
+                            patch("app.spec_up.flame_distribution") as flame, patch("app.spec_up.seed_ring_action") as ring,                             patch("app.spec_up.listing_actions", return_value=[]) as listing:
                         report = attach_spec_up([row], [item], context, "나이트로드", "luk", 298)
                         for action in (star, potential, flame, ring):
-                            action.assert_not_called()
+                            action.assert_not_called()  # 강화 추천은 만들지 않고
+                        listing.assert_called_once()  # 매물 교체만 봅니다
                     self.assertEqual(row["spec_up"], [])
                     self.assertEqual((row["total_score"], row["score_ratio"]), (42, 80))
                     self.assertEqual(report["count"], 0)
@@ -151,6 +153,148 @@ class SpecUpTests(unittest.TestCase):
         self.assertIsNone(soul_action({**item, "soul_potential_amplified_grade": 4}, 200, context, weapon, 280, 0.0))
         self.assertIsNone(soul_action({**item, "soul_name": "데미안의 소울 적용"}, 200, context, weapon, 280, 0.0))
         self.assertIsNone(soul_action(item, 160, context, weapon, 280, 0.0))
+
+    def test_listing_grades_rise_and_carry_the_crafting_cost(self):
+        from app.analyzer import evaluate_equipment
+        item = {"item_equipment_part": "모자", "item_equipment_slot": "모자", "item_name": "에테르넬 시프반다나", "starforce": "17",
+                "item_base_option": {"base_equipment_level": 250, "luk": "80", "dex": "80"}, "potential_option_grade": "레전드리",
+                "potential_option_1": "LUK +13%", "item_add_option": {"luk": "84"}, "item_etc_option": {}, "item_starforce_option": {},
+                "scroll_upgrade": "0", "scroll_upgradeable_count": "12", "scroll_resilience_count": "0"}
+        context = reference_context("나이트로드", "luk")
+        row = evaluate_equipment([item], "나이트로드", 285, profile={"context": context})[0]
+        actions = listing_actions(row, item, context, "나이트로드", "luk", 285, {})
+        self.assertTrue(actions)
+        self.assertEqual([a["grade"] for a in actions], sorted(a["grade"] for a in actions))
+        self.assertEqual([a["final_damage"] for a in actions], sorted(a["final_damage"] for a in actions))  # 높은 등급일수록 큼
+        self.assertTrue(all(a["listing_fixed"] > 0 and a["star"] == 0 for a in actions))  # 큐브·불꽃 기댓값 (노작·스타포스는 화면)
+        self.assertEqual(listing_actions({**row, "total_score": 10_000}, item, context, "나이트로드", "luk", 285, {}), [])  # 더 좋은 장비면 없음
+        # 메큘레이터 지수가 지금 지수의 min_index_gain_pct % 이상 오를 때만 추천
+        small = {"total": 100.0, "rows": {"모자": row}, "context": context}
+        huge = {**small, "total": 1_000_000.0}
+        self.assertTrue(all(a["index_gain"] > 0 for a in listing_actions(row, item, context, "나이트로드", "luk", 285, {}, small)))
+        self.assertEqual(listing_actions(row, item, context, "나이트로드", "luk", 285, {}, huge), [])
+
+    def test_upgrade_paths_bundles_caps_and_badge(self):
+        from app.analyzer import evaluate_equipment
+        from app.spec_up import bundle_actions
+        from app.weapon import WeaponContext
+        job, context = "아크메이지(불,독)", reference_context("아크메이지(불,독)", "int")
+        weapon = WeaponContext(context)
+
+        def item(slot, part, name, level=200, **extra):
+            return {"item_equipment_part": part, "item_equipment_slot": slot, "item_name": name, "starforce": "17",
+                    "item_base_option": {"base_equipment_level": level}, "item_add_option": {}, "item_etc_option": {},
+                    "item_starforce_option": {}, "scroll_upgrade": "2", **extra}
+
+        def actions(it, items=None):
+            row = evaluate_equipment([it], job, 285, profile={"context": context})[0]
+            return row, listing_actions(row, it, context, job, "int", 285, {}, weapon=weapon, items=items or [it])
+
+        # 앱솔랩스는 상위 계열을 한 칸씩 (아케인셰이드·에테르넬 모두)
+        _, absolab = actions(item("어깨장식", "어깨장식", "앱솔랩스 메이지숄더", 160))
+        names = {a["price_item"]["name"] for a in absolab if a["axis"] == "상위 교체"}
+        self.assertEqual(names, {"아케인셰이드 메이지숄더", "에테르넬 메이지숄더"})
+        # 아케인셰이드 → 에테르넬은 한 칸 교체 없이 묶음만, 한벌옷은 에테르넬 상의 + 하의
+        shoulder, suit = item("어깨장식", "어깨장식", "아케인셰이드 메이지숄더"), item("상의", "한벌옷", "아케인셰이드 메이지슈트")
+        row, arcane = actions(shoulder)
+        self.assertFalse([a for a in arcane if a["axis"] == "상위 교체"])
+        rows = evaluate_equipment([shoulder, suit], job, 285, profile={"context": context})
+        bundles = [action for _, action in bundle_actions(rows, [shoulder, suit], context, job, "int", 285, {}, None, weapon)]
+        self.assertTrue(bundles)
+        self.assertTrue(all(a["bundle"] and a["slots"] == ["상의", "어깨장식"] and a["pieces"] == 3 for a in bundles))
+        self.assertIn("에테르넬 세트(마법사) 0→3", bundles[0]["detail"])
+        self.assertEqual(len(bundles[0]["price_items"]), 3)  # 서로 다른 아이템 묶음은 노작 시세도 아이템마다
+        # 장신구: 여명 → 칠흑 (같은 부위), 광휘는 순서 체인으로만. 여명 같은 아이템 매물은 5등급까지
+        dawn = item("반지1", "반지", "여명의 가디언 엔젤 링", 160)
+        _, ring = actions(dawn)
+        self.assertEqual({a["price_item"]["name"] for a in ring if a["axis"] == "상위 교체"}, {"거대한 공포"})
+        self.assertTrue(all(a["grade"] <= 5 for a in ring if a["axis"] == "매물 교체"))
+        pitched = [{"item_name": name, "item_equipment_slot": f"칸{i}"} for i, name in enumerate(
+            ["루즈 컨트롤 머신 마크", "마력이 깃든 안대", "커맨더 포스 이어링", "몽환의 벨트", "저주받은 황의 마도서",
+             "미트라의 분노 : 마법사", "컴플리트 언더컨트롤", "창세의 뱃지", "고통의 근원", "거대한 공포"])]
+        _, ring = actions(dawn, [dawn, *pitched])
+        self.assertFalse([a for a in ring if a["axis"] == "상위 교체"])  # 칠흑 10세트여도 광휘는 radiant_chain_actions 로만
+        # 거대한 공포는 최종 아이템: 같은 아이템의 상위 매물만
+        horror = item("반지2", "반지", "거대한 공포", 200)
+        _, final = actions(horror, [horror, *pitched[:9]])
+        self.assertTrue(final and all(a["axis"] == "매물 교체" for a in final))
+        # 플라즈마 하트는 같은 아이템 매물 없이 컴플리트 언더컨트롤로만
+        _, heart = actions(item("기계 심장", "기계 심장", "플라즈마 하트", 130))
+        self.assertTrue(heart)
+        self.assertEqual({(a["axis"], a["price_item"]["name"]) for a in heart}, {("상위 교체", "컴플리트 언더컨트롤")})
+        self.assertTrue(all(a["grade"] <= 3 for a in heart))  # 기계 심장은 3단계까지 (하트 전용 주문서)
+        # 뱃지 → 창세의 뱃지 (뱃지 옵션 + 칠흑 세트 +1), 비용은 뱃지 시세
+        from app.spec_up import special_replace_action
+        badge = {"item_equipment_part": "뱃지", "item_equipment_slot": "뱃지", "item_name": "크리스탈 웬투스 뱃지",
+                 "item_total_option": {"int": "10", "magic_power": "5"}, "item_base_option": {"base_equipment_level": 130}}
+        badge_row = evaluate_equipment([badge], job, 285, profile={"context": context, "weapon": weapon})[0]
+        action = special_replace_action(badge_row, badge, [badge], context, weapon, 285, job, "int")
+        self.assertEqual((action["price_item"]["name"], action["listing_fixed"]), ("창세의 뱃지", 0.0))
+        self.assertIn("칠흑의 보스 세트 0→1", action["detail"])
+        # 훈장 → 불멸의 유산 (기본 옵션 + 추옵 205급, 1단계). 칠흑 조건·순서는 radiant_chain_actions
+        medal = {"item_equipment_part": "훈장", "item_equipment_slot": "훈장", "item_name": "THE RED",
+                 "item_add_option": {}, "item_base_option": {"base_equipment_level": 0, "int": "5"}}
+        medal_row = evaluate_equipment([medal], job, 285, profile={"context": context, "weapon": weapon})[0]
+        action = special_replace_action(medal_row, medal, [medal, *pitched], context, weapon, 285, job, "int")
+        self.assertEqual(action["price_item"]["name"], "불멸의 유산")
+        self.assertIn("추옵 205급", action["detail"])
+        self.assertIn("광휘의 보스 세트 0→1", action["detail"])
+    def test_radiant_chain_follows_the_fixed_order(self):
+        from app.analyzer import evaluate_equipment
+        from app.spec_up import radiant_chain_actions
+        from app.weapon import WeaponContext
+        job, context = "아크메이지(불,독)", reference_context("아크메이지(불,독)", "int")
+        weapon = WeaponContext(context)
+
+        def item(slot, part, name, level):
+            return {"item_equipment_part": part, "item_equipment_slot": slot, "item_name": name, "starforce": "17",
+                    "item_base_option": {"base_equipment_level": level}, "item_add_option": {}, "item_etc_option": {},
+                    "item_starforce_option": {}, "scroll_upgrade": "2"}
+        worn = [item("훈장", "훈장", "THE RED", 0), item("반지1", "반지", "마이스터링", 140),
+                item("반지2", "반지", "여명의 가디언 엔젤 링", 160), item("펜던트", "펜던트", "고통의 근원", 160),
+                item("펜던트2", "펜던트", "데이브레이크 펜던트", 140), item("눈장식", "눈장식", "마력이 깃든 안대", 160),
+                item("얼굴장식", "얼굴장식", "루즈 컨트롤 머신 마크", 160)]
+        filler = [{"item_name": name, "item_equipment_slot": f"칸{i}"} for i, name in enumerate(
+            ["커맨더 포스 이어링", "몽환의 벨트", "저주받은 황의 마도서", "미트라의 분노 : 마법사", "컴플리트 언더컨트롤", "창세의 뱃지", "거대한 공포"])]
+        rows = evaluate_equipment(worn, job, 285, profile={"context": context, "weapon": weapon})
+
+        def chain(items, scored=rows, standard=None):  # 교체 단계만 (교체 뒤 스타포스 제외)
+            return [action for _, action in radiant_chain_actions(scored, items, context, job, "int", 285, {}, standard, weapon)
+                    if "chain" in action]
+        steps = chain([*worn, *filler])
+        # 불멸의 유산 → 마이스터링 칸(세트 안 깨짐) → 남은 반지 + 여명 펜던트(칠흑 고통의 근원은 유지) → 원혼 → 원죄
+        self.assertEqual([(a["chain"], a["slots"]) for a in steps],
+                         [(1, ["훈장"]), (2, ["반지1"]), (3, ["반지2", "펜던트2"]), (4, ["눈장식"]), (5, ["얼굴장식"])])
+        self.assertEqual(steps[0]["price_item"]["name"], "불멸의 유산")
+        self.assertEqual([p["name"] for p in steps[2]["price_items"]], ["황홀한 악몽", "죽음의 맹세"])
+        # 여러 아이템을 한꺼번에 바꾸면 칸마다 한 줄 (화면이 위아래로 붙여 표시), 한 아이템이면 없음
+        self.assertEqual([(swap["slot"], swap["to"]) for swap in steps[2]["swaps"]], [("반지2", "황홀한 악몽"), ("펜던트2", "죽음의 맹세")])
+        self.assertNotIn("swaps", steps[1])
+        self.assertTrue(all(a["grade"] == 1 and a["target_star"] == 18 for a in steps[1:]))  # 광휘는 1단계 매물로만
+        self.assertIn("× 0.4", steps[1]["detail"])  # 광휘 4종 제작 비용 할인 (원죄는 그대로)
+        self.assertNotIn("× 0.4", steps[4]["detail"])
+        # 광휘 4종은 교체 뒤 18성부터 스타포스도 (원죄 제외), 그 교체를 고른 뒤에만
+        follow = [action for _, action in radiant_chain_actions(rows, [*worn, *filler], context, job, "int", 285, {}, None, weapon)
+                  if action.get("after_chain")]
+        self.assertEqual({a["after_chain"] for a in follow}, {2, 3, 4})
+        self.assertEqual(min(a["star"] for a in follow), 18)
+        self.assertTrue(all(a["price_item"]["name"] in a["label"] for a in follow))
+        # 원혼부터는 1단계가 지금 아이템보다 못하면 2단계(21성)로 바로
+        strong = [{**row, "total_score": row["total_score"] + steps[4]["gain"] + 0.1} if row["slot"] == "얼굴장식" else row for row in rows]
+        top = chain([*worn, *filler], strong)
+        self.assertEqual([(a["chain"], a["grade"], a["target_star"]) for a in top[3:]], [(4, 1, 18), (5, 2, 21)])
+        # 순서가 정해진 경로라 메큘레이터 지수 기준은 보지 않음 (기준이 아주 커도 다섯 단계 그대로)
+        strict = {"total": 1e6, "rows": {row["slot"]: row for row in rows}, "context": context, "weapon": weapon}
+        self.assertEqual([action["chain"] for action in chain([*worn, *filler], standard=strict)], [1, 2, 3, 4, 5])
+        self.assertEqual(chain([*worn, *filler[:-1]]), [])  # 칠흑 9세트면 광휘 순서 없음
+
+    def test_index_estimate_uses_the_same_axis_ratio(self):
+        from app.spec_up import index_estimate
+        row = {"total_score": 10.0, "detail": {"star": 2.0, "pot": 0.0}}
+        std = {"total_score": 30.0, "detail": {"star": 3.0, "pot": 0.0}}
+        self.assertEqual(index_estimate({"axis": "스타포스", "gain": 1.0}, row, std, 5.0), 1.5)  # 같은 축 3 ÷ 2
+        self.assertEqual(index_estimate({"axis": "윗잠재", "gain": 1.0}, row, std, 5.0), 3.0)   # 축 값 없음 → 칸 합계 30 ÷ 10
+        self.assertEqual(index_estimate({"axis": "시드링", "gain": 1.0}, row, None, 5.0), 5.0)  # 표준 행 없음 → 전체 비율
 
 
 if __name__ == "__main__":

@@ -299,11 +299,15 @@ def load_spec_up(path: Path = DATA_DIR / "spec_up.toml") -> Section:
     data = load_toml(path)
     cube_spec = {"cost": list, "grade_up": list, "pity": list, "min_step": NUMBER}
     validate(data, {
-        "ranking": {"unit": NUMBER, "top": NUMBER},
+        "ranking": {"unit": NUMBER, "top": NUMBER, "max_shown": NUMBER},
         "cube": {"grades": list, "potential": cube_spec, "additional": cube_spec},
         "flame": {"cost": NUMBER, "first_step": NUMBER, "step": NUMBER, "tiers": list, "tier_odds": list, "boss_bonus": NUMBER,
                   "lines": NUMBER, "options": list},
         "seed_ring": {"restraint": dict, "continuous": dict, "upgrade": dict, "materials": dict, "burst_share": dict},
+        "listing": {"grades": list, "radiant_grades": list, "cube_cost_share": NUMBER, "flame_cost_share": NUMBER,
+                    "radiant_flame_cost_share": NUMBER, "radiant_star_cap": NUMBER, "min_index_gain_pct": NUMBER, "grade_cap": dict,
+                    "eternal_bundle_sets": list, "heart_scroll": list, "heart_scroll_cost": list,
+                    "final_items": list, "radiant_order": list, "radiant_followup_items": list, "radiant_craft_share": NUMBER, "radiant_grade2_from": NUMBER, "radiant_needs_pitched": NUMBER, "medal_add": NUMBER},
         "soul": {"min_level": NUMBER, "keyword": str, "reset_cost": list, "grade_up": list, "pity": list, "miracle": NUMBER,
                  "amplify": dict, "materials": dict},
     }, path.name)
@@ -313,6 +317,11 @@ def load_spec_up(path: Path = DATA_DIR / "spec_up.toml") -> Section:
     for stage, step in soul["amplify"].items():
         if step.get("material") not in soul["materials"] or not all(isinstance(step.get(k), NUMBER) for k in ("chance", "step", "pity", "meso")):
             raise ConfigError(f"{path.name}: soul.amplify.{stage} 의 material 은 soul.materials 에 있어야 하고 chance·step·pity·meso 는 숫자여야 합니다")
+    for index, grade in enumerate([*data["listing"]["grades"], *data["listing"]["radiant_grades"]], 1):
+        pairs = ("pot", "eddy", "add")
+        if not isinstance(grade.get("star"), int) or not all(isinstance(grade.get(k), list) and len(grade[k]) == 2 for k in pairs) \
+                or not all(isinstance(grade.get(k), dict) for k in ("armor", "accessory", "scroll_cost")):
+            raise ConfigError(f"{path.name}: listing.grades[{index}] 에는 star 와 [250제, 200제 이하] pot·eddy·add, armor·accessory 주문서, scroll_cost 가 필요합니다")
     ring = data["seed_ring"]
     if not all(isinstance(v, list) and len(v) == 2 and 0 < v[0] <= v[1] < 100 for v in ring["burst_share"].values()) \
             or "default" not in ring["burst_share"] or not 0 < ring["continuous"].get("uptime", 0) <= 1:

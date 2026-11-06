@@ -135,6 +135,14 @@ items = { "15" = 1, "16" = 1, "17" = 1, "18" = 1, "19" = 2, "20" = 2, "21" = 3, 
 default = [[250, 0.3], [200, 0.1], [160, 0.2], [0, 0.1]]
 
 [[base_price.item]]
+name = "창세의 뱃지"               # 교체 추천의 뱃지 시세 (억). 화면에서 바꿀 수 있습니다
+price = 175
+
+[[base_price.item]]
+name = "불멸의 유산"               # 훈장 교체 시세 (억). 화면에서 바꿀 수 있습니다
+price = 750
+
+[[base_price.item]]
 name = "마이스터링"
 price = 1
 
@@ -191,8 +199,8 @@ price = 0.3
 
 [[base_price.item]]
 name = "에테르넬"
-parts = ["장갑", "신발", "망토"]
-price = 20
+parts = ["장갑", "신발", "망토"]   # 모든 직업
+price = 17
 
 [[base_price.item]]
 name = "데스티니"
@@ -201,20 +209,20 @@ price = 100
 
 [[base_price.item]]
 name = "근원의 속삭임"
-price = 700
+price = 550
 
 [[base_price.item]]
 name = "죽음의 맹세"
-price = 800
-
-[[base_price.item]]
-name = "황홀한 악몽"
 price = 700
 
 [[base_price.item]]
+name = "황홀한 악몽"
+price = 550
+
+[[base_price.item]]
 name = "오만의 원죄"
-price = 5000
+price = 3500
 
 [[base_price.item]]
 name = "굶주리는 핏빛 원혼"
-price = 900
+price = 550

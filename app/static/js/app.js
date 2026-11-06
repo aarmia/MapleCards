@@ -352,6 +352,15 @@ document.addEventListener('alpine:init', () => {
                 cost = this.starforceCost(action.level, Math.round(this.specUpPrice(action) * 1e8), action.star, action.target_star ?? action.star + 1);
             }
             if (action.material) cost = action.material.count * this.materialPrice(action) * 1e8 + action.material.meso;
+            if (action.listing_fixed !== undefined) {  // 매물 = 직접 만드는 기댓값: (노작 + 스타포스 0→목표 성) × 부위 수 + 큐브·불꽃·주문서(서버)
+                const craft = (priced, level) => {
+                    const clean = Math.round(this.specUpPrice(priced) * 1e8);
+                    return clean + this.starforceCost(level, clean, 0, action.target_star);
+                };
+                cost = action.price_items  // 서로 다른 아이템 묶음(광휘 반지 + 죽음의 맹세)은 아이템마다 노작 시세
+                    ? action.price_items.reduce((sum, item) => sum + craft({ price_item: item }, item.level), 0) + action.listing_fixed
+                    : craft(action, action.level) * (action.pieces || 1) + action.listing_fixed;
+            }
             return { ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0,
                 damage_efficiency: cost > 0 ? action.final_damage / (cost / unit) : 0 };
         },
@@ -394,28 +403,63 @@ document.addEventListener('alpine:init', () => {
                 for (const action of item.spec_up || []) rows.push(this.priceAction({ ...action, item }, unit));
             }
             if (raw) return rows;
+            // 매물 교체는 아이템마다 효율이 가장 좋은 등급 하나만 남깁니다 (시세에 따라 바뀌므로 화면에서 고릅니다).
+            const bestListing = {};
+            for (const a of rows) {
+                if (a.listing_fixed === undefined) continue;
+                const key = a.item.slot + a.axis + (a.slots ? a.slots.length : '') + (a.price_item ? a.price_item.name : '');  // 매물·상위 교체(목표 아이템별)·묶음 크기를 따로
+                const kept = bestListing[key];
+                if (!kept || a.damage_efficiency > kept.damage_efficiency) bestListing[key] = a;
+            }
+            for (let i = rows.length - 1; i >= 0; i--) {
+                const key = rows[i].item.slot + rows[i].axis + (rows[i].slots ? rows[i].slots.length : '') + (rows[i].price_item ? rows[i].price_item.name : '');
+                if (rows[i].listing_fixed !== undefined && bestListing[key] !== rows[i]) rows.splice(i, 1);
+            }
             // 같은 아이템의 스타포스는 낮은 성부터: 슬롯별 대기열의 맨 앞만 고를 수 있습니다.
+            // 광휘 교체 뒤 스타포스(after_chain)는 지금 아이템과 따로 줄을 섭니다
+            const queue = a => a.item.slot + '|' + (a.after_chain || '');
             const queues = {};
-            for (const a of rows) if (a.axis === '스타포스') (queues[a.item.slot] ||= []).push(a);
+            for (const a of rows) if (a.axis === '스타포스') (queues[queue(a)] ||= []).push(a);
             for (const queue of Object.values(queues)) queue.sort((a, b) => a.star - b.star);
-            const pending = new Set(rows), result = [];
+            const pending = new Set(rows), result = [], pickedChains = new Set();
+            const slotsOf = a => a.slots || [a.item.slot];
             while (pending.size) {
                 let action = null;
                 for (const a of pending) {
-                    if (a.axis === '스타포스' && queues[a.item.slot][0] !== a) continue;
+                    if (a.axis === '스타포스' && queues[queue(a)][0] !== a) continue;
+                    if (a.chain && [...pending].some(p => p.chain && p.chain < a.chain)) continue;  // 광휘는 정해진 순서대로
+                    if (a.after_chain && !pickedChains.has(a.after_chain)) continue;  // 그 광휘 교체를 고른 뒤에만
                     if (!action || a.damage_efficiency > action.damage_efficiency) action = a;
                 }
+                if (!action) break;
                 pending.delete(action);
-                if (action.axis === '스타포스') queues[action.item.slot].shift();
+                if (action.chain) pickedChains.add(action.chain);
+                // 교체(매물·상위)를 추천했으면, 그 칸의 이후 추천은 더 높은 수준의 교체만 남깁니다 (지금 아이템 강화·낮은 매물 숨김)
+                if (action.listing_fixed !== undefined) {
+                    // 같은 아이템(예: 광휘 반지)은 한 칸에만: 다른 칸의 같은 목표 교체는 빼고 남은 후보로 추천합니다
+                    const target = !action.bundle && action.price_item ? action.price_item.name : null;
+                    if (target) for (const p of [...pending]) if (p.price_item && p.price_item.name === target && !p.bundle && !p.after_chain) pending.delete(p);
+                    const covered = new Set(slotsOf(action));
+                    for (const p of [...pending]) {
+                        if (p.after_chain) continue;  // 광휘 교체 뒤 스타포스는 그 교체가 남아 있는 동안 유지
+                        const higher = p.listing_fixed !== undefined && ((p.rank || 0) > (action.rank || 0)
+                            || ((p.rank || 0) === (action.rank || 0) && slotsOf(p).length > slotsOf(action).length));  // 더 큰 묶음
+                        if (slotsOf(p).some(slot => covered.has(slot)) && !higher) pending.delete(p);
+                    }
+                }
+                if (action.axis === '스타포스') queues[queue(action)].shift();
                 const previous = result[result.length - 1];
                 if (previous && action.axis === '스타포스' && previous.axis === '스타포스'
-                    && previous.item.slot === action.item.slot && previous.target_star === action.star) {
+                    && previous.item.slot === action.item.slot && previous.target_star === action.star
+                    && (previous.after_chain || 0) === (action.after_chain || 0)) {
                     const perPct = previous.stat_conversion || this.report.spec_up?.final_damage_per_pct || previous.final_damage / previous.gain;
                     previous.final_damage = 100 * ((1 + previous.final_damage / 100) * (1 + action.final_damage / 100) - 1);
                     previous.gain = previous.final_damage / perPct;
                     previous.cost += action.cost;
                     previous.target_star = action.target_star;
-                    previous.label = previous.star + '→' + previous.target_star + '성';
+                    previous.label = (previous.prefix || '') + previous.star + '→' + previous.target_star + '성';
+                    if (previous.index_gain != null || action.index_gain != null)
+                        previous.index_gain = Math.round(((previous.index_gain || 0) + (action.index_gain || 0)) * 10) / 10;
                     previous.efficiency = previous.gain / (previous.cost / unit);
                     previous.damage_efficiency = previous.final_damage / (previous.cost / unit);
                 } else result.push({ ...action });
@@ -429,9 +473,14 @@ document.addEventListener('alpine:init', () => {
         },
 
         // 노작 시세(억): 사용자가 바꾼 값, 없으면 기본값 표(starforce_cost.toml base_price)에서 찾은 값
+        // 노작 시세의 대상: 상위 교체는 바꿀 아이템(price_item), 그 외는 지금 아이템
+        priceItem(action) {
+            return action.price_item || action.item;
+        },
+
         specUpPrice(action) {
-            const saved = this.specUpPrices[action.item.name];
-            return saved ?? this.defaultBasePrice(action.item).price;
+            const saved = this.specUpPrices[this.priceItem(action).name];
+            return saved ?? this.defaultBasePrice(this.priceItem(action)).price;
         },
 
         // 노작 시세 기본값: 이름에 name 이 들어 있고 (parts 가 있으면 부위나 장착 칸도 맞는) 첫 항목, 없으면 레벨별 기본값.
@@ -448,7 +497,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         basePriceRegistered(action) {
-            return this.defaultBasePrice(action.item).registered;
+            return this.defaultBasePrice(this.priceItem(action)).registered;
         },
 
         // start 성에서 end 성까지 기대 메소 (12성 미만은 0). 설정이 없으면 0 입니다.
@@ -462,19 +511,19 @@ document.addEventListener('alpine:init', () => {
         },
 
         specUpPriceCustom(action) {
-            return this.specUpPrices[action.item.name] !== undefined;
+            return this.specUpPrices[this.priceItem(action).name] !== undefined;
         },
 
         setSpecUpPrice(action, value) {
             const eok = Number(value);
             if (value === '' || !Number.isFinite(eok) || eok < 0) return;
-            this.specUpPrices = { ...this.specUpPrices, [action.item.name]: eok };
+            this.specUpPrices = { ...this.specUpPrices, [this.priceItem(action).name]: eok };
             try { localStorage.setItem('specup-prices', JSON.stringify(this.specUpPrices)); } catch (e) { /* 저장 불가(사생활 보호 모드 등) */ }
         },
 
         resetSpecUpPrice(action) {
             const prices = { ...this.specUpPrices };
-            delete prices[action.item.name];
+            delete prices[this.priceItem(action).name];
             this.specUpPrices = prices;
             try { localStorage.setItem('specup-prices', JSON.stringify(prices)); } catch (e) { /* 무시 */ }
         },

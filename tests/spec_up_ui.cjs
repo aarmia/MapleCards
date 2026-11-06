@@ -31,7 +31,7 @@ console.log('starforce expected cost matches starforce.gg');
 // 2. 노작 시세 기본값: 이름 + 부위 또는 장착 칸(무기류), 없으면 레벨별 기본값
 const lookup = (name, part, slot, level) => app.defaultBasePrice({ name, part, slot, level });
 assert.equal(JSON.stringify(lookup('에테르넬 시프반다나', '모자', '모자', 250)), JSON.stringify({ price: 0.3, registered: true }));
-assert.equal(JSON.stringify(lookup('에테르넬 시프글러브', '장갑', '장갑', 250)), JSON.stringify({ price: 20, registered: true }));
+assert.equal(JSON.stringify(lookup('에테르넬 시프글러브', '장갑', '장갑', 250)), JSON.stringify({ price: 17, registered: true }));
 assert.equal(JSON.stringify(lookup('데스티니 대거', '단검', '무기', 250)), JSON.stringify({ price: 100, registered: true }));
 assert.equal(JSON.stringify(lookup('처음 보는 반지', '반지', '반지1', 200)), JSON.stringify({ price: 0.1, registered: false }));
 console.log('clean-item default prices: OK');
@@ -79,3 +79,83 @@ chain = app.specUpActions();
 assert.equal(chain.map(a => a.item.slot).join(','), 'a,b,a');
 assert.equal(chain[2].star, 23);
 console.log('sequential stars: unlock, merge, interleave OK');
+
+// 5. 매물 교체: 비용 = 노작 + 스타포스 0→목표 성 + 서버 큐브·불꽃 기댓값, 아이템마다 효율이 가장 좋은 등급 하나만
+app.specUpPrices = {};
+app.report = {spec_up: {unit: 1e10}, results: [
+    {slot: 'a', name: '처음 보는 반지', part: '반지', level: 200, spec_up: [
+        {axis: '매물 교체', grade: 1, level: 200, star: 0, target_star: 17, listing_fixed: 5e9, gain: 10, final_damage: 1},
+        {axis: '매물 교체', grade: 2, level: 200, star: 0, target_star: 22, listing_fixed: 9e9, gain: 30, final_damage: 3},
+    ]},
+]};
+const listings = app.specUpActions();
+assert.equal(listings.length, 1);
+const expectedCost = 1e7 + app.starforceCost(200, 1e7, 0, listings[0].target_star) + listings[0].listing_fixed;  // 200제 반지 기본 노작 0.1억
+assert.ok(Math.abs(listings[0].cost - expectedCost) < 1e-3);
+assert.equal(app.specUpActions(true).length, 2);
+console.log('listing cost and best grade per item: OK');
+
+// 6. 교체를 추천한 칸은 그 뒤로 더 높은 수준(rank)의 교체만 남고, 지금 아이템 강화·낮은 매물은 숨깁니다
+app.report = {spec_up: {unit: 1e10}, results: [
+    {slot: 'a', name: '처음 보는 반지', part: '반지', level: 200, spec_up: [
+        {axis: '매물 교체', grade: 4, rank: 14, level: 200, star: 0, target_star: 22, listing_fixed: 1e9, gain: 50, final_damage: 5},
+        {axis: '상위 교체', grade: 2, rank: 22, level: 200, star: 0, target_star: 18, listing_fixed: 9e10, gain: 60, final_damage: 6},
+        {axis: '잠재', gain: 1, final_damage: 0.1, cost: 1e10},
+    ]},
+    {slot: 'b', name: 'B', spec_up: [{axis: '잠재', gain: 1, final_damage: 0.05, cost: 1e10}]},
+]};
+const ordered = app.specUpActions().map(a => a.item.slot + ':' + a.axis);
+assert.equal(ordered[0], 'a:매물 교체');
+assert.ok(!ordered.includes('a:잠재'));          // 교체 뒤 지금 아이템 강화는 숨김
+assert.ok(ordered.includes('a:상위 교체'));      // 더 높은 수준의 교체는 남음
+assert.ok(ordered.includes('b:잠재'));           // 다른 칸은 그대로
+console.log('replacement hides lower recommendations for the slot: OK');
+
+// 7. 같은 목표 아이템(광휘 반지 등)은 한 칸에만: 먼저 추천한 칸이 가져가면 다른 칸은 남은 후보로
+app.report = {spec_up: {unit: 1e10}, results: [
+    {slot: 'r1', name: '마이스터링', part: '반지', level: 140, spec_up: [
+        {axis: '상위 교체', grade: 4, rank: 34, level: 250, star: 0, target_star: 22, listing_fixed: 1e9, gain: 90, final_damage: 9, price_item: {name: '근원의 속삭임', level: 250}},
+    ]},
+    {slot: 'r2', name: '가디언 엔젤 링', part: '반지', level: 160, spec_up: [
+        {axis: '상위 교체', grade: 4, rank: 34, level: 250, star: 0, target_star: 22, listing_fixed: 1e9, gain: 80, final_damage: 8, price_item: {name: '근원의 속삭임', level: 250}},
+        {axis: '상위 교체', grade: 4, rank: 34, level: 250, star: 0, target_star: 22, listing_fixed: 1e9, gain: 70, final_damage: 7, price_item: {name: '황홀한 악몽', level: 250}},
+    ]},
+]};
+const rings = app.specUpActions().map(a => a.item.slot + '→' + a.price_item.name);
+assert.deepEqual(JSON.parse(JSON.stringify(rings)), ['r1→근원의 속삭임', 'r2→황홀한 악몽']);
+console.log('one ring per target, the other slot gets the remaining one: OK');
+
+// 8. 광휘 순서(chain)는 효율과 관계없이 앞 단계부터, 서로 다른 아이템 묶음은 아이템마다 노작 시세
+app.report = {spec_up: {unit: 1e10}, results: [
+    {slot: 'm', name: 'THE RED', part: '훈장', level: 0, spec_up: [
+        {axis: '상위 교체', chain: 1, rank: 30, level: 250, star: 0, target_star: 0, listing_fixed: 0, gain: 10, final_damage: 1, price_item: {name: '불멸의 유산', level: 250}},
+    ]},
+    {slot: 'r', name: '마이스터링', part: '반지', level: 140, spec_up: [
+        {axis: '상위 교체', chain: 2, rank: 31, level: 250, star: 0, target_star: 18, listing_fixed: 1e9, gain: 90, final_damage: 9,
+         slots: ['r', 'p'], bundle: true, pieces: 2,
+         price_items: [{name: '황홀한 악몽', level: 250}, {name: '죽음의 맹세', level: 250}]},
+    ]},
+]};
+const radiant = app.specUpActions();
+assert.deepEqual(JSON.parse(JSON.stringify(radiant.map(a => a.chain))), [1, 2]);  // 효율이 높아도 2단계는 1단계 뒤
+const craft = name => { const clean = Math.round(app.specUpPrice({ price_item: { name, level: 250 } }) * 1e8); return clean + app.starforceCost(250, clean, 0, 18); };
+assert.ok(Math.abs(radiant[1].cost - (craft('황홀한 악몽') + craft('죽음의 맹세') + 1e9)) < 1e-3);
+console.log('radiant chain order and per-item prices: OK');
+
+// 9. 광휘 교체 뒤 스타포스(after_chain)는 교체를 고른 뒤에만, 지금 아이템 스타포스와 섞이지 않고 이어지면 한 카드로
+const follow = (from, damage) => ({axis: '스타포스', after_chain: 2, prefix: '근원의 속삭임 ', label: `근원의 속삭임 ${from}→${from + 1}성`,
+    star: from, target_star: from + 1, level: 250, gain: damage * 10, final_damage: damage, index_gain: 1.2,
+    price_item: {name: '근원의 속삭임', part: '반지', level: 250}});
+app.report = {spec_up: {unit: 1e10}, results: [
+    {slot: 'r', name: '마이스터링', part: '반지', level: 140, spec_up: [
+        {axis: '스타포스', star: 17, target_star: 18, level: 140, gain: 1, final_damage: 0.001},
+        {axis: '상위 교체', chain: 2, rank: 31, level: 250, star: 0, target_star: 18, listing_fixed: 1e9, gain: 10, final_damage: 1,
+         price_item: {name: '근원의 속삭임', level: 250}},
+        follow(18, 50), follow(19, 50),
+    ]},
+]};
+const after = app.specUpActions();
+assert.deepEqual([...after.map(a => a.chain || a.label)], [2, '근원의 속삭임 18→20성']);  // 교체 → 이어진 스타포스
+assert.equal(after[1].index_gain, 2.4);  // 합친 카드의 지수 증가는 합
+assert.ok(!after.some(a => a.label === '17→18성'));  // 교체한 칸의 지금 아이템 스타포스는 숨김
+console.log('radiant follow-up starforce after the replacement: OK');
