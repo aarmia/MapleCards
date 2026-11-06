@@ -613,7 +613,7 @@ document.addEventListener('alpine:init', () => {
             const blocks = [
                 { key: 'potential', title: 'Potential', grade: raw.potential_grade, options: (raw.potential_options || []).filter(Boolean), category: '윗잠재' },
                 { key: 'additional', title: 'Additional', grade: raw.additional_grade, options: (raw.additional_options || []).filter(Boolean), category: '에디셔널' },
-                { key: 'soul', title: 'Soul', grade: null, options: raw.soul_options || [], category: '소울' },
+                { key: 'soul', title: 'Soul', grade: raw.soul_grade || null, stage: raw.soul_stage || null, options: raw.soul_options || [], category: '소울' },
             ];
             return blocks.filter(block => block.options.length || this.axisEntries(item, block.category).length);
         },
@@ -679,7 +679,7 @@ document.addEventListener('alpine:init', () => {
             }
             this.optionBlocks(item).forEach(block => {
                 cards.push({
-                    key: block.key, title: block.category, color: this.categoryColor(block.category), grade: block.grade,
+                    key: block.key, title: block.category, color: this.categoryColor(block.category), grade: block.grade, stage: block.stage,
                     total: this.axisTotalText(item, block.category), wide: block.key === 'soul',
                     lines: this.mergedLines(item, block).map(line => ({
                         text: line.text, sub: line.entry?.rule, dot: line.dot,

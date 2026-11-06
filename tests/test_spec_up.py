@@ -7,6 +7,7 @@ from app.calculator import calculate_item_score, flame_best_add_option
 from app.potential import reference_context
 from app.scoring_config import POTENTIAL
 from app.spec_up import (
+    amplify_tries,
     attach_spec_up,
     best_target,
     burst_share,
@@ -17,7 +18,9 @@ from app.spec_up import (
     potential_actions,
     potential_distribution,
     seed_ring_action,
+    soul_action,
 )
+from app.weapon import WeaponContext
 
 
 def str_pct(text):
@@ -125,6 +128,28 @@ class SpecUpTests(unittest.TestCase):
         self.assertAlmostEqual(sum(dist.values()), 1.0, places=9)
         best = calculate_item_score(flame_best_add_option(250, "나이트로드", "luk", context.sub_names, context), "나이트로드", "luk", context)
         self.assertAlmostEqual(max(dist), round(best, 1), places=1)
+
+    def test_soul_amplify_next_stage(self):
+        # 기대 시도 수: 게이지(실패당 확률 증가)와 확정을 반영한 값 (hoonjaelab 9.18회 · 19.11회와 같음)
+        self.assertAlmostEqual(amplify_tries(0.05, 0.01, 25), 9.18, places=2)
+        self.assertAlmostEqual(amplify_tries(0.015, 0.003, 50), 19.11, places=2)
+        context = reference_context("나이트로드", "luk")
+        weapon = WeaponContext(stats=context, ignore_defense=90)
+        item = {"soul_name": "위대한 데미안의 소울 적용", "soul_potential_amplified_grade": 2,
+                "soul_potential_option_1": "공격력 +4%", "soul_potential_option_2": "공격력 +3%",
+                "soul_potential_option_3": "몬스터 방어율 무시 +4%"}
+        action = soul_action(item, 200, context, weapon, 280, 0.0)
+        # 수치는 단계에 정비례: 2단계 → 3단계는 × 3/2
+        self.assertTrue(action["detail"].endswith("공격력 +6% · 공격력 +4.5% · 몬스터 방어율 무시 +6%"))
+        self.assertEqual(action["material"]["name"], "3단계 소울 에테르")
+        self.assertAlmostEqual(action["material"]["meso"], action["material"]["count"] * 1_750_000_000)
+        self.assertGreater(action["final_damage"], 0)
+        # 0단계는 레전드리 공% 두 줄을 가정, 4단계·위대한 소울 아님·200제 미만은 추천하지 않음
+        fresh = soul_action({"soul_name": "위대한 데미안의 소울 적용"}, 200, context, weapon, 280, 0.0)
+        self.assertEqual(fresh["detail"], "가정: 레전드리 공격력 +2% · 공격력 +1.5%")
+        self.assertIsNone(soul_action({**item, "soul_potential_amplified_grade": 4}, 200, context, weapon, 280, 0.0))
+        self.assertIsNone(soul_action({**item, "soul_name": "데미안의 소울 적용"}, 200, context, weapon, 280, 0.0))
+        self.assertIsNone(soul_action(item, 160, context, weapon, 280, 0.0))
 
 
 if __name__ == "__main__":

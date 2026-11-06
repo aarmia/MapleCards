@@ -30,7 +30,7 @@ def line_options(lines, level):
                 continue
             key, value = stat.lower(), int(value) * (level // int(interval))
         else:
-            match = re.fullmatch(r"(STR|DEX|INT|LUK|올스탯|공격력|마력|크리티컬 데미지|크리티컬 확률) \+(\d+)(%?)", line)
+            match = re.fullmatch(r"(STR|DEX|INT|LUK|올스탯|공격력|마력|크리티컬 데미지|크리티컬 확률) \+(\d+(?:\.\d+)?)(%?)", line)
             if not match:
                 cooldown = re.search(r"재사용 대기시간 -(\d+)초", line)
                 if cooldown:

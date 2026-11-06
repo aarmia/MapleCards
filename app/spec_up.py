@@ -1,10 +1,12 @@
 """스펙업 추천: 고정 프리셋에서 기대 비용 100억 메소당 최종뎀 증가율로 정렬합니다.
 
-행동은 아이템마다 축별로 하나씩 만듭니다 (방어구·장신구만, 무기류는 이후 단계).
+행동은 아이템마다 축별로 하나씩 만듭니다 (방어구·장신구, 무기는 소울 증폭만).
 - 스타포스: 다음 1성. 증가량 = 성별 증가표(scoring.toml starforce.gain)의 주스탯% 환산 차이. 비용은 노작 시세로 화면이 계산합니다.
 - 윗잠재·에디셔널: 메소 재설정으로 "환산 X% 이상"이 나올 때까지. 공식 줄별 확률(potential_odds.json)로 세 줄 합계 분포를 만들고,
   목표 X 마다 성공 확률 P 와 성공 시 기대값 E[V | V ≥ X] 를 구해 효율이 가장 높은 X 를 고릅니다.
   레전드리 미만이면 등급업 비용(천장 포함)을 더합니다.
+- 소울 증폭: 다음 1단계. 소울 잠재 수치가 단계에 정비례한다고 보고 지금 3줄 × (n+1)/n 로 증가를 구합니다.
+  0단계는 레전드리 공/마% 두 줄을 뽑아 쓴다고 가정합니다. 비용 = 기대 시도 수 × (메소 + 에테르 시세), 에테르 시세는 화면이 계산합니다.
 - 추가옵션: 메소 재설정으로 "N급 이상"이 나올 때까지. 19종 중 4종(중복 없음) × 단계 확률로 급수 분포를 정확히 계산하고
   같은 방식으로 목표를 고릅니다.
 주스탯%는 표시·목표 판정 단위로 유지합니다. 상시 옵션은 기존 옵션 제거 후 새 옵션을 적용한
@@ -14,6 +16,7 @@
 import itertools
 import json
 import math
+import re
 
 from app.calculator import calculate_item_score, starforce_option
 from app.damage_index import ReplacementModel, flame_options, line_options
@@ -22,6 +25,7 @@ from app.flame_damage import rewards as flame_rewards
 from app.potential import StatContext, analyze_lines, convert_line
 from app.scoring_config import DATA_DIR, POTENTIAL, SCORING, SPEC_UP, STARFORCE_COST
 from app.set_projection import DAWN, MEMBERS, PITCHED, RADIANT
+from app.weapon import _BOSS, _DAMAGE, _IED, WeaponContext, analyze_weapon_lines, soul_lines
 
 ODDS = json.loads((DATA_DIR / "potential_odds.json").read_text(encoding="utf-8"))
 EOK = 100_000_000  # 1억 메소
@@ -394,6 +398,73 @@ def seed_ring_action(name: str, level: int, class_name: str, context: StatContex
             "material": {"name": step["material"], "count": step["count"], "meso": step["meso"]}}
 
 
+SOUL_AXIS = "소울 증폭"
+_SOUL_NUMBER = re.compile(r"\+(\d+(?:\.\d+)?)")
+
+
+def amplify_tries(chance: float, step: float, pity: int) -> float:
+    """증폭 기대 시도 수: k번째 시도 확률 = chance + (k−1)·step, pity 번 연속 실패한 다음 시도는 확정."""
+    alive, expected = 1.0, 0.0
+    for k in range(1, pity + 2):
+        q = 1.0 if k == pity + 1 else min(1.0, chance + (k - 1) * step)
+        expected += alive * q * k
+        alive *= 1 - q
+    return expected
+
+
+def soul_damage(before: list, after: list, context: StatContext, weapon: WeaponContext, char_level: int,
+                damage_total: float) -> tuple[float, str]:
+    """소울 잠재 줄 교체의 최종 데미지(%). 스탯·공/마·크리는 ReplacementModel, 보공·데미지는 시드링과 같은 분모,
+    방무는 무기 환산과 같은 남은 방어율 비율. 특수 주스탯 직업은 무기 공% 환산값 ÷ 전투 중 공격력 배율."""
+    try:
+        model = ReplacementModel(context)
+    except ValueError:
+        units = analyze_weapon_lines(after, weapon, char_level)["score"] - analyze_weapon_lines(before, weapon, char_level)["score"]
+        return units / weapon.attack_multiplier, "legacy_special_stat"
+
+    def matched(lines, *patterns):
+        return [float(m[1]) for line in lines for m in (p.match(line) for p in patterns) if m]
+
+    stat = model.gain(line_options(before, char_level), line_options(after, char_level))
+    damage = 100 + damage_total + POTENTIAL.buff.damage_pct + POTENTIAL.buff.boss_damage_pct  # 스탯창(지금 줄 포함) + 도핑
+    damage_ratio = (damage - sum(matched(before, _BOSS, _DAMAGE)) + sum(matched(after, _BOSS, _DAMAGE))) / damage
+    defense, remaining = POTENTIAL.weapon.boss_defense / 100, weapon.remaining_defense
+    without = remaining / math.prod(1 - pct / 100 for pct in matched(before, _IED))
+    now = max(0.0, 1 - defense * remaining)
+    new = max(0.0, 1 - defense * without * math.prod(1 - pct / 100 for pct in matched(after, _IED)))
+    ied_ratio = new / now if now > 0 else 1.0
+    return 100 * ((1 + stat / 100) * damage_ratio * ied_ratio - 1), "direct"
+
+
+def soul_action(item: dict, level: int, context: StatContext, weapon: WeaponContext, char_level: int,
+                damage_total: float) -> dict | None:
+    """소울 증폭 다음 단계. 위대한 소울·요구 레벨 200 이상 무기만. 비용(에테르 시세 포함)은 화면이 계산합니다."""
+    soul = SPEC_UP.soul
+    if level < soul.min_level or soul.keyword not in (item.get("soul_name") or ""):
+        return None
+    stage = int(item.get("soul_potential_amplified_grade") or 0)
+    step = soul.amplify.get(str(stage + 1))
+    per_pct = final_damage_per_pct(context)
+    before = soul_lines(item)
+    if step is None or per_pct <= 0 or (stage > 0 and not before):
+        return None
+    if stage == 0:  # 레전드리 공/마% 두 줄을 뽑아 쓴다고 가정
+        label = "마력" if context.main_stat == "int" else "공격력"
+        before, after = [], [f"{label} +{value:g}%" for value in soul.first_lines]
+    else:
+        factor = (stage + 1) / stage
+        after = [_SOUL_NUMBER.sub(lambda m: f"+{float(m[1]) * factor:g}", line, count=1) for line in before]
+    final_damage, method = soul_damage(before, after, context, weapon, char_level, damage_total)
+    if final_damage <= 0:
+        return None
+    tries = amplify_tries(step["chance"], step["step"], step["pity"])
+    meso = tries * step["meso"]
+    return {"axis": SOUL_AXIS, "label": f"{stage}→{stage + 1}단계 (평균 {tries:.1f}회 · {step['material']} {tries:.1f}개 + {meso / EOK:.1f}억)",
+            "final_damage": final_damage, "model": method, "gain": final_damage / per_pct,
+            "detail": "가정: 레전드리 " + " · ".join(after) if stage == 0 else " · ".join(before) + " → " + " · ".join(after),
+            "material": {"name": step["material"], "count": tries, "meso": meso}}
+
+
 def finish(action: dict) -> dict:
     """화면용 반올림. 비용이 시세와 무관한 행동(잠재·추옵)만 서버가 효율을 붙이고, 스타포스·시드링은 화면이 시세로 계산합니다."""
     out = dict(action)
@@ -417,15 +488,17 @@ def recommendation_assumptions(context: StatContext, class_name: str) -> list[st
         f"쿨감 1초는 주스탯 {POTENTIAL.cooldown_per_second:g}% 상당의 고정 가정입니다. 직업별 실제 스킬 주기와 딜 상승을 재현하지 않습니다.",
         "스타포스 비용은 샤타 이벤트(15→16 확정 미포함)와 설정된 파괴 방지·복구 전략 기준입니다. 노작·연마석 시세는 실시간 시세가 아니며 직접 수정할 수 있습니다.",
         "잠재는 설정된 줄별 확률·등급업 천장 기준입니다. 기대 비용은 평균이지 예산 내 성공 보장이 아니며, 증가량은 목표 이상 결과들의 조건부 평균입니다.",
+        f"소울 증폭은 소울 잠재 수치가 단계에 정비례한다고 봅니다(공/마%·보공만 확인). 0→1단계는 레전드리 {'·'.join(f'{v:g}%' for v in SPEC_UP.soul.first_lines)} 공/마% 두 줄을 가정하며 잠재 재설정 비용은 넣지 않습니다. 비용은 게이지를 반영한 기대 시도 수 × (메소 + 에테르 시세)입니다.",
         f"시드링은 {class_name}의 리레 15초/20초 딜 비중 {s15*100:.2f}%/{s20*100:.2f}%, 컨티 가동률 {SPEC_UP.seed_ring.continuous['uptime']*100:g}%를 가정합니다. 직업표에는 비실측 자료가 포함되며 개인 캐릭터 실측값이 아닙니다.",
     ]
 
 
 def attach_spec_up(rows: list, items: list, context: StatContext, class_name: str, main_stat: str, char_level: int,
-                   exclude_names=(), damage_total: float = 0.0) -> dict:
+                   exclude_names=(), damage_total: float = 0.0, weapon: WeaponContext | None = None) -> dict:
     """진단 행마다 축별 강화 행동(row["spec_up"], 효율 내림차순)을 붙이고 전체 상위 행동을 돌려줍니다.
     items 는 진단한 아이템 전체(예비 특수 반지 포함)입니다.
-    도전자의 장비·무기류·특수 장비·놀장·이벤트 반지(exclude_names)는 제외하고, 슈페리얼은 스타포스를 빼고 계산합니다."""
+    도전자의 장비·무기류·특수 장비·놀장·이벤트 반지(exclude_names)는 제외하고, 슈페리얼은 스타포스를 빼고 계산합니다.
+    무기는 소울 증폭만 봅니다(weapon 이 있을 때)."""
     from app.calculator import max_starforce  # 순환 import 방지
 
     by_slot = {item.get("item_equipment_slot"): item for item in items}
@@ -457,6 +530,10 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
             continue
         if (not item or row["is_wse"] or row["is_special"] or row.get("is_noljang")
                 or any(keyword in row["name"] for keyword in exclude_names)):
+            if item and weapon is not None and row["slot"] == "무기" and not any(k in row["name"] for k in exclude_names):
+                action = soul_action(item, row["level"], context, weapon, char_level, damage_total)
+                row["spec_up"] = [finish(action)] if action else []
+                count += len(row["spec_up"])
             continue
         level, part, slot, name = row["level"], row["part"], row["slot"], row["name"]
         superior = superior_keyword in name
@@ -523,7 +600,7 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
 
 def pricing_config() -> dict:
     """화면이 시세로 비용을 계산하는 데 쓰는 설정 (페이지의 window.MECULATOR_PRICING).
-    starforce = 확률·비용 분모·이벤트·파괴 방지·복구, base_price = 노작 시세 기본값 표, materials = 연마석 기본 시세(억)."""
+    starforce = 확률·비용 분모·이벤트·파괴 방지·복구, base_price = 노작 시세 기본값 표, materials = 연마석·소울 에테르 기본 시세(억)."""
     raw = STARFORCE_COST.raw
     return {"starforce": {key: raw[key] for key in ("event", "odds", "cost_denominator", "prevention", "restore")},
-            "base_price": raw["base_price"], "materials": SPEC_UP.seed_ring.materials.raw}
+            "base_price": raw["base_price"], "materials": {**SPEC_UP.seed_ring.materials.raw, **SPEC_UP.soul.materials.raw}}

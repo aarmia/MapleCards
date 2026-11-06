@@ -78,6 +78,7 @@
                             <h4 class="text-xs font-black" :class="card.color" x-text="card.title"></h4>
                             <!-- :style 은 객체로 써야 x-show 의 display:none 을 덮어쓰지 않습니다 -->
                             <span x-show="card.grade" class="text-[9px] font-black px-2 py-0.5 rounded-full border text-white" :style="{ borderColor: getGradeColor(card.grade), backgroundColor: getGradeColor(card.grade) + '20' }" x-text="card.grade"></span>
+                            <span x-show="card.stage" class="text-[9px] font-black px-2 py-0.5 rounded-full border border-amber-400 bg-amber-400/20 text-amber-200" x-text="'증폭 ' + card.stage + '단계'"></span>
                             <span class="ml-auto text-sm font-black text-emerald-400 whitespace-nowrap" x-text="card.total"></span>
                         </div>
                         <ul class="space-y-1.5" :class="card.wide ? 'lg:grid lg:grid-cols-2 lg:gap-1.5 lg:space-y-0' : ''">

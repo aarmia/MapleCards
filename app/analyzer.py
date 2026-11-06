@@ -594,7 +594,8 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                 "guide_message": guide_message,
                 "detail": detail,
                 "bar_max": bar_max(item_req_level, name, part, benchmarks),
-                "raw_options": {**raw_options_dict, "soul_options": [e["option"] for e in (soul_analysis or {}).get("recognized", []) if not e.get("hidden")] + (soul_analysis or {}).get("unsupported", [])},
+                "raw_options": {**raw_options_dict, "soul_grade": item.get("soul_potential_grade"),
+                                "soul_stage": item.get("soul_potential_amplified_grade"), "soul_options": [e["option"] for e in (soul_analysis or {}).get("recognized", []) if not e.get("hidden")] + (soul_analysis or {}).get("unsupported", [])},
                 "scoring_basis": {
                     "main_stat": main_stat_label,
                     "recognized_options": recognized_options,
@@ -778,7 +779,7 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
     if profile["optimization"].get("method") == "saved_presets_boss_stat_index":
         damage_total = profile["optimization"]["damage"] + profile["optimization"]["boss_damage"]
     spec_up = attach_spec_up(evaluate_list, [*items, *extra_items], profile["context"], char_class, main_stat, char_level,
-                             GUIDES.names.limited, damage_total)
+                             GUIDES.names.limited, damage_total, profile["weapon"])
     overall_review, all_sorted_results = generate_overall_review(evaluate_list)
 
     return {
