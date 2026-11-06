@@ -188,6 +188,14 @@ class SpecUpTests(unittest.TestCase):
         self.assertTrue(all(a["price_item"]["name"] == "에테르넬 메이지숄더" for a in upgrades))  # 같은 직업군·같은 칸의 상위 계열
         self.assertIn("아케인셰이드 세트(마법사) 1→0", upgrades[0]["detail"])  # 세트 변화
         self.assertIn("에테르넬 세트(마법사) 0→1", upgrades[0]["detail"])
+        # 한벌옷(아케인) → 에테르넬 상의 + 하의 두 부위 묶음, 세트는 아케인 −1 · 에테르넬 +2
+        suit = {**shoulder, "item_equipment_part": "한벌옷", "item_equipment_slot": "상의", "item_name": "아케인셰이드 메이지슈트"}
+        row = evaluate_equipment([suit], "아크메이지(불,독)", 285, profile={"context": context})[0]
+        suits = [a for a in listing_actions(row, suit, context, "아크메이지(불,독)", "int", 285, {}, weapon=WeaponContext(context), items=[suit])
+                 if a["axis"] == "상위 교체"]
+        self.assertTrue(suits)
+        self.assertTrue(all(a["pieces"] == 2 and "에테르넬 메이지로브 + 에테르넬 메이지팬츠" in a["label"] for a in suits))
+        self.assertIn("에테르넬 세트(마법사) 0→2", suits[0]["detail"])
 
 
 if __name__ == "__main__":

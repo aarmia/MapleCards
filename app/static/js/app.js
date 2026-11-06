@@ -352,9 +352,9 @@ document.addEventListener('alpine:init', () => {
                 cost = this.starforceCost(action.level, Math.round(this.specUpPrice(action) * 1e8), action.star, action.target_star ?? action.star + 1);
             }
             if (action.material) cost = action.material.count * this.materialPrice(action) * 1e8 + action.material.meso;
-            if (action.listing_fixed !== undefined) {  // 매물 = 직접 만드는 기댓값: 노작 + 스타포스 0→목표 성 + 큐브·불꽃(서버)
+            if (action.listing_fixed !== undefined) {  // 매물 = 직접 만드는 기댓값: (노작 + 스타포스 0→목표 성) × 부위 수 + 큐브·불꽃·주문서(서버)
                 const clean = Math.round(this.specUpPrice(action) * 1e8);
-                cost = clean + this.starforceCost(action.level, clean, 0, action.target_star) + action.listing_fixed;
+                cost = (clean + this.starforceCost(action.level, clean, 0, action.target_star)) * (action.pieces || 1) + action.listing_fixed;
             }
             return { ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0,
                 damage_efficiency: cost > 0 ? action.final_damage / (cost / unit) : 0 };

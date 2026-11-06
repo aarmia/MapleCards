@@ -449,10 +449,11 @@ def set_fields_pct(fields: dict, context: StatContext, weapon: WeaponContext, ch
 
 def listing_actions(row: dict, item: dict, context: StatContext, class_name: str, main_stat: str, char_level: int,
                     memo: dict, standard: dict | None = None, weapon: WeaponContext | None = None, items: list | None = None) -> list[dict]:
-    """매물 교체 추천. 같은 아이템의 매물 등급(spec_up.toml [listing])과, 방어구면 같은 직업군·같은 칸의 상위 계열 아이템(카탈로그)까지.
+    """매물 교체 추천. 같은 아이템의 매물 등급(spec_up.toml [listing])과, 방어구면 같은 직업군의 상위 계열 아이템(카탈로그)까지.
     등급마다 하나씩 만들고 화면이 시세로 비용을 매겨 아이템·종류마다 효율이 가장 좋은 하나만 보여줍니다. 지금보다 나빠지면 만들지 않습니다.
+    교체 대상은 부품 목록입니다: 보통 한 개, 한벌옷(아케인·앱솔) → 에테르넬은 상의 + 하의 두 개.
     standard = {"total", "rows", "context", "weapon"} 가 있으면 교체로 오르는 메큘레이터 지수가 지금 지수의 min_index_gain_pct % 미만이면 뺍니다.
-    서버 비용(listing_fixed) = 잠재·에디 큐브 기댓값 × cube_cost_share + 추옵 불꽃 + 주문서. 노작 시세·스타포스 0→목표 성은 화면이 더합니다."""
+    서버 비용(listing_fixed) = 잠재·에디 큐브 기댓값 × cube_cost_share + 추옵 불꽃 + 주문서. 노작 시세·스타포스 0→목표 성은 화면이 더합니다(부품마다)."""
     from app.set_projection import ARMOR_SLOTS, count_sets, membership
 
     level, part, slot, current = row.get("level"), row.get("part") or "", row.get("slot"), row.get("total_score")
@@ -460,18 +461,16 @@ def listing_actions(row: dict, item: dict, context: StatContext, class_name: str
             or any(keyword in part for keyword in LISTING_PARTS_SKIP):
         return []
     std_row = (standard or {}).get("rows", {}).get(slot)
-    no_add = any(keyword in part or keyword in slot for keyword in SCORING.special_items.no_add_parts)
-    targets = [{  # 같은 아이템: 그대로인 몫(기본 옵션·익셉셔널)은 지금 행의 값
-        "axis": LISTING_AXIS, "name": None, "level": level, "part": part, "slot": slot,
-        "slots": sum(int(item.get(k) or 0) for k in ("scroll_upgrade", "scroll_upgradeable_count", "scroll_resilience_count")),
-        "has_add": "add" in (row.get("detail") or {}),
-        "fixed": {"own": _fixed_of(row.get("detail") or {}), "std": _fixed_of(std_row["detail"]) if std_row else None},
-        "set": {"own": 0.0, "std": 0.0}, "set_text": "",
-    }]
+    same_item = {"level": level, "part": part, "slot": slot,
+                 "slots": sum(int(item.get(k) or 0) for k in ("scroll_upgrade", "scroll_upgradeable_count", "scroll_resilience_count")),
+                 "has_add": "add" in (row.get("detail") or {}),
+                 # 같은 아이템: 그대로인 몫(기본 옵션·익셉셔널)은 지금 행의 값
+                 "fixed": {"own": _fixed_of(row.get("detail") or {}), "std": _fixed_of(std_row["detail"]) if std_row else None}}
+    targets = [{"axis": LISTING_AXIS, "names": [], "pieces": [same_item], "set": {"own": 0.0, "std": 0.0}, "set_text": ""}]
     group = membership(item)
     family = next((tier for tier in ARMOR_TIERS if group.startswith(tier)), None)
     if slot in ARMOR_SLOTS and family and weapon is not None and items is not None:
-        targets += _upgrade_targets(item, slot, group, family, no_add, items, context, weapon, standard, class_name, main_stat, char_level,
+        targets += _upgrade_targets(item, part, slot, group, family, items, context, weapon, standard, class_name, main_stat, char_level,
                                     count_sets, membership)
     actions = []
     for target in targets:
@@ -484,68 +483,80 @@ def _fixed_of(detail: dict) -> float:
     return detail.get("base", 0.0) + detail.get("exceptional", 0.0)
 
 
-def _upgrade_targets(item, slot, group, family, no_add, items, context, weapon, standard, class_name, main_stat, char_level,
+def _upgrade_targets(item, part, slot, group, family, items, context, weapon, standard, class_name, main_stat, char_level,
                      count_sets, membership) -> list[dict]:
-    """같은 직업군·같은 칸의 상위 계열 아이템 (카탈로그). 세트 변화는 세트 효과 표로 %p 환산"""
+    """같은 직업군의 상위 계열 아이템 (카탈로그). 세트 변화는 세트 효과 표로 %p 환산.
+    한벌옷 → 같은 칸 한벌옷(앱솔 → 아케인) 또는 상의 + 하의(에테르넬). 따로 된 상의·하의는 한벌옷으로 바꾸지 않습니다."""
     job = group[group.index("(") + 1:group.index(")")]
     api_names = tuple(CATALOG_SETS)
     before = count_sets(items, api_names)
+    overall = part == "한벌옷"
+    std_ctx, std_weapon = (standard or {}).get("context"), (standard or {}).get("weapon")
+
+    def find(tier, piece_slot, want_overall):
+        wanted = f"{tier} 세트({job})"
+        return next((name for name, entry in CATALOG_ITEMS.items()
+                     if entry.get("slot") == piece_slot and (entry.get("part") == "한벌옷") == want_overall
+                     and membership({"item_name": name, "item_equipment_slot": piece_slot}) == wanted), None)
+
     targets = []
     for tier in ARMOR_TIERS[ARMOR_TIERS.index(family) + 1:]:
-        wanted = f"{tier} 세트({job})"
-        for name, entry in CATALOG_ITEMS.items():
-            if entry.get("slot") != slot or membership({"item_name": name, "item_equipment_slot": slot}) != wanted:
-                continue
-            swapped = [{**other, "item_name": name} if other is item else other for other in items]
-            after = count_sets(swapped, api_names)
-            changes = {name_: (before[name_], after[name_]) for name_ in set(before) | set(after) if before[name_] != after[name_]}
-            delta = None
-            for set_name, (old, new) in changes.items():
-                old_fields, new_fields = set_effect_fields(set_name, old), set_effect_fields(set_name, new)
-                diff = {key: (new_fields[key] / old_fields[key] if key == "ied_ratio" else new_fields[key] - old_fields[key]) for key in new_fields}
-                delta = diff if delta is None else {key: (delta[key] * diff[key] if key == "ied_ratio" else delta[key] + diff[key]) for key in diff}
-
-            def set_pct(ctx, wctx):
-                return set_fields_pct(delta, ctx, wctx, char_level) if delta else 0.0
-
-            def base_pct(ctx, wctx):
-                return fixed_option_pct(entry.get("base") or {}, wctx, class_name, main_stat, char_level, False)
-            std_ctx, std_weapon = (standard or {}).get("context"), (standard or {}).get("weapon")
-            targets.append({
-                "axis": UPGRADE_AXIS, "name": name, "level": entry["level"], "part": entry.get("part") or slot, "slot": slot,
-                "slots": entry.get("slots", 0), "has_add": not no_add,
-                "fixed": {"own": base_pct(context, weapon), "std": base_pct(std_ctx, std_weapon) if std_ctx else None},
-                "set": {"own": set_pct(context, weapon), "std": set_pct(std_ctx, std_weapon) if std_ctx else 0.0},
-                "set_text": ", ".join(f"{set_name} {old}→{new}" for set_name, (old, new) in sorted(changes.items())),
-                "price_item": {"name": name, "part": entry.get("part"), "slot": slot, "level": entry["level"]},
-            })
+        if overall:  # 한벌옷: 같은 계열 한벌옷이 있으면 그것, 없으면(에테르넬) 상의 + 하의가 모두 카탈로그에 있을 때만
+            single = find(tier, slot, True)
+            top, bottom = find(tier, "상의", False), find(tier, "하의", False)
+            names = [single] if single else [top, bottom] if top and bottom else []
+        else:
+            names = [n for n in [find(tier, slot, False)] if n]
+        if not names:
+            continue
+        swapped = [{**other, "item_name": names[0]} if other is item else other for other in items]
+        swapped += [{"item_name": name, "item_equipment_slot": CATALOG_ITEMS[name]["slot"]} for name in names[1:]]
+        after = count_sets(swapped, api_names)
+        changes = {key: (before[key], after[key]) for key in set(before) | set(after) if before[key] != after[key]}
+        delta = None
+        for set_name, (old, new) in changes.items():
+            old_fields, new_fields = set_effect_fields(set_name, old), set_effect_fields(set_name, new)
+            diff = {key: (new_fields[key] / old_fields[key] if key == "ied_ratio" else new_fields[key] - old_fields[key]) for key in new_fields}
+            delta = diff if delta is None else {key: (delta[key] * diff[key] if key == "ied_ratio" else delta[key] + diff[key]) for key in diff}
+        pieces = []
+        for name in names:
+            entry = CATALOG_ITEMS[name]
+            base = entry.get("base") or {}
+            pieces.append({"level": entry["level"], "part": entry.get("part") or entry["slot"], "slot": entry["slot"], "slots": entry.get("slots", 0),
+                           "has_add": not any(k in (entry.get("part") or "") or k in entry["slot"] for k in SCORING.special_items.no_add_parts),
+                           "fixed": {"own": fixed_option_pct(base, weapon, class_name, main_stat, char_level, False),
+                                     "std": fixed_option_pct(base, std_weapon, class_name, main_stat, char_level, False) if std_ctx else None}})
+        targets.append({
+            "axis": UPGRADE_AXIS, "names": names, "pieces": pieces,
+            "set": {"own": set_fields_pct(delta, context, weapon, char_level) if delta else 0.0,
+                    "std": set_fields_pct(delta, std_ctx, std_weapon, char_level) if delta and std_ctx else 0.0},
+            "set_text": ", ".join(f"{set_name} {old}→{new}" for set_name, (old, new) in sorted(changes.items())),
+            "price_item": {"name": names[0], "part": CATALOG_ITEMS[names[0]].get("part"), "slot": slot, "level": pieces[0]["level"]},
+        })
     return targets
 
 
 def _grade_actions(target, current, std_row, context, standard, class_name, main_stat, char_level, memo) -> list[dict]:
-    """한 교체 대상(같은 아이템 또는 상위 아이템)을 6개 매물 등급 상태로 만들었을 때의 추천들"""
+    """한 교체 대상(부품 목록)을 6개 매물 등급 상태로 만들었을 때의 추천들. 부품마다 같은 등급 상태로 봅니다."""
     from app.calculator import calculate_item_score, flame_best_add_option, starforce_option
     from app.set_projection import ARMOR_SLOTS
 
     config = SPEC_UP.listing
-    level, part, slot, slots = target["level"], target["part"], target["slot"], target["slots"]
-    column = 0 if level >= 250 else 1
-    kind_of_slot = "armor" if slot in ARMOR_SLOTS else "accessory"
     attack_key = "magic_power" if main_stat == "int" else "attack_power"
     mains = ("str", "dex", "luk") if main_stat == "all_stat" else ("max_hp",) if main_stat == "hp" else (main_stat,)
-    add_scale = 1.0
-    if target["has_add"] and level < 200:  # 200제 미만은 200제 값을 레벨별 불꽃 최대 급수 비율로 줄입니다
+
+    def add_scale(level):  # 200제 미만은 200제 값을 레벨별 불꽃 최대 급수 비율로 줄입니다
+        if level >= 200:
+            return 1.0
         def best(lv):
             return calculate_item_score(flame_best_add_option(lv, class_name, main_stat, context.sub_names, context),
                                         class_name, main_stat=main_stat, context=context)
-        add_scale = best(level) / best(200) if best(200) > 0 else 1.0
+        return best(level) / best(200) if best(200) > 0 else 1.0
 
-    def value_of(ctx, fixed, set_value, star_option, pot, eddy, scroll, add):
-        def pct(option):
-            return calculate_item_score(option, class_name, main_stat=main_stat, context=ctx) * ctx.pct_per_flat
-        return fixed + set_value + pct(star_option) + pot + eddy + pct(scroll) + (add * ctx.pct_per_flat if add is not None else 0.0)
+    def pct(option, ctx):
+        return calculate_item_score(option, class_name, main_stat=main_stat, context=ctx) * ctx.pct_per_flat
 
-    def reach_cost(kind, wanted):
+    def reach_cost(kind, part, level, wanted):
         """레어에서 레전드리 등급업 후 wanted 이상이 나올 때까지의 기대 메소 (첫 레전드리 결과도 성공일 수 있음)"""
         key = ("listing", kind, part, level)
         if key not in memo:
@@ -556,51 +567,66 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
         legendary = _cost_row(SPEC_UP.cube[kind]["cost"], level)[-1] * EOK
         return grade_up_cost(kind, SPEC_UP.cube.grades[0], level) + (1 - chance) / chance * legendary
 
-    actions = []
-    for number, grade in enumerate(config.grades, 1):
+    def piece_state(piece, grade):
+        """부품 하나의 등급 상태: (스타포스 옵션, 윗잠, 에디, 주문서 옵션, 추옵 급수, 서버 비용, 주문서 문구) 또는 None"""
+        level, part, slot, slots = piece["level"], piece["part"], piece["slot"], piece["slots"]
+        column = 0 if level >= 250 else 1
         star_option = starforce_option(level, grade["star"], main_stat, context.sub_names, part)
-        if star_option is None:
-            continue
         pot, eddy = grade["pot"][column], grade["eddy"][column]
-        pot_cost, eddy_cost = reach_cost("potential", pot), reach_cost("additional", eddy)
-        if pot_cost is None or eddy_cost is None:
-            continue
+        pot_cost, eddy_cost = reach_cost("potential", part, level, pot), reach_cost("additional", part, level, eddy)
+        if star_option is None or pot_cost is None or eddy_cost is None:
+            return None
+        kind_of_slot = "armor" if slot in ARMOR_SLOTS else "accessory"
         rule = grade[kind_of_slot]
         scroll = {attack_key: rule.get("attack", 0) * slots + (rule.get("first_attack", rule.get("attack", 0)) - rule.get("attack", 0) if slots else 0)}
         for key in mains:
             scroll[key] = rule.get("main", 0) * slots
         cost = (pot_cost + eddy_cost) * config.cube_cost_share + slots * grade["scroll_cost"][kind_of_slot] * EOK
         add = None
-        if target["has_add"]:
-            add = round(grade["add"][column] * add_scale)
+        if piece["has_add"]:
+            add = round(grade["add"][column] * add_scale(level))
             key = ("listing_flame", level)
             if key not in memo:
                 memo[key] = flame_distribution(level, class_name, main_stat, context)
             chance = sum(p for value, p in memo[key].items() if value >= add - 1e-9)
             if chance <= 0:
-                continue
+                return None
             cost += SPEC_UP.flame.cost * EOK / chance
-        gain = value_of(context, target["fixed"]["own"], target["set"]["own"], star_option, pot, eddy, scroll, add) - current
+        return star_option, pot, eddy, scroll, add, cost, f"주문서 {slots}회 × {grade['scroll_cost'][kind_of_slot]:g}억"
+
+    actions = []
+    for number, grade in enumerate(config.grades, 1):
+        states = [piece_state(piece, grade) for piece in target["pieces"]]
+        if any(state is None for state in states):
+            continue
+
+        def value(kind, ctx):
+            return target["set"][kind] + sum(piece["fixed"][kind] + pct(star, ctx) + pot + eddy + pct(scroll, ctx)
+                                             + (add * ctx.pct_per_flat if add is not None else 0.0)
+                                             for piece, (star, pot, eddy, scroll, add, _, _) in zip(target["pieces"], states))
+        gain = value("own", context) - current
         if gain <= 0.05:
             continue
         index_gain = None
-        if std_row is not None and target["fixed"]["std"] is not None:  # 메큘레이터 지수가 의미 있게 오를 때만
-            index_gain = value_of(standard["context"], target["fixed"]["std"], target["set"]["std"], star_option, pot, eddy, scroll, add) \
-                - std_row["total_score"]
+        if std_row is not None and all(piece["fixed"]["std"] is not None for piece in target["pieces"]):  # 메큘레이터 지수가 의미 있게 오를 때만
+            index_gain = value("std", standard["context"]) - std_row["total_score"]
             if index_gain < standard["total"] * config.min_index_gain_pct / 100:
                 continue
+        _, pot, eddy, _, add, _, _ = states[0]
         spec = f"{grade['star']}성 · 윗잠 {pot:g}% · 에디 {eddy:g}%" + (f" · 추옵 {add}급" if add is not None else "")
-        if target["name"]:
-            spec = f"{target['name']} · {spec}"
+        if target["names"]:
+            spec = f"{' + '.join(target['names'])} · {spec}"
         notes = [f"기대 비용 = 노작 시세 + 스타포스 0→{grade['star']}성 + 잠재·에디 큐브 기댓값 × {config.cube_cost_share:g}"
-                 + (" + 추옵 불꽃" if add is not None else "") + f" + 주문서 {slots}회 × {grade['scroll_cost'][kind_of_slot]:g}억"]
+                 + (" + 추옵 불꽃" if add is not None else "") + " + " + " · ".join(state[6] for state in states)
+                 + (f" (부위 {len(states)}개)" if len(states) > 1 else "")]
         if target["set_text"]:
             notes.append(f"세트 {target['set_text']} ({target['set']['own']:+.1f}%p)")
         if index_gain is not None:
             notes.append(f"메큘레이터 지수 +{index_gain:.1f}P")
         action = {"axis": target["axis"], "label": spec + ("으로 교체" if spec.endswith("급") else "로 교체"), "grade": number,
-                  "final_damage": gain * final_damage_per_pct(context), "gain": gain, "model": "listing_linear", "level": level,
-                  "star": 0, "target_star": grade["star"], "listing_fixed": cost,
+                  "final_damage": gain * final_damage_per_pct(context), "gain": gain, "model": "listing_linear",
+                  "level": target["pieces"][0]["level"], "pieces": len(states),
+                  "star": 0, "target_star": grade["star"], "listing_fixed": sum(state[5] for state in states),
                   "index_gain": round(index_gain, 1) if index_gain is not None else None, "detail": " · ".join(notes)}
         if target.get("price_item"):
             action["price_item"] = target["price_item"]
