@@ -85,7 +85,6 @@ class SpecialPartTests(unittest.TestCase):
         expired = build_report("x", basic, {"item_equipment": [], "title": {**title, "date_option_expire": "2020-01-01T00:00+09:00"}}, stats)
         item = next(r for r in expired["results"] if r["part"] == "칭호")
         self.assertEqual(item["total_score"], 0)
-        self.assertIn("만료", item["guide"])
 
 
 if __name__ == "__main__":

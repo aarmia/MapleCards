@@ -1,6 +1,4 @@
 import logging
-import operator
-import re
 from collections import Counter
 
 from app.calculator import (
@@ -25,7 +23,7 @@ from app.equip_value import attach_values
 from app.potential import StatContext, best_armor_total, reference_context, standard_context
 from app.preset_optimizer import optimize_presets
 from app.preset_projection import active_items, project_context
-from app.scoring_config import GRADES, POTENTIAL, SCORING, load_guides
+from app.scoring_config import GRADES, POTENTIAL, SCORING
 from app.spec_up import attach_spec_up, seed_ring_value
 from app.special import (
     analyze_special_lines,
@@ -46,23 +44,6 @@ from app.weapon import (
 )
 
 logger = logging.getLogger(__name__)
-
-# 가이드 문구의 "[태그]" 부분. 프론트가 정규식으로 다시 파싱하지 않도록 서버에서 분리합니다.
-_GUIDE_TAG_PATTERN = re.compile(r"\[(.*?)\]")
-DEFAULT_GUIDE_TAG = "INFO"
-
-
-def split_guide(guide_text: str) -> tuple[str, str]:
-    """가이드 문구를 (태그, 본문)으로 나눕니다. 태그가 없으면 기본 태그를 돌려줍니다."""
-    text = (guide_text or "").strip()
-    match = _GUIDE_TAG_PATTERN.search(text)
-    if not match:
-        return DEFAULT_GUIDE_TAG, text
-
-    tag = match.group(1).strip() or DEFAULT_GUIDE_TAG
-    message = (text[: match.start()] + text[match.end():]).strip()
-    message = re.sub(r"\s{2,}", " ", message)
-    return tag, message
 
 
 class UnsupportedOptionRegistry:
@@ -134,74 +115,6 @@ def get_best_preset(
     return max(preset_scores, key=preset_scores.get)
 
 
-# ── 가이드 규칙 (app/data/guides.toml) ──
-# 규칙 표가 참조할 수 있는 필드. build_guide_context 가 만드는 키와 같아야 하며, 로더가 기동 시 대조합니다.
-GUIDE_FIELDS = {
-    "star", "star_next", "max_star", "at_cap", "level", "noljang", "limited",
-    "add_evaluated", "star_evaluated", "worst", "next", "min_ratio", "target_star_330", "target_star_17",
-    "target_star_21", "ratio", "add_ratio", "pot_ratio", "eddy_ratio",
-}
-SPECIAL_GUIDE_FIELDS = {"total", "expired"}
-GUIDES = load_guides(rule_fields=GUIDE_FIELDS, special_fields=SPECIAL_GUIDE_FIELDS)
-
-_OPERATORS = {"<": operator.lt, "<=": operator.le, ">": operator.gt, ">=": operator.ge, "==": operator.eq, "!=": operator.ne}
-
-
-def _rule_matches(rule: dict, context: dict, names: dict, item_name: str, part_name: str) -> bool:
-    name_any = rule.get("name_any")
-    if name_any is not None:
-        keywords = names[name_any] if isinstance(name_any, str) else name_any
-        if not any(keyword in item_name for keyword in keywords):
-            return False
-    part_any = rule.get("part_any")
-    if part_any is not None and not any(keyword in part_name for keyword in part_any):
-        return False
-    for field, op, value in rule.get("when", []):
-        other = context[value] if isinstance(value, str) else value
-        if not _OPERATORS[op](context[field], other):
-            return False
-    return True
-
-
-def select_guide(rules: list, context: dict, names: dict, item_name: str, part_name: str = "") -> str:
-    """위에서부터 조건이 모두 맞는 첫 규칙의 문구를 돌려줍니다. 마지막 규칙은 조건이 없어 항상 맞습니다."""
-    for rule in rules:
-        if _rule_matches(rule, context, names, item_name, part_name):
-            return rule["text"].format(**context)
-    raise ValueError("가이드 규칙에 기본 규칙이 없습니다")
-
-
-def build_guide_context(axes, star_val, part_name, item_name, ratio, item_req_level, is_noljang) -> dict:
-    """규칙 표가 비교할 값들. axes = 축 → (현재 %p, 만점 %p), ratio = 장비 만점 대비 %.
-    파생값(최대 스타포스, 가장 약한 축, 목표치)은 코드가 맡고 규칙 표는 조건과 문구만 가집니다."""
-    max_star = max_starforce(item_req_level, item_name, any(k in item_name for k in GUIDES.names.superior))
-    config = GUIDES.axes
-    add_evaluated = not any(k in part_name for k in config.no_add_parts)
-    star_evaluated = not any(k in part_name for k in config.no_star_parts)
-    keys = ("add", "pot", "pot_additional", "star")   # guides.toml axes.labels 순서
-    ratios = {key: axes[key][0] / axes[key][1] if axes.get(key) and axes[key][1] > 0 else 0.0 for key in keys}
-    # 가장 약한 축: 윗잠·에디·추옵·스타포스 순으로 비교 (같으면 앞의 축)
-    evaluated = [key for key in ("pot", "pot_additional", "add", "star")
-                 if key in axes and (key != "add" or add_evaluated) and (key != "star" or star_evaluated)]
-    ranked = sorted(((ratios[key], config.labels[keys.index(key)]) for key in evaluated), key=lambda entry: entry[0]) \
-        or [(0.0, config.labels[1])]
-    targets = GUIDES.targets
-    return {
-        "star": star_val, "star_next": star_val + 1, "max_star": max_star,
-        "at_cap": star_val >= SCORING.starforce.base_star or star_val >= max_star,
-        "level": item_req_level, "noljang": is_noljang,
-        "limited": any(keyword in item_name for keyword in GUIDES.names.limited),
-        "add_evaluated": add_evaluated, "star_evaluated": star_evaluated,
-        "worst": ranked[0][1], "next": ranked[1][1] if len(ranked) > 1 else ranked[0][1], "min_ratio": ranked[0][0],
-        "ratio": ratio, "add_ratio": ratios["add"], "pot_ratio": ratios["pot"], "eddy_ratio": ratios["pot_additional"],
-        "target_star_330": min(
-            targets.star_330_low if item_req_level <= targets.star_330_level_split else targets.star_330_high, max_star
-        ),
-        "target_star_17": min(targets.star_mid, max_star),
-        "target_star_21": targets.star_step if max_star >= targets.star_step else max_star,
-    }
-
-
 def exceptional_axis(item, part_name):
     """익셉셔널 강화 횟수: 대상 부위(potential.toml [exceptional].parts)면 횟수, 아니면 None"""
     if not any(keyword in (part_name or "") for keyword in POTENTIAL.exceptional.parts):
@@ -210,15 +123,6 @@ def exceptional_axis(item, part_name):
         return int((item.get("item_exceptional_option") or {}).get("exceptional_upgrade") or 0)
     except (TypeError, ValueError):
         return 0
-
-
-def get_special_part_guide(total_score, part_name, item_name, expired=False):
-    return select_guide(GUIDES.special_rule, {"total": total_score, "expired": expired}, GUIDES.names.raw, item_name, part_name)
-
-
-def get_dynamic_guide(axes, star_val, part_name, item_name, ratio, item_req_level, is_noljang=False):
-    context = build_guide_context(axes, star_val, part_name, item_name, ratio, item_req_level, is_noljang)
-    return select_guide(GUIDES.rule, context, GUIDES.names.raw, item_name)
 
 
 AXIS_LABEL = {"base": "기본 옵션", "scroll": "주문서", "add": "추가옵션", "star": "스타포스", "pot": "윗잠재", "pot_additional": "에디셔널",
@@ -235,7 +139,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
     context = profile["context"] if profile else reference_context(char_class, main_stat)
     weapon_context = (profile or {}).get("weapon") or WeaponContext(context)
 
-    # 점수 = 축마다 주스탯 %p 로 환산한 값의 합. 만점(같은 단위)은 테두리 색(만점 대비 %)·가이드 구간·총평에 씁니다.
+    # 점수 = 축마다 주스탯 %p 로 환산한 값의 합. 만점(같은 단위)은 테두리 색(만점 대비 %)과 총평에 씁니다.
     per_flat = context.pct_per_flat            # 고정 주스탯 1 = 유효 스탯 %  → 급수 × per_flat = %p
     per_unit = weapon_context.stat_pct_unit    # 유효 스탯 1% = 공 % 단위     → 무기류 공% ÷ per_unit = %p
     damage_total = weapon_context.damage + weapon_context.boss_damage
@@ -368,8 +272,6 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                 raw_axes["exceptional"] = upgrades
                 notes.append(f"익셉셔널: 오른 스탯을 환산한 가산 (현재 {upgrades}회)")
             fields = value_fields(pct_axes, raw_axes)
-            special_guide = get_special_part_guide(fields["score_ratio"], part, name, expired)
-            special_guide_tag, special_guide_message = split_guide(special_guide)
             evaluate_list.append({
                 "is_wse": False, "is_special": True, "is_noljang": False, "slot": slot, "part": part, "name": name, "icon": icon, "shape_icon": shape_icon, "star": 0, "level": item_req_level,
                 "total_score": fields["total_score"],
@@ -378,9 +280,6 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                 # 훈장·뱃지는 테두리 색을 매기지 않고, 뱃지는 점수도 보여주지 않으며 총평에서 뺍니다 (potential.toml [special]).
                 "graded": part not in POTENTIAL.special.no_grade_parts,
                 "scored": part not in POTENTIAL.special.no_score_parts,
-                "guide": special_guide,
-                "guide_tag": special_guide_tag,
-                "guide_message": special_guide_message,
                 "detail": fields["detail"],
                 "bar_max": fields["bar_max"],
                 "raw_options": {**raw_options_dict, "fixed_options": lines, "expired": expired, "special_ring_level": item.get("special_ring_level")},
@@ -457,7 +356,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             raw_axes["scroll"] = f"{safe_int(item.get('scroll_upgrade'))}/{slots}"
 
         soul_analysis, add_recognized, add_attack_tier = None, [], None
-        add_evaluated = not any(k in part or k in slot for k in GUIDES.axes.no_add_parts)
+        add_evaluated = not any(k in part or k in slot for k in SCORING.special_items.no_add_parts)
         if is_weapon:
             # 무기류는 공격력% 단위(app/weapon.py) → ÷ per_unit 로 %p. 무기는 추옵·스타포스·윗잠·에디·소울, 보조무기·엠블렘은 윗잠·에디(·보조무기 스타포스).
             group, tier = part_group(slot, part), tier_of(name)
@@ -523,8 +422,6 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
 
         if pot_analysis["score"] != -1:
             fields = value_fields(pct_axes, raw_axes)
-            guide_text = get_dynamic_guide(pct_axes, star, part, name, fields["score_ratio"], item_req_level, is_noljang)
-            guide_tag, guide_message = split_guide(guide_text)
             evaluate_list.append({
                 "is_wse": is_weapon, "is_special": False, "is_noljang": is_noljang, "slot": slot, "part": part, "name": name, "icon": icon, "shape_icon": shape_icon, "star": star, "level": item_req_level,
                 "total_score": fields["total_score"],
@@ -532,9 +429,6 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                 "benchmark_total": fields["benchmark_total"],
                 "graded": True,
                 "scored": True,
-                "guide": guide_text,
-                "guide_tag": guide_tag,
-                "guide_message": guide_message,
                 "detail": fields["detail"],
                 "bar_max": fields["bar_max"],
                 "raw_options": {**raw_options_dict, "soul_grade": item.get("soul_potential_grade"),
@@ -721,7 +615,7 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
     if profile["optimization"].get("method") == "saved_presets_boss_stat_index":
         damage_total = profile["optimization"]["damage"] + profile["optimization"]["boss_damage"]
     spec_up = attach_spec_up(evaluate_list, [*items, *extra_items], profile["context"], char_class, main_stat, char_level,
-                             GUIDES.names.limited, damage_total, profile["weapon"])
+                             SCORING.special_items.limited_names, damage_total, profile["weapon"])
     overall_review, all_sorted_results = generate_overall_review(evaluate_list)
     overall_review["standard_total"] = standard_total([*items, *extra_items], char_class, main_stat)
 

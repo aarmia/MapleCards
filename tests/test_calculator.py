@@ -7,9 +7,6 @@ from app.analyzer import (
     _preset_main_flat_delta,
     build_report,
     evaluate_equipment,
-    get_dynamic_guide,
-    select_guide,
-    split_guide,
     unsupported_registry,
 )
 from app.calculator import (
@@ -269,13 +266,6 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertIsNotNone(best)
         self.assertGreater(value, 0)
 
-    def test_ring_does_not_recommend_unavailable_add_option(self):
-        axes = {"pot": (108.9, 108.0), "pot_additional": (45.0, 40.0), "star": (50.0, 50.0)}
-        guide = get_dynamic_guide(axes, 22, "반지", "마이스터링", 102.0, 140)
-
-        self.assertNotIn("추가옵션", guide)
-        self.assertIn("종결", guide)
-
     def test_unsupported_option_is_warned_once_and_counted(self):
         item = dict(self.challenger_top)
         item["potential_option_2"] = "보스 몬스터 공격 시 데미지 +30%"
@@ -440,53 +430,6 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertAlmostEqual(by_level, 9 + 62 * flat1, places=2)
         self.assertAlmostEqual(unknown_level, 9 + 60 * flat1, places=2)
 
-    def test_guide_rules_match_in_order_and_fill_fields(self):
-        rules = [
-            {"name_any": "hearts", "when": [["total", ">=", 100]], "text": "하트 {star_next}성"},
-            {"when": [["star", "<", "max_star"], ["limited", "==", False]], "text": "강화 '{worst}'"},
-            {"text": "기본"},
-        ]
-        names = {"hearts": ["리튬 하트"]}
-        context = {"total": 120, "star": 17, "star_next": 18, "max_star": 22, "limited": False, "worst": "윗잠재"}
-
-        self.assertEqual(select_guide(rules, context, names, "리튬 하트"), "하트 18성")
-        self.assertEqual(select_guide(rules, context, names, "앱솔랩스 슈즈"), "강화 '윗잠재'")
-        self.assertEqual(select_guide(rules, {**context, "star": 22}, names, "앱솔랩스 슈즈"), "기본")
-
-    def test_split_guide_separates_tag_and_message(self):
-        self.assertEqual(
-            split_guide("👑 [종결] 완벽한 장비입니다. 23성 도전 외엔 투자가 무의미합니다."),
-            ("종결", "👑 완벽한 장비입니다. 23성 도전 외엔 투자가 무의미합니다."),
-        )
-        self.assertEqual(
-            split_guide("✅ 해당 부위는 표준 성능을 보여주고 있습니다."),
-            ("INFO", "✅ 해당 부위는 표준 성능을 보여주고 있습니다."),
-        )
-        self.assertEqual(split_guide(""), ("INFO", ""))
-
-    def test_evaluated_items_expose_guide_tag_and_message(self):
-        result = evaluate_equipment([self.challenger_top], "레테", 285)[0]
-
-        self.assertEqual(result["guide_tag"], "교체 시급")
-        self.assertNotIn("[", result["guide_message"])
-        self.assertIn(f"[{result['guide_tag']}]", result["guide"])
-
-    def test_black_heart_guide_has_a_tag(self):
-        black_heart = dict(self.challenger_top)
-        black_heart.update({
-            "item_equipment_part": "기계 심장",
-            "item_equipment_slot": "기계 심장",
-            "item_name": "블랙 하트",
-        })
-
-        result = evaluate_equipment([black_heart], "레테", 285)[0]
-
-        self.assertEqual(result["guide_tag"], "미지원")
-        self.assertIn("블랙 하트", result["guide_message"])
-
-
-
-class AddOptionEntriesTests(unittest.TestCase):
     def test_line_values_sum_to_add_option_score_for_every_stat_kind(self):
         option = {"str": "40", "dex": "42", "int": "30", "luk": "168", "max_hp": "2100",
                   "attack_power": "3", "magic_power": "4", "all_stat": "6"}
