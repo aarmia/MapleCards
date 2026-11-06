@@ -413,15 +413,15 @@ def next_soul_line(grade: str, line: int, stage: int, text: str) -> str:
 
 
 def soul_first_potential(attack_label: str) -> tuple[list[str], float, float]:
-    """0→1단계 뒤 소울 잠재: 레어에서 미라클로 레전드리까지 + 세 줄 중 공/마% 두 줄 이상이 나올 때까지 재설정.
-    (가정한 1단계 두 줄, 평균 메소, 두 줄 이상 확률)"""
+    """0→1단계 뒤 소울 잠재: 레어에서 미라클로 레전드리까지 + 첫 줄과 둘째·셋째 중 한 줄 이상이 공/마% 일 때까지 재설정.
+    둘째·셋째 줄만 공/마% 인 결과는 성공으로 보지 않습니다. (가정한 1단계 두 줄, 평균 메소, 1회 성공 확률)"""
     soul = SPEC_UP.soul
     meso = sum(expected_resets(chance * soul.miracle, pity) * cost
                for chance, pity, cost in zip(soul.grade_up, soul.pity, soul.reset_cost))
     pattern = re.compile(rf"^{attack_label} \+[\d.]+%$")
     lines = SOUL_TABLES[SPEC_UP.cube.grades[-1]]["1"]
     p1, p2, p3 = (sum(chance for text, chance in rows if pattern.match(text)) / 100 for rows in lines)
-    hit = p1 * p2 + p1 * p3 + p2 * p3 - 2 * p1 * p2 * p3
+    hit = p1 * (1 - (1 - p2) * (1 - p3))
     assumed = [max((row for row in rows if pattern.match(row[0])), key=lambda row: row[1])[0] for rows in lines[:2]]
     return assumed, (meso + soul.reset_cost[-1] / hit) * EOK, hit
 
@@ -480,7 +480,7 @@ def soul_action(item: dict, level: int, context: StatContext, weapon: WeaponCont
         after, potential, hit = soul_first_potential("마력" if context.main_stat == "int" else "공격력")
         meso += potential
         label += f" · 잠재 {potential / EOK:.1f}억"
-        detail = (f"가정: 레전드리 {' · '.join(after)} (미라클로 레어→레전드리 후 공/마% 두 줄 이상이 나올 때까지 재설정, 1회 {hit * 100:.2f}%)")
+        detail = (f"가정: 레전드리 {' · '.join(after)} (미라클로 레어→레전드리 후 첫 줄 포함 공/마% 두 줄이 나올 때까지 재설정, 1회 {hit * 100:.2f}%)")
     else:
         grade = item.get("soul_potential_grade") or ""
         after = [next_soul_line(grade, index, stage, text) for index, text in lines]
@@ -515,7 +515,7 @@ def recommendation_assumptions(context: StatContext, class_name: str) -> list[st
         f"쿨감 1초는 주스탯 {POTENTIAL.cooldown_per_second:g}% 상당의 고정 가정입니다. 직업별 실제 스킬 주기와 딜 상승을 재현하지 않습니다.",
         "스타포스 비용은 샤타 이벤트(15→16 확정 미포함)와 설정된 파괴 방지·복구 전략 기준입니다. 노작·연마석 시세는 실시간 시세가 아니며 직접 수정할 수 있습니다.",
         "잠재는 설정된 줄별 확률·등급업 천장 기준입니다. 기대 비용은 평균이지 예산 내 성공 보장이 아니며, 증가량은 목표 이상 결과들의 조건부 평균입니다.",
-        "소울 증폭은 지금 소울 잠재 줄을 넥슨 공식 확률표의 다음 단계 수치로 바꿔 비교합니다. 비용은 게이지를 반영한 기대 시도 수 × (메소 + 에테르 시세)입니다. 0→1단계는 소울 잠재가 레어로 생긴다고 보고 미라클 기준으로 레전드리까지 올린 뒤 공/마% 두 줄이 나올 때까지의 평균 재설정 비용을 더합니다.",
+        "소울 증폭은 지금 소울 잠재 줄을 넥슨 공식 확률표의 다음 단계 수치로 바꿔 비교합니다. 비용은 게이지를 반영한 기대 시도 수 × (메소 + 에테르 시세)입니다. 0→1단계는 소울 잠재가 레어로 생긴다고 보고 미라클 기준으로 레전드리까지 올린 뒤 첫 줄 포함 공/마% 두 줄이 나올 때까지의 평균 재설정 비용을 더합니다.",
         f"시드링은 {class_name}의 리레 15초/20초 딜 비중 {s15*100:.2f}%/{s20*100:.2f}%, 컨티 가동률 {SPEC_UP.seed_ring.continuous['uptime']*100:g}%를 가정합니다. 직업표에는 비실측 자료가 포함되며 개인 캐릭터 실측값이 아닙니다.",
     ]
 
