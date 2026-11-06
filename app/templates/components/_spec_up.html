@@ -35,7 +35,7 @@
         <div class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 shadow-sm animate-fade-in">
             <div class="flex flex-wrap md:flex-nowrap items-start gap-3">
                 <div x-show="!(action.swaps?.length > 1)" @click="openItemDetail(action.item)" class="relative p-1.5 rounded-2xl cursor-pointer hover:scale-110 transition-transform active:scale-95 shrink-0"
-                     :class="getBorderColor(action.item.score_ratio)">
+                     :class="specTarget(action) ? 'border-2 border-slate-200 bg-slate-50' : getBorderColor(action.item.score_ratio)">
                     <!-- 다른 아이템으로 바꾸는 추천은 그 아이템 아이콘과 매물 성(교체 뒤 스타포스는 시작 성) -->
                     <img :src="action.icon || action.item.icon" class="w-11 h-11 object-contain drop-shadow-sm" :alt="action.price_item?.name || action.item.name">
                     <span x-show="(action.icon ? (action.star || action.target_star) : action.item.star) > 0" class="absolute -top-2 -right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm bg-slate-900 text-white"
@@ -44,19 +44,21 @@
                 <div class="flex-1 min-w-0">
                     <p class="text-[10px] font-black tracking-widest uppercase text-slate-400"
                        x-text="'Priority ' + (index + 1) + ' · ' + (action.swaps?.length > 1 ? action.swaps.length + '부위 한꺼번에' : action.item.part)"></p>
-                    <h3 x-show="!(action.swaps?.length > 1)" class="font-black text-slate-800 tracking-tight text-base leading-snug break-keep" x-text="action.item.name"></h3>
-                    <!-- 여러 아이템을 한꺼번에 바꾸는 추천: 칸마다 한 줄 (지금 아이템 → 바꿀 아이템) -->
-                    <div x-show="action.swaps?.length > 1" class="mt-1.5 space-y-2">
+                    <!-- 아이콘이 바꿀 아이템이면 제목도 그 아이템으로 맞추고, 지금 아이템은 작게 둡니다 -->
+                    <h3 x-show="!(action.swaps?.length > 1)" class="font-black text-slate-800 tracking-tight text-base leading-snug break-keep" x-text="specTarget(action) || action.item.name"></h3>
+                    <p x-show="specTarget(action)" class="text-[11px] font-bold text-slate-400 break-keep" x-text="'지금 ' + action.item.name + '에서 교체'"></p>
+                    <!-- 여러 아이템을 한꺼번에 바꾸는 추천: 한 상자 안에 칸마다 한 줄 (바꿀 아이템, 아래에 칸 · 지금 아이템).
+                         목표 성은 아래 설명(18성 · …)에 있어 아이콘의 성 배지는 두지 않습니다. -->
+                    <div x-show="action.swaps?.length > 1" class="mt-1.5 rounded-xl border border-slate-100 bg-slate-50/70 divide-y divide-slate-100">
                         <template x-for="swap in (action.swaps || [])" :key="swap.slot">
-                            <div class="flex items-center gap-2.5">
-                                <div class="relative p-1 rounded-xl border border-slate-200 bg-slate-50 shrink-0">
-                                    <img :src="swap.icon || action.item.icon" class="w-9 h-9 object-contain drop-shadow-sm" :alt="swap.to">
-                                    <span x-show="action.target_star > 0" class="absolute -top-2 -right-2 text-[9px] font-bold px-1 py-0.5 rounded-full border-2 border-white shadow-sm bg-slate-900 text-white"
-                                          x-text="action.target_star + '★'"></span>
+                            <div class="flex items-center gap-2.5 px-2.5 py-2">
+                                <div class="p-0.5 rounded-lg border border-slate-200 bg-white shrink-0">
+                                    <img :src="swap.icon || action.item.icon" class="w-8 h-8 object-contain" :alt="swap.to">
                                 </div>
                                 <div class="min-w-0">
-                                    <p class="text-[10px] font-bold text-slate-400 break-keep" x-text="swap.slot + (swap.from ? ' · ' + swap.from : '')"></p>
-                                    <p class="text-sm font-black text-slate-800 leading-snug break-keep" x-text="'→ ' + swap.to"></p>
+                                    <p class="text-sm font-black text-slate-800 leading-tight break-keep" x-text="swap.to"></p>
+                                    <p class="text-[11px] font-bold text-slate-400 leading-tight break-keep"
+                                       x-text="swap.slot + (swap.from ? ' · 지금 ' + swap.from + '에서 교체' : '')"></p>
                                 </div>
                             </div>
                         </template>
@@ -64,7 +66,7 @@
                     <p class="mt-1 text-[13px] font-bold text-slate-700 break-keep">
                         <span class="inline-block mr-1 text-[10px] px-1.5 py-0.5 rounded font-black text-white align-middle"
                               :class="action.listing_fixed !== undefined ? 'bg-green-700' : 'bg-blue-600'" x-text="action.axis"></span>
-                        <span x-text="action.swaps?.length > 1 ? action.spec_label : action.label"></span>
+                        <span x-text="specActionLabel(action)"></span>
                     </p>
                     <p x-show="action.detail" class="mt-0.5 text-[11px] font-bold text-slate-500 break-keep" x-text="action.detail"></p>
                     <p x-show="action.combo" class="mt-0.5 text-[11px] font-bold text-slate-500 break-keep"
@@ -84,11 +86,11 @@
             </div>
 
             <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-[12px]">
-                <div class="rounded-lg bg-slate-50 px-2.5 py-2">
-                    <p class="text-[10px] font-bold text-slate-400">주스탯% 환산 증가 (추정)</p>
+                <div class="rounded-lg bg-slate-50 px-2.5 py-2" :class="action.price_items?.length > 1 ? 'md:col-span-2' : ''">
+                    <p class="text-[10px] font-bold text-slate-400">주스탯% 환산 증가</p>
                     <p class="font-black text-slate-700 tabular-nums" x-text="'+' + action.gain.toFixed(2) + '%'"></p>
                 </div>
-                <div class="rounded-lg bg-slate-50 px-2.5 py-2">
+                <div class="rounded-lg bg-slate-50 px-2.5 py-2" :class="action.price_items?.length > 1 ? 'md:col-span-2' : ''">
                     <p class="text-[10px] font-bold text-slate-400">기대 비용</p>
                     <p class="font-black text-slate-700 tabular-nums" x-text="formatMeso(action.cost)"></p>
                 </div>
@@ -154,7 +156,7 @@
                     <div class="col-span-2 rounded-lg bg-amber-50 border border-amber-100 px-2.5 py-2">
                         <label class="flex items-center gap-2">
                             <span class="text-[10px] font-bold text-amber-700 shrink-0"
-                                  x-text="action.price_items && action.price_items.length > 1 ? priced.price_item.name + ' 노작 시세' : '노작 시세'"></span>
+                                  x-text="(action.price_items && action.price_items.length > 1) || specTarget(action) ? priced.price_item.name + ' 노작 시세' : '노작 시세'"></span>
                             <input type="text" inputmode="decimal" autocomplete="off" x-data="{ draft: null }"
                                    @focus="freezeSpecUp(specActions)" @blur="draft = null; unfreezeSpecUp()" @keydown.enter="$event.target.blur()"
                                    class="w-24 rounded border bg-white px-2 py-1 text-right font-black text-slate-700 tabular-nums"

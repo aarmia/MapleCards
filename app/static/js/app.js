@@ -474,6 +474,29 @@ document.addEventListener('alpine:init', () => {
 
         // 노작 시세(억): 사용자가 바꾼 값, 없으면 기본값 표(starforce_cost.toml base_price)에서 찾은 값
         // 노작 시세의 대상: 상위 교체는 바꿀 아이템(price_item), 그 외는 지금 아이템
+        // 다른 아이템으로 바꾸는 추천(상위 교체와 그 뒤의 스타포스)의 바꿀 아이템 이름. 같은 아이템이면 null
+        specTarget(action) {
+            if (!action?.icon || action.swaps?.length > 1) return null;
+            const name = action.price_item?.name;
+            return name && name !== action.item?.name ? name : null;
+        },
+
+        // 카드 설명 줄: 매물 교체는 없음, 상위 교체는 세트 변화만, 나머지는 서버 설명 그대로
+        specActionNote(action) {
+            if (action.axis === '매물 교체') return '';
+            if (action.axis === '상위 교체') return action.set_change || '';
+            return action.detail || '';
+        },
+
+        // 카드 제목이 바꿀 아이템이면 설명 앞의 같은 이름을 뺍니다 ("근원의 속삭임 18→19성" → "18→19성").
+        specActionLabel(action) {
+            const label = action.swaps?.length > 1 ? action.spec_label : action.label;
+            const target = this.specTarget(action);
+            if (!target || !label?.startsWith(target)) return label;
+            const rest = label.slice(target.length);
+            return /^( · | (?=\d))/.test(rest) ? rest.replace(/^( · | )/, '') : label;
+        },
+
         priceItem(action) {
             return action.price_item || action.item;
         },
