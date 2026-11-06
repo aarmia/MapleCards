@@ -285,9 +285,9 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             option.update(dict.fromkeys(("str", "dex", "int", "luk"), rule["all_stat"] * slots))
         else:
             option.update(dict.fromkeys(("str", "dex", "luk") if main_stat == "all_stat" else (main_stat,), rule["main_stat"] * slots))
-        for key in ("str", "dex", "int", "luk"):  # 특정 스탯만 오르는 옵션 (방패 DEX 등)
-            if key in rule:
-                option[key] = option.get(key, 0) + rule[key] * slots
+        if "sub_stat" in rule and context.sub_names:  # 부스탯 하나만 오르는 옵션 (방패: DEX, 법사는 LUK)
+            sub = "dex" if "DEX" in context.sub_names else context.sub_names[0].lower()
+            option[sub] = option.get(sub, 0) + rule["sub_stat"] * slots
         return option
 
     def exceptional_pct(item):
