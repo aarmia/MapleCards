@@ -60,6 +60,15 @@ class WeaponConversionTests(unittest.TestCase):
         # 데스티니 표(공 13%)는 제네시스·보조·엠블렘 표(공 12%)보다 기준점이 높습니다
         self.assertGreater(best_lines_total("potential", "weapon", c, 285, "destiny"), best_lines_total("potential", "weapon", c, 285, "default"))
 
+    def test_index_leaves_out_secondary_scrolls_only(self):
+        from app.analyzer import standard_total
+        shield = weapon_item("보조무기", "방패", item_base_option={"base_equipment_level": 200, "attack_power": "7"},
+                             scroll_upgrade="5", item_etc_option={"str": "150", "attack_power": "50"})
+        bare = {**shield, "item_etc_option": {}}
+        row = evaluate_equipment([shield], "히어로", 285)[0]
+        self.assertGreater(row["detail"]["scroll"], 0)  # 장비 점수에는 주문서 축이 그대로
+        self.assertAlmostEqual(standard_total([shield], "히어로", "str"), standard_total([bare], "히어로", "str"), delta=0.2)  # 지수에서만 뺌 (반올림 오차)
+
     def test_flame_all_stat_is_a_percentage(self):
         # 불꽃 올스탯은 % (API all_stat 5 = 올스탯 5%). 고정 올스탯으로 읽으면 주스탯 몇 점보다도 작아집니다.
         _, entries = weapon_add_value({"all_stat": "5", "str": "60"}, self.context, 280)

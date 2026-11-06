@@ -22,7 +22,7 @@ from app.character_profile import build_character_profile
 from app.combat_power import adjust_combat_power
 from app.crit_damage import growth_crit_damage
 from app.equip_value import attach_values
-from app.potential import StatContext, best_armor_total, reference_context
+from app.potential import StatContext, best_armor_total, reference_context, standard_context
 from app.preset_optimizer import optimize_presets
 from app.preset_projection import active_items, project_context
 from app.scoring_config import GRADES, POTENTIAL, SCORING, load_guides
@@ -561,10 +561,15 @@ def counted_items(evaluate_list):
 
 
 def standard_total(items, char_class, main_stat):
-    """메큘레이터 지수(화면 단위 P): 모든 캐릭터에 같은 기준 캐릭터(potential.toml [reference], 같은 레벨·스탯)의 계수로 환산한 장비 점수 합.
-    내 캐릭터 기준 합계는 캐릭터마다 '주스탯 1%' 의 크기가 달라 캐릭터끼리 비교할 수 없어서, 비교용으로 따로 계산합니다."""
-    rows = evaluate_equipment(items, char_class, POTENTIAL.reference.level, main_stat=main_stat)
-    return round(sum(item["total_score"] for item in counted_items(rows)), 1)
+    """메큘레이터 지수(화면 단위 P): 모든 캐릭터에 같은 기준 캐릭터(potential.toml [standard], 실제 캐릭터 계수의 중앙값)로 환산한
+    장비 점수 합. 내 캐릭터 기준 합계는 캐릭터마다 '주스탯 1%' 의 크기가 달라 캐릭터끼리 비교할 수 없어서, 비교용으로 따로 계산합니다.
+    보조무기 주문서 축은 장비 점수에는 그대로 두고 이 지수에서만 뺍니다."""
+    std = POTENTIAL.standard
+    context = standard_context(char_class, main_stat)
+    weapon = WeaponContext(context, damage=float(std.damage), boss_damage=float(std.boss_damage), ignore_defense=float(std.ignore_defense))
+    rows = counted_items(evaluate_equipment(items, char_class, std.level, main_stat=main_stat, profile={"context": context, "weapon": weapon}))
+    secondary_scroll = sum(row["detail"].get("scroll", 0) for row in rows if row["slot"] == "보조무기")
+    return round(sum(row["total_score"] for row in rows) - secondary_scroll, 1)
 
 
 def generate_overall_review(evaluate_list):

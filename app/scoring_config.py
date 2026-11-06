@@ -257,6 +257,8 @@ _POTENTIAL_SPEC = {
     "ap": {"base": NUMBER, "per_level": NUMBER},
     "bounds": {"pct_per_flat": list, "pct_per_attack": list, "pct_per_crit_damage": list},
     "reference": {k: NUMBER for k in ("level", "base_stat", "stat_pct", "attack", "crit_damage", "crit_rate")},
+    "standard": {k: NUMBER for k in ("level", "base_stat", "stat_pct", "exempt_stat", "final_main", "final_sub", "attack",
+                                     "attack_multiplier", "crit_damage", "crit_rate", "damage", "boss_damage", "ignore_defense")},
     "exempt_estimate": {"bands": list},
     "hyper_stat": {"main_stat_per_level": NUMBER},
     "crit_rate": {"zero_threshold": NUMBER, "reinforce_ratio": NUMBER, "reinforce_uptime": NUMBER},
