@@ -352,6 +352,10 @@ document.addEventListener('alpine:init', () => {
                 cost = this.starforceCost(action.level, Math.round(this.specUpPrice(action) * 1e8), action.star, action.target_star ?? action.star + 1);
             }
             if (action.material) cost = action.material.count * this.materialPrice(action) * 1e8 + action.material.meso;
+            if (action.listing_fixed !== undefined) {  // 매물 = 직접 만드는 기댓값: 노작 + 스타포스 0→목표 성 + 큐브·불꽃(서버)
+                const clean = Math.round(this.specUpPrice(action) * 1e8);
+                cost = clean + this.starforceCost(action.level, clean, 0, action.target_star) + action.listing_fixed;
+            }
             return { ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0,
                 damage_efficiency: cost > 0 ? action.final_damage / (cost / unit) : 0 };
         },
@@ -394,6 +398,16 @@ document.addEventListener('alpine:init', () => {
                 for (const action of item.spec_up || []) rows.push(this.priceAction({ ...action, item }, unit));
             }
             if (raw) return rows;
+            // 매물 교체는 아이템마다 효율이 가장 좋은 등급 하나만 남깁니다 (시세에 따라 바뀌므로 화면에서 고릅니다).
+            const bestListing = {};
+            for (const a of rows) {
+                if (a.listing_fixed === undefined) continue;
+                const kept = bestListing[a.item.slot];
+                if (!kept || a.damage_efficiency > kept.damage_efficiency) bestListing[a.item.slot] = a;
+            }
+            for (let i = rows.length - 1; i >= 0; i--) {
+                if (rows[i].listing_fixed !== undefined && bestListing[rows[i].item.slot] !== rows[i]) rows.splice(i, 1);
+            }
             // 같은 아이템의 스타포스는 낮은 성부터: 슬롯별 대기열의 맨 앞만 고를 수 있습니다.
             const queues = {};
             for (const a of rows) if (a.axis === '스타포스') (queues[a.item.slot] ||= []).push(a);

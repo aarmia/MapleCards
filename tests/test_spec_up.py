@@ -15,6 +15,7 @@ from app.spec_up import (
     final_damage_per_pct,
     flame_distribution,
     flame_steps,
+    listing_actions,
     potential_actions,
     potential_distribution,
     seed_ring_action,
@@ -29,7 +30,7 @@ def str_pct(text):
 
 
 class SpecUpTests(unittest.TestCase):
-    def test_challenger_items_skip_all_upgrade_paths_and_keep_scores(self):
+    def test_challenger_items_get_listing_only_and_keep_scores(self):
         context = reference_context("나이트로드", "luk")
         for name in ("도전자의 모자", "도전자의 컨티뉴어스 링", "강화된 도전자의 장갑"):
             for source in ("row", "api"):
@@ -38,10 +39,11 @@ class SpecUpTests(unittest.TestCase):
                            "total_score": 42, "score_ratio": 80, "spec_up": [{"stale": True}]}
                     item = {"item_equipment_slot": "모자", "item_name": name if source == "api" else "일반 모자"}
                     with patch("app.spec_up.starforce_action") as star, patch("app.spec_up.potential_actions") as potential, \
-                            patch("app.spec_up.flame_distribution") as flame, patch("app.spec_up.seed_ring_action") as ring:
+                            patch("app.spec_up.flame_distribution") as flame, patch("app.spec_up.seed_ring_action") as ring,                             patch("app.spec_up.listing_actions", return_value=[]) as listing:
                         report = attach_spec_up([row], [item], context, "나이트로드", "luk", 298)
                         for action in (star, potential, flame, ring):
-                            action.assert_not_called()
+                            action.assert_not_called()  # 강화 추천은 만들지 않고
+                        listing.assert_called_once()  # 매물 교체만 봅니다
                     self.assertEqual(row["spec_up"], [])
                     self.assertEqual((row["total_score"], row["score_ratio"]), (42, 80))
                     self.assertEqual(report["count"], 0)
@@ -151,6 +153,21 @@ class SpecUpTests(unittest.TestCase):
         self.assertIsNone(soul_action({**item, "soul_potential_amplified_grade": 4}, 200, context, weapon, 280, 0.0))
         self.assertIsNone(soul_action({**item, "soul_name": "데미안의 소울 적용"}, 200, context, weapon, 280, 0.0))
         self.assertIsNone(soul_action(item, 160, context, weapon, 280, 0.0))
+
+    def test_listing_grades_rise_and_carry_the_crafting_cost(self):
+        from app.analyzer import evaluate_equipment
+        item = {"item_equipment_part": "모자", "item_equipment_slot": "모자", "item_name": "에테르넬 시프반다나", "starforce": "17",
+                "item_base_option": {"base_equipment_level": 250, "luk": "80", "dex": "80"}, "potential_option_grade": "레전드리",
+                "potential_option_1": "LUK +13%", "item_add_option": {"luk": "84"}, "item_etc_option": {}, "item_starforce_option": {},
+                "scroll_upgrade": "0", "scroll_upgradeable_count": "12", "scroll_resilience_count": "0"}
+        context = reference_context("나이트로드", "luk")
+        row = evaluate_equipment([item], "나이트로드", 285, profile={"context": context})[0]
+        actions = listing_actions(row, item, context, "나이트로드", "luk", 285, {})
+        self.assertTrue(actions)
+        self.assertEqual([a["grade"] for a in actions], sorted(a["grade"] for a in actions))
+        self.assertEqual([a["final_damage"] for a in actions], sorted(a["final_damage"] for a in actions))  # 높은 등급일수록 큼
+        self.assertTrue(all(a["listing_fixed"] > 0 and a["star"] == 0 for a in actions))  # 큐브·불꽃 기댓값 (노작·스타포스는 화면)
+        self.assertEqual(listing_actions({**row, "total_score": 10_000}, item, context, "나이트로드", "luk", 285, {}), [])  # 더 좋은 장비면 없음
 
 
 if __name__ == "__main__":

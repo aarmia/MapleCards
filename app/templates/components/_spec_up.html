@@ -118,7 +118,7 @@
                         </label>
                     </div>
                 </template>
-                <template x-if="action.axis === '스타포스'">
+                <template x-if="action.axis === '스타포스' || action.listing_fixed !== undefined">
                     <div class="col-span-2 rounded-lg bg-amber-50 border border-amber-100 px-2.5 py-2">
                         <label class="flex items-center gap-2">
                             <span class="text-[10px] font-bold text-amber-700 shrink-0">노작 시세</span>

@@ -26,6 +26,58 @@ grade_up = [0.02381, 0.009804, 0.007]
 pity = [62, 152, 214]
 min_step = 1.0
 
+# ── 매물 교체 (같은 아이템, 방어구·장신구) ──
+# 등급마다 [250제, 200제 이하] 값. pot·eddy 는 윗잠재·에디셔널의 주스탯 %p, add 는 추옵 급수(200제 미만은 200제 값 × 레벨별 불꽃 최대 급수 비율).
+# 주문서는 1작당 옵션: armor(방어구) · accessory(장신구). first_attack 이 있으면 첫 작만 그 공/마, 나머지는 attack.
+# 매물 비용 = 직접 만드는 기댓값: 노작 시세 + 스타포스 0→star 성(화면) + 윗잠재·에디셔널 레어→목표 큐브 + 추옵 불꽃 (주문서 비용은 넣지 않음).
+[[listing.grades]]
+star = 17
+pot = [17, 15]
+eddy = [8, 6]
+add = [150, 135]
+armor = { main = 7 }
+accessory = { attack = 4 }
+
+[[listing.grades]]
+star = 18
+pot = [23, 21]
+eddy = [8, 6]
+add = [165, 150]
+armor = { main = 7 }
+accessory = { attack = 4 }
+
+[[listing.grades]]
+star = 21
+pot = [30, 27]
+eddy = [10, 8]
+add = [175, 155]
+armor = { main = 10 }
+accessory = { attack = 4, first_attack = 6 }
+
+[[listing.grades]]
+star = 22
+pot = [33, 30]
+eddy = [14, 12]
+add = [180, 160]
+armor = { main = 10 }
+accessory = { attack = 4, first_attack = 6 }
+
+[[listing.grades]]
+star = 22
+pot = [36, 33]
+eddy = [16, 14]
+add = [190, 170]
+armor = { attack = 6, main = 1.5 }
+accessory = { attack = 6, main = 1.5 }
+
+[[listing.grades]]
+star = 23
+pot = [36, 33]
+eddy = [21, 18]
+add = [205, 185]
+armor = { attack = 6, main = 2.25 }
+accessory = { attack = 6, main = 2.25 }
+
 # ── 시드링 (리스트레인트 링 · 컨티뉴어스 링) ──
 # 레벨별 효과 출처: 나무위키 「특수 스킬 반지」 (2026-11-05 확인).
 # 리스트레인트: 극딜에 맞춰 켜지는 구간 버프(실제 사용 간격은 쿨감에 따라 120초보다 짧음). 가치 = 구간 딜 비중(burst_share) × 구간 안 공/마 상대 증가.

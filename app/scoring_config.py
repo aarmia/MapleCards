@@ -304,6 +304,7 @@ def load_spec_up(path: Path = DATA_DIR / "spec_up.toml") -> Section:
         "flame": {"cost": NUMBER, "first_step": NUMBER, "step": NUMBER, "tiers": list, "tier_odds": list, "boss_bonus": NUMBER,
                   "lines": NUMBER, "options": list},
         "seed_ring": {"restraint": dict, "continuous": dict, "upgrade": dict, "materials": dict, "burst_share": dict},
+        "listing": {"grades": list},
         "soul": {"min_level": NUMBER, "keyword": str, "reset_cost": list, "grade_up": list, "pity": list, "miracle": NUMBER,
                  "amplify": dict, "materials": dict},
     }, path.name)
@@ -313,6 +314,11 @@ def load_spec_up(path: Path = DATA_DIR / "spec_up.toml") -> Section:
     for stage, step in soul["amplify"].items():
         if step.get("material") not in soul["materials"] or not all(isinstance(step.get(k), NUMBER) for k in ("chance", "step", "pity", "meso")):
             raise ConfigError(f"{path.name}: soul.amplify.{stage} 의 material 은 soul.materials 에 있어야 하고 chance·step·pity·meso 는 숫자여야 합니다")
+    for index, grade in enumerate(data["listing"]["grades"], 1):
+        pairs = ("pot", "eddy", "add")
+        if not isinstance(grade.get("star"), int) or not all(isinstance(grade.get(k), list) and len(grade[k]) == 2 for k in pairs) \
+                or not all(isinstance(grade.get(k), dict) for k in ("armor", "accessory")):
+            raise ConfigError(f"{path.name}: listing.grades[{index}] 에는 star 와 [250제, 200제 이하] pot·eddy·add, armor·accessory 주문서가 필요합니다")
     ring = data["seed_ring"]
     if not all(isinstance(v, list) and len(v) == 2 and 0 < v[0] <= v[1] < 100 for v in ring["burst_share"].values()) \
             or "default" not in ring["burst_share"] or not 0 < ring["continuous"].get("uptime", 0) <= 1:

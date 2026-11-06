@@ -79,3 +79,18 @@ chain = app.specUpActions();
 assert.equal(chain.map(a => a.item.slot).join(','), 'a,b,a');
 assert.equal(chain[2].star, 23);
 console.log('sequential stars: unlock, merge, interleave OK');
+
+// 5. 매물 교체: 비용 = 노작 + 스타포스 0→목표 성 + 서버 큐브·불꽃 기댓값, 아이템마다 효율이 가장 좋은 등급 하나만
+app.specUpPrices = {};
+app.report = {spec_up: {unit: 1e10}, results: [
+    {slot: 'a', name: '처음 보는 반지', part: '반지', level: 200, spec_up: [
+        {axis: '매물 교체', grade: 1, level: 200, star: 0, target_star: 17, listing_fixed: 5e9, gain: 10, final_damage: 1},
+        {axis: '매물 교체', grade: 2, level: 200, star: 0, target_star: 22, listing_fixed: 9e9, gain: 30, final_damage: 3},
+    ]},
+]};
+const listings = app.specUpActions();
+assert.equal(listings.length, 1);
+const expectedCost = 1e7 + app.starforceCost(200, 1e7, 0, listings[0].target_star) + listings[0].listing_fixed;  // 200제 반지 기본 노작 0.1억
+assert.ok(Math.abs(listings[0].cost - expectedCost) < 1e-3);
+assert.equal(app.specUpActions(true).length, 2);
+console.log('listing cost and best grade per item: OK');
