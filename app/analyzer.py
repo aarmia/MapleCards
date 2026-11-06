@@ -454,7 +454,7 @@ def counted_items(evaluate_list):
     return [item for item in evaluate_list if item["part"] != "칭호" and item.get("scored", True)]
 
 
-def standard_total(items, char_class, main_stat):
+def standard_index(items, char_class, main_stat) -> dict:
     """메큘레이터 지수(화면 단위 P): 모든 캐릭터에 같은 기준 캐릭터(potential.toml [standard], 실제 캐릭터 계수의 중앙값)로 환산한
     장비 점수 합. 내 캐릭터 기준 합계는 캐릭터마다 '주스탯 1%' 의 크기가 달라 캐릭터끼리 비교할 수 없어서, 비교용으로 따로 계산합니다.
     보조무기 주문서 축은 장비 점수에는 그대로 두고 이 지수에서만 뺍니다."""
@@ -463,7 +463,13 @@ def standard_total(items, char_class, main_stat):
     weapon = WeaponContext(context, damage=float(std.damage), boss_damage=float(std.boss_damage), ignore_defense=float(std.ignore_defense))
     rows = counted_items(evaluate_equipment(items, char_class, std.level, main_stat=main_stat, profile={"context": context, "weapon": weapon}))
     secondary_scroll = sum(row["detail"].get("scroll", 0) for row in rows if row["slot"] == "보조무기")
-    return round(sum(row["total_score"] for row in rows) - secondary_scroll, 1)
+    # 스펙업 매물 교체가 같은 기준으로 지수 증가를 계산하도록 표준 행과 계수도 돌려줍니다
+    return {"total": round(sum(row["total_score"] for row in rows) - secondary_scroll, 1),
+            "rows": {row["slot"]: row for row in rows}, "context": context}
+
+
+def standard_total(items, char_class, main_stat) -> float:
+    return standard_index(items, char_class, main_stat)["total"]
 
 
 def generate_overall_review(evaluate_list):
@@ -614,10 +620,11 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
     damage_total = (final_stat_float(stat_data, "데미지") or 0.0) + (final_stat_float(stat_data, "보스 몬스터 데미지") or 0.0)
     if profile["optimization"].get("method") == "saved_presets_boss_stat_index":
         damage_total = profile["optimization"]["damage"] + profile["optimization"]["boss_damage"]
+    index = standard_index([*items, *extra_items], char_class, main_stat)
     spec_up = attach_spec_up(evaluate_list, [*items, *extra_items], profile["context"], char_class, main_stat, char_level,
-                             SCORING.special_items.limited_names, damage_total, profile["weapon"])
+                             SCORING.special_items.limited_names, damage_total, profile["weapon"], index)
     overall_review, all_sorted_results = generate_overall_review(evaluate_list)
-    overall_review["standard_total"] = standard_total([*items, *extra_items], char_class, main_stat)
+    overall_review["standard_total"] = index["total"]
 
     return {
         "character": character_name,

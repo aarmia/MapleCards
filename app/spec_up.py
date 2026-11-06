@@ -410,69 +410,70 @@ LISTING_PARTS_SKIP = ("기계 심장",)   # 1단계 제외 (하트는 주문서�
 
 
 def listing_actions(row: dict, item: dict, context: StatContext, class_name: str, main_stat: str, char_level: int,
-                    memo: dict) -> list[dict]:
+                    memo: dict, standard: dict | None = None) -> list[dict]:
     """같은 아이템의 매물 등급(spec_up.toml [listing])으로 바꾸는 추천. 등급마다 하나씩 만들고, 화면이 시세로 비용을 매겨
     아이템마다 효율이 가장 좋은 등급 하나만 보여줍니다. 지금보다 나빠지는 등급은 만들지 않습니다.
-    서버 비용(listing_fixed) = 윗잠재·에디셔널 레어→목표 큐브 + 추옵 불꽃 기댓값. 노작 시세·스타포스 0→목표 성은 화면이 더합니다."""
+    standard = {"total": 메큘레이터 지수, "rows": 장착 칸 → 표준 기준 행, "context": 표준 기준 계수} 가 있으면
+    교체로 오르는 지수가 지금 지수의 min_index_gain_pct % 미만인 등급은 추천하지 않습니다.
+    서버 비용(listing_fixed) = 잠재·에디 큐브 기댓값 × cube_cost_share + 추옵 불꽃 + 주문서. 노작 시세·스타포스 0→목표 성은 화면이 더합니다."""
     from app.calculator import calculate_item_score, flame_best_add_option, starforce_option
     from app.set_projection import ARMOR_SLOTS
 
     level, part, slot, current = row.get("level"), row.get("part") or "", row.get("slot"), row.get("total_score")
-    per_flat, per_pct = context.pct_per_flat, final_damage_per_pct(context)
-    if current is None or not level or per_flat <= 0 or per_pct <= 0 or any(keyword in part for keyword in LISTING_PARTS_SKIP):
+    per_pct = final_damage_per_pct(context)
+    if current is None or not level or context.pct_per_flat <= 0 or per_pct <= 0 or any(keyword in part for keyword in LISTING_PARTS_SKIP):
         return []
-    detail = row.get("detail") or {}
+    config = SPEC_UP.listing
     column = 0 if level >= 250 else 1
-
-    def pct(option):
-        return calculate_item_score(option, class_name, main_stat=main_stat, context=context) * per_flat
-
-    # 같은 아이템이라 그대로인 몫: 기본 옵션 · 익셉셔널
-    fixed_part = detail.get("base", 0.0) + detail.get("exceptional", 0.0)
+    kind_of_slot = "armor" if slot in ARMOR_SLOTS else "accessory"
     slots = sum(int(item.get(key) or 0) for key in ("scroll_upgrade", "scroll_upgradeable_count", "scroll_resilience_count"))
     attack_key = "magic_power" if main_stat == "int" else "attack_power"
     mains = ("str", "dex", "luk") if main_stat == "all_stat" else ("max_hp",) if main_stat == "hp" else (main_stat,)
+    has_add = "add" in (row.get("detail") or {})
     add_scale = 1.0
-    if "add" in detail and level < 200:  # 200제 미만은 200제 값을 레벨별 불꽃 최대 급수 비율로 줄입니다
+    if has_add and level < 200:  # 200제 미만은 200제 값을 레벨별 불꽃 최대 급수 비율로 줄입니다
         def best(lv):
             return calculate_item_score(flame_best_add_option(lv, class_name, main_stat, context.sub_names, context),
                                         class_name, main_stat=main_stat, context=context)
         add_scale = best(level) / best(200) if best(200) > 0 else 1.0
+    std_row = (standard or {}).get("rows", {}).get(slot)
 
-    def dist(kind):
-        key = ("listing", kind, part, level)
-        if key not in memo:
-            memo[key] = potential_distribution(kind, part, level, context, char_level)
-        return memo[key]
+    def fixed_of(detail):  # 같은 아이템이라 그대로인 몫: 기본 옵션 · 익셉셔널
+        return detail.get("base", 0.0) + detail.get("exceptional", 0.0)
+
+    def target_of(ctx, fixed, star_option, pot, eddy, scroll, add):
+        def pct(option):
+            return calculate_item_score(option, class_name, main_stat=main_stat, context=ctx) * ctx.pct_per_flat
+        return fixed + pct(star_option) + pot + eddy + pct(scroll) + (add * ctx.pct_per_flat if add is not None else 0.0)
 
     def reach_cost(kind, target):
         """레어에서 레전드리 등급업 후 target 이상이 나올 때까지의 기대 메소 (첫 레전드리 결과도 성공일 수 있음)"""
-        values = dist(kind)
-        chance = sum(p for value, p in (values or {}).items() if value >= target - 1e-9)
+        key = ("listing", kind, part, level)
+        if key not in memo:
+            memo[key] = potential_distribution(kind, part, level, context, char_level)
+        chance = sum(p for value, p in (memo[key] or {}).items() if value >= target - 1e-9)
         if chance <= 0:
             return None
         legendary = _cost_row(SPEC_UP.cube[kind]["cost"], level)[-1] * EOK
         return grade_up_cost(kind, SPEC_UP.cube.grades[0], level) + (1 - chance) / chance * legendary
 
     actions = []
-    for number, grade in enumerate(SPEC_UP.listing.grades, 1):
+    for number, grade in enumerate(config.grades, 1):
         star_option = starforce_option(level, grade["star"], main_stat, context.sub_names, part)
         if star_option is None:
             continue
         pot, eddy = grade["pot"][column], grade["eddy"][column]
-        rule = grade["armor"] if slot in ARMOR_SLOTS else grade["accessory"]
-        scroll = {attack_key: rule.get("attack", 0) * slots + (rule.get("first_attack", rule.get("attack", 0)) - rule.get("attack", 0) if slots else 0)}
-        for key in mains:
-            scroll[key] = rule.get("main", 0) * slots
         pot_cost, eddy_cost = reach_cost("potential", pot), reach_cost("additional", eddy)
         if pot_cost is None or eddy_cost is None:
             continue
-        target = fixed_part + pct(star_option) + pot + eddy + pct(scroll)
-        cost = pot_cost + eddy_cost
+        rule = grade[kind_of_slot]
+        scroll = {attack_key: rule.get("attack", 0) * slots + (rule.get("first_attack", rule.get("attack", 0)) - rule.get("attack", 0) if slots else 0)}
+        for key in mains:
+            scroll[key] = rule.get("main", 0) * slots
+        cost = (pot_cost + eddy_cost) * config.cube_cost_share + slots * grade["scroll_cost"][kind_of_slot] * EOK
         add = None
-        if "add" in detail:
+        if has_add:
             add = round(grade["add"][column] * add_scale)
-            target += add * per_flat
             key = ("listing_flame", level)
             if key not in memo:
                 memo[key] = flame_distribution(level, class_name, main_stat, context)
@@ -480,15 +481,24 @@ def listing_actions(row: dict, item: dict, context: StatContext, class_name: str
             if chance <= 0:
                 continue
             cost += SPEC_UP.flame.cost * EOK / chance
-        gain = target - current
+        gain = target_of(context, fixed_of(row.get("detail") or {}), star_option, pot, eddy, scroll, add) - current
         if gain <= 0.05:
             continue
-        final_damage = gain * per_pct
+        index_gain = None
+        if std_row is not None:  # 메큘레이터 지수가 의미 있게 오를 때만
+            index_gain = target_of(standard["context"], fixed_of(std_row["detail"]), star_option, pot, eddy, scroll, add) - std_row["total_score"]
+            if index_gain < standard["total"] * config.min_index_gain_pct / 100:
+                continue
         spec = f"{grade['star']}성 · 윗잠 {pot:g}% · 에디 {eddy:g}%" + (f" · 추옵 {add}급" if add is not None else "")
-        actions.append({"axis": LISTING_AXIS, "label": f"{number}등급 매물로 교체 ({spec})", "grade": number,
+        final_damage = gain * per_pct
+        actions.append({"axis": LISTING_AXIS, "label": spec + ("으로 교체" if spec.endswith("급") else "로 교체"), "grade": number,
                         "final_damage": final_damage, "gain": gain, "model": "listing_linear", "level": level,
                         "star": 0, "target_star": grade["star"], "listing_fixed": cost,
-                        "detail": "기대 비용 = 노작 시세 + 스타포스 0→" + str(grade["star"]) + "성 + 잠재·에디 큐브(레어부터) + 추옵 불꽃 (주문서 제외)"})
+                        "index_gain": round(index_gain, 1) if index_gain is not None else None,
+                        "detail": (f"기대 비용 = 노작 시세 + 스타포스 0→{grade['star']}성 + 잠재·에디 큐브 기댓값 × {config.cube_cost_share:g}"
+                                   + (" + 추옵 불꽃" if has_add else "") + " + 주문서 "
+                                   f"{slots}회 × {grade['scroll_cost'][kind_of_slot]:g}억"
+                                   + (f" · 메큘레이터 지수 +{index_gain:.1f}P" if index_gain is not None else ""))})
     return actions
 
 
@@ -634,13 +644,13 @@ def recommendation_assumptions(context: StatContext, class_name: str) -> list[st
         "스타포스 비용은 샤타 이벤트(15→16 확정 미포함)와 설정된 파괴 방지·복구 전략 기준입니다. 노작·연마석 시세는 실시간 시세가 아니며 직접 수정할 수 있습니다.",
         "잠재는 설정된 줄별 확률·등급업 천장 기준입니다. 기대 비용은 평균이지 예산 내 성공 보장이 아니며, 증가량은 목표 이상 결과들의 조건부 평균입니다.",
         "소울 증폭은 지금 소울 잠재 줄을 넥슨 공식 확률표의 다음 단계 수치로 바꿔 비교합니다. 비용은 게이지를 반영한 기대 시도 수 × (메소 + 에테르 시세)입니다. 0→1단계는 소울 잠재가 레어로 생긴다고 보고 미라클 기준으로 레전드리까지 올린 뒤 첫 줄 포함 공/마% 두 줄이 나올 때까지의 평균 재설정 비용을 더합니다.",
-        "매물 교체는 같은 아이템을 등급별 목표 상태(spec_up.toml [listing], 6등급)로 직접 만드는 기댓값을 비용으로 봅니다: 노작 시세 + 스타포스 0→목표 성 + 레어부터 잠재·에디 큐브 + 추옵 불꽃 (주문서 비용 제외). 실제 매물가와 다를 수 있고, 아이템마다 효율이 가장 좋은 등급 하나만 보여 줍니다.",
+        f"매물 교체는 같은 아이템을 등급별 목표 상태(spec_up.toml [listing], 6등급)로 직접 만드는 기댓값을 비용으로 봅니다: 노작 시세 + 스타포스 0→목표 성 + 레어부터 잠재·에디 큐브 기댓값의 {SPEC_UP.listing.cube_cost_share:g}배 + 추옵 불꽃 + 주문서. 메큘레이터 지수가 {SPEC_UP.listing.min_index_gain_pct:g}% 이상 오를 때만 추천하고, 아이템마다 효율이 가장 좋은 등급 하나만 보여 줍니다.",
         f"시드링은 {class_name}의 리레 15초/20초 딜 비중 {s15*100:.2f}%/{s20*100:.2f}%, 컨티 가동률 {SPEC_UP.seed_ring.continuous['uptime']*100:g}%를 가정합니다. 직업표에는 비실측 자료가 포함되며 개인 캐릭터 실측값이 아닙니다.",
     ]
 
 
 def attach_spec_up(rows: list, items: list, context: StatContext, class_name: str, main_stat: str, char_level: int,
-                   exclude_names=(), damage_total: float = 0.0, weapon: WeaponContext | None = None) -> dict:
+                   exclude_names=(), damage_total: float = 0.0, weapon: WeaponContext | None = None, standard: dict | None = None) -> dict:
     """진단 행마다 축별 강화 행동(row["spec_up"], 효율 내림차순)을 붙이고 전체 상위 행동을 돌려줍니다.
     items 는 진단한 아이템 전체(예비 특수 반지 포함)입니다.
     도전자의 장비·무기류·특수 장비·놀장·이벤트 반지(exclude_names)는 제외하고, 슈페리얼은 스타포스를 빼고 계산합니다.
@@ -668,7 +678,7 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
         if "도전자의" in (row.get("name") or "") or "도전자의" in ((item or {}).get("item_name") or ""):
             # 도전자의 장비는 강화 추천 없이 매물 교체만 (방어구·장신구)
             if item and not row.get("is_wse") and not row.get("is_special"):
-                row["spec_up"] = [finish(a) for a in listing_actions(row, item, context, class_name, main_stat, char_level, cube_memo)]
+                row["spec_up"] = [finish(a) for a in listing_actions(row, item, context, class_name, main_stat, char_level, cube_memo, standard)]
                 count += len(row["spec_up"])
             continue
         ring_name = next((name for name in rings if name in row["name"]), None)
@@ -708,7 +718,7 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
         for kind, key in (("potential", "pot"), ("additional", "pot_additional")):
             actions += potential_actions(item, kind, part, level, context, char_level, benchmarks.get(key), cube_memo)
         if not superior:
-            actions += listing_actions(row, item, context, class_name, main_stat, char_level, cube_memo)
+            actions += listing_actions(row, item, context, class_name, main_stat, char_level, cube_memo, standard)
         if "add" in (row.get("detail") or {}) and item.get("item_add_option"):
             floor = next(entry[0] for entry in SCORING.add_option.flame.bands if level >= entry[0])
             if floor not in flame_memo:

@@ -29,7 +29,13 @@ min_step = 1.0
 # ── 매물 교체 (같은 아이템, 방어구·장신구) ──
 # 등급마다 [250제, 200제 이하] 값. pot·eddy 는 윗잠재·에디셔널의 주스탯 %p, add 는 추옵 급수(200제 미만은 200제 값 × 레벨별 불꽃 최대 급수 비율).
 # 주문서는 1작당 옵션: armor(방어구) · accessory(장신구). first_attack 이 있으면 첫 작만 그 공/마, 나머지는 attack.
-# 매물 비용 = 직접 만드는 기댓값: 노작 시세 + 스타포스 0→star 성(화면) + 윗잠재·에디셔널 레어→목표 큐브 + 추옵 불꽃 (주문서 비용은 넣지 않음).
+# 매물 비용 = 직접 만드는 기댓값: 노작 시세 + 스타포스 0→star 성(화면) + 윗잠재·에디셔널 레어→목표 큐브 × cube_cost_share + 추옵 불꽃
+#            + 주문서 횟수 × scroll_cost(억, armor·accessory).
+# 추천 조건: 교체로 오르는 메큘레이터 지수가 지금 지수의 min_index_gain_pct % 이상일 때만 (스펙에 비해 의미 있는 교체만).
+[listing]
+cube_cost_share = 0.5            # 잠재·에디 큐브 기댓값에 곱하는 비율 (관리자 입력: 기댓값의 절반)
+min_index_gain_pct = 0.5         # 메큘레이터 지수 대비 최소 증가 %
+
 [[listing.grades]]
 star = 17
 pot = [17, 15]
@@ -37,6 +43,7 @@ eddy = [8, 6]
 add = [150, 135]
 armor = { main = 7 }
 accessory = { attack = 4 }
+scroll_cost = { armor = 0, accessory = 1 }   # 주문서 1작 비용(억). 방어구 1~4등급은 미지정이라 0
 
 [[listing.grades]]
 star = 18
@@ -45,6 +52,7 @@ eddy = [8, 6]
 add = [165, 150]
 armor = { main = 7 }
 accessory = { attack = 4 }
+scroll_cost = { armor = 0, accessory = 1 }
 
 [[listing.grades]]
 star = 21
@@ -53,6 +61,7 @@ eddy = [10, 8]
 add = [175, 155]
 armor = { main = 10 }
 accessory = { attack = 4, first_attack = 6 }
+scroll_cost = { armor = 0, accessory = 1 }
 
 [[listing.grades]]
 star = 22
@@ -61,6 +70,7 @@ eddy = [14, 12]
 add = [180, 160]
 armor = { main = 10 }
 accessory = { attack = 4, first_attack = 6 }
+scroll_cost = { armor = 0, accessory = 1 }
 
 [[listing.grades]]
 star = 22
@@ -69,6 +79,7 @@ eddy = [16, 14]
 add = [190, 170]
 armor = { attack = 6, main = 1.5 }
 accessory = { attack = 6, main = 1.5 }
+scroll_cost = { armor = 70, accessory = 70 }
 
 [[listing.grades]]
 star = 23
@@ -77,6 +88,7 @@ eddy = [21, 18]
 add = [205, 185]
 armor = { attack = 6, main = 2.25 }
 accessory = { attack = 6, main = 2.25 }
+scroll_cost = { armor = 85, accessory = 85 }
 
 # ── 시드링 (리스트레인트 링 · 컨티뉴어스 링) ──
 # 레벨별 효과 출처: 나무위키 「특수 스킬 반지」 (2026-11-05 확인).

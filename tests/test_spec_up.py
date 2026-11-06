@@ -168,6 +168,11 @@ class SpecUpTests(unittest.TestCase):
         self.assertEqual([a["final_damage"] for a in actions], sorted(a["final_damage"] for a in actions))  # 높은 등급일수록 큼
         self.assertTrue(all(a["listing_fixed"] > 0 and a["star"] == 0 for a in actions))  # 큐브·불꽃 기댓값 (노작·스타포스는 화면)
         self.assertEqual(listing_actions({**row, "total_score": 10_000}, item, context, "나이트로드", "luk", 285, {}), [])  # 더 좋은 장비면 없음
+        # 메큘레이터 지수가 지금 지수의 min_index_gain_pct % 이상 오를 때만 추천
+        small = {"total": 100.0, "rows": {"모자": row}, "context": context}
+        huge = {**small, "total": 1_000_000.0}
+        self.assertTrue(all(a["index_gain"] > 0 for a in listing_actions(row, item, context, "나이트로드", "luk", 285, {}, small)))
+        self.assertEqual(listing_actions(row, item, context, "나이트로드", "luk", 285, {}, huge), [])
 
 
 if __name__ == "__main__":
