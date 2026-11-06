@@ -411,16 +411,13 @@ def finish(action: dict) -> dict:
 
 def recommendation_assumptions(context: StatContext, class_name: str) -> list[str]:
     """Expose configured assumptions without independently maintained UI constants."""
-    buff, flame = POTENTIAL.buff, SPEC_UP.flame
     s15, s20 = burst_share(class_name)
     return [
         "선택된 프리셋을 고정하고 기존 옵션을 제거한 뒤 새 옵션을 적용한 데미지 지수의 비율로 최종뎀을 추정합니다. 실제 DPS·전투력 상승이나 강화 후 재최적화 결과가 아닙니다. 쿨감·시드링·특수 주스탯은 별도 추정 모델입니다. 추천끼리 증가율을 단순 합산하지 마세요.",
-        f"효율용 버프 가정: 주스탯 +{buff.main_stat_flat:g}, 올스탯 +{buff.all_stat_flat:g}, 공/마 +{buff.attack_flat:g}, 공/마 +{buff.attack_pct:g}%p, AP 스탯 +{buff.ap_stat_pct:g}%, 크뎀 +{buff.crit_damage_pct:g}%p. API에 이미 포함된 버프는 자동 식별·제거하지 못합니다.",
         f"쿨감 1초는 주스탯 {POTENTIAL.cooldown_per_second:g}% 상당의 고정 가정입니다. 직업별 실제 스킬 주기와 딜 상승을 재현하지 않습니다.",
         "스타포스 비용은 샤타 이벤트(15→16 확정 미포함)와 설정된 파괴 방지·복구 전략 기준입니다. 노작·연마석 시세는 실시간 시세가 아니며 직접 수정할 수 있습니다.",
         "잠재는 설정된 줄별 확률·등급업 천장 기준입니다. 기대 비용은 평균이지 예산 내 성공 보장이 아니며, 증가량은 목표 이상 결과들의 조건부 평균입니다.",
-        f"추가옵션은 대상 장비를 모두 보스 장비로 가정합니다(옵션 {len(flame.options)}종 중 중복 없이 {flame.lines}줄, 단계 보너스 +{flame.boss_bonus}, 1회 {flame.cost:g}억 메소). 개별 장비의 재설정 가능 여부·비보스 예외는 검증하지 않아 해당 장비의 비용은 신뢰할 수 없습니다.",
-        f"시드링은 {class_name}의 리레 15초/20초 딜 비중 {s15*100:.2f}%/{s20*100:.2f}%, 컨티 가동률 {SPEC_UP.seed_ring.continuous['uptime']*100:g}%를 가정합니다. 직업표에는 비실측 자료가 포함되며 개인 캐릭터 실측값이 아닙니다. 데미지/보공 도핑 +{buff.damage_pct:g}/+{buff.boss_damage_pct:g}%p 및 현재 API 데미지·보공을 사용합니다.",
+        f"시드링은 {class_name}의 리레 15초/20초 딜 비중 {s15*100:.2f}%/{s20*100:.2f}%, 컨티 가동률 {SPEC_UP.seed_ring.continuous['uptime']*100:g}%를 가정합니다. 직업표에는 비실측 자료가 포함되며 개인 캐릭터 실측값이 아닙니다.",
     ]
 
 

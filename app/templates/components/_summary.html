@@ -38,9 +38,9 @@
                             <span>ⓘ</span><span x-text="report?.combat_power_basis?.status === 'adjusted' ? '최적 프리셋 추정' : '추정 생략'"></span>
                         </button>
                         <div class="flex-col md:items-end" :class="showPowerNote ? 'flex' : 'hidden md:flex'">
-                            <span x-show="report?.combat_power_basis?.status === 'adjusted'" class="text-[11px] md:text-[10px] font-bold text-slate-500 md:text-slate-400 mt-1 leading-snug break-keep"
-                                  x-text="'최적 프리셋 추정 · ' + Number(report?.combat_power_adjusted).toLocaleString()"></span>
-                            <span x-show="report?.combat_power_basis?.status === 'adjusted'" class="text-[11px] md:text-[10px] text-slate-500 break-keep">무기 표준화·일시 효과를 완전히 분리하지 못한 근사값입니다.</span>
+                            <span x-show="report?.combat_power_basis?.status === 'adjusted'" class="text-sm md:text-base font-bold text-slate-500 mt-1 leading-snug break-keep">
+                                최적 프리셋 추정 · <span class="font-black text-red-400 tabular-nums" x-text="Number(report?.combat_power_adjusted).toLocaleString()"></span>
+                            </span>
                             <span x-show="report?.combat_power_basis?.status === 'unsupported'" class="text-[11px] md:text-[10px] text-slate-500 break-keep" x-text="'추정 생략 · ' + (report?.combat_power_basis?.reason || '')"></span>
                         </div>
                     </div>

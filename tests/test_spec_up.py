@@ -45,11 +45,11 @@ class SpecUpTests(unittest.TestCase):
 
     def test_assumptions_follow_config_and_are_in_report(self):
         context = reference_context("나이트로드", "luk")
-        with patch.dict(POTENTIAL.buff.raw, {"attack_flat": 432}):
+        with patch.dict(POTENTIAL.raw, {"cooldown_per_second": 7.5}):
             report = attach_spec_up([], [], context, "나이트로드", "luk", 280)
         self.assertTrue(report["estimate"])
         notes = " ".join(report["assumptions"])
-        for token in ("+432", "보스 장비", "비실측", "자동 식별", "실제 DPS", "평균"):
+        for token in ("주스탯 7.5%", "비실측", "실제 DPS", "평균"):
             self.assertIn(token, notes)
 
     def test_official_odds_match_mapletiptip_examples(self):
