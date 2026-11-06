@@ -18,6 +18,7 @@ from app.calculator import (
     max_starforce,
     noljang_option,
     starforce_benchmark_option,
+    weapon_starforce_option,
 )
 from app.character_profile import build_character_profile
 from app.combat_power import adjust_combat_power
@@ -266,14 +267,14 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
     context = profile["context"] if profile else reference_context(char_class, main_stat)
     weapon_context = (profile or {}).get("weapon") or WeaponContext(context)
 
-    def weight_notes(item_req_level):
+    def weight_notes(item_req_level, star_from_stats=False):
         star_weight = round(1.0 + (item_req_level - SCORING.starforce.reference_level) / SCORING.starforce.level_weight_divisor, 3)
         notes = [
             f"추가옵션 급수 ÷ {item_req_level}제 불꽃 최대 급수 × 100 × {weights.add:g}",
             "윗잠재·에디셔널 환산값 합 (곱상수 없음)",
-            (f"스타포스: 스타포스 스탯을 주스탯% 로 환산 ÷ {item_req_level}제 22성 합계 × 100, "
+            (f"스타포스: 스타포스로 오른 스탯·공/마를 환산 ÷ {item_req_level}제 22성 값 × 100, "
              f"23성부터 100 + {SCORING.starforce.benchmark.over_star_log_weight:g} × ln(별 − 21)"
-             if starforce_benchmark_option(item_req_level, main_stat, context.sub_names)
+             if star_from_stats
              else f"스타포스 레벨 가중치 × {star_weight if item_req_level > 0 else 0} (기준 만점은 최대 스타포스)"),
         ]
         notes.extend(context.notes())
@@ -428,6 +429,22 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                 sf_bench = SCORING.starforce.benchmark
                 if star > sf_bench.benchmark_star and not is_noljang and not is_superior:
                     adv_star_score = 100 + sf_bench.over_star_log_weight * math.log(star - sf_bench.benchmark_star + 1)
+        # 무기·보조무기(엠블렘 제외): 같은 방식, 단위만 공% (무기 성능 환산). 22성 값은 이 아이템의 순수 공/마로 계산합니다.
+        if any(k in slot for k in ("무기", "보조무기")) and not is_superior:
+            attack_key = "magic_power" if main_stat == "int" else "attack_power"
+            pure = safe_int((item.get("item_base_option") or {}).get(attack_key)) + safe_int(etc_ops.get(attack_key))
+            weapon_like = "보조무기" not in slot or safe_int((item.get("item_base_option") or {}).get(attack_key)) >= \
+                SCORING.starforce.weapon.weapon_like_min_attack
+            bench_option = weapon_starforce_option(item_req_level, SCORING.starforce.benchmark.benchmark_star, pure, main_stat,
+                                                   context.sub_names, weapon_like)
+            if bench_option:
+                star_value = weapon_add_value(item.get("item_starforce_option") or {}, weapon_context, char_level)[0]
+                star_best = weapon_add_value(bench_option, weapon_context, char_level)[0]
+                if star_best > 0:
+                    adv_star_score, star_from_stats = 100 * star_value / star_best, True
+                    sf_bench = SCORING.starforce.benchmark
+                    if star > sf_bench.benchmark_star:
+                        adv_star_score = 100 + sf_bench.over_star_log_weight * math.log(star - sf_bench.benchmark_star + 1)
 
         soul_analysis, soul_val, soul_score, benchmarks, add_recognized = None, 0.0, 0.0, None, []
         add_lines = None  # 불꽃 줄별 단계·급수 (화면 표시용). 되돌릴 수 없으면 None
@@ -448,8 +465,11 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                 soul_score = max(soul_val, 0)
             else:
                 add_raw_score = add_score = 0.0
-                # 보조무기의 스타포스는 200제 장비 기준으로 환산하고, 엠블렘은 스타포스 축이 없습니다.
-                adv_star_score = get_starforce_score(star, POTENTIAL.weapon.secondary_star_level) if group == "secondary" else 0.0
+                # 엠블렘은 스타포스 축이 없습니다. 보조무기는 위의 스탯 방식, 표 밖이면 200제 장비 기준 레벨 가중 공식입니다.
+                if group != "secondary":
+                    adv_star_score = 0.0
+                elif not star_from_stats:
+                    adv_star_score = get_starforce_score(star, POTENTIAL.weapon.secondary_star_level)
             pot_analysis = analyze_weapon_item(item, "potential", weapon_context, char_level)
             pot_val = pot_analysis["score"]
             pot_score = max(pot_val, 0)
@@ -580,7 +600,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                     "recognized_options": recognized_options,
                     "unrecognized_options": unrecognized_options,
                     "add_lines": add_lines,
-                    "weights": weight_notes(item_req_level)
+                    "weights": weight_notes(item_req_level, star_from_stats)
                     + ([f"무기류 공격력% 단위 환산 · 보공 1% = 공 {weapon_context.boss_per_pct:.3g}%, 유효 스탯 1% = 공 {weapon_context.stat_pct_unit:.3g}%, 기준점은 캐릭터별 최상 조합"] if is_weapon else [])
                     + ([f"익셉셔널 강화 1회당 {POTENTIAL.exceptional.points_per_upgrade:g}점 (현재 {exceptional[0]}회)"] if exceptional and exceptional[0] > 0 else []),
                     "breakdown": breakdown,

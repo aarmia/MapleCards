@@ -1,6 +1,7 @@
 import unittest
 
 from app.analyzer import evaluate_equipment
+from app.calculator import weapon_starforce_option
 from app.potential import reference_context
 from app.scoring_config import POTENTIAL
 from app.weapon import WeaponContext, best_lines_total, convert_weapon_line
@@ -21,7 +22,7 @@ def weapon_item(slot, part, **fields):
         "item_base_option": {"base_equipment_level": 200, "attack_power": "400"},
         "item_add_option": {"attack_power": "150", "boss_damage": "6"},
         "item_etc_option": {},
-        "item_starforce_option": {},
+        "item_starforce_option": {"str": "145", "dex": "145", "attack_power": "250"},  # 200제 순수 공 400 의 22성 (무기 규칙)
     }
     item.update(fields)
     return item
@@ -59,9 +60,19 @@ class WeaponConversionTests(unittest.TestCase):
         # 데스티니 표(공 13%)는 제네시스·보조·엠블렘 표(공 12%)보다 기준점이 높습니다
         self.assertGreater(best_lines_total("potential", "weapon", c, 285, "destiny"), best_lines_total("potential", "weapon", c, 285, "default"))
 
+    def test_weapon_starforce_matches_real_items(self):
+        # 1~15성 내림(순수 공/마 ÷ 50) + 1, 16~22성 무기 표. 실제 API 스타포스 값과 같아야 합니다.
+        self.assertEqual(weapon_starforce_option(200, 22, 390, "luk", ("DEX",))["attack_power"], 246)  # 제네시스 대거 (318 + 작 72)
+        self.assertEqual(weapon_starforce_option(250, 22, 517, "int", ("LUK",))["magic_power"], 310)  # 데스티니 스태프 (445 + 72)
+        self.assertEqual(weapon_starforce_option(160, 18, 286, "str", ("DEX",)), {"str": 79, "dex": 79, "attack_power": 135})  # 도전자의 폭검
+        # 공격력이 낮은 일반 보조무기(아스트라)는 방어구 표를 따르고 23성 이상도 계산됩니다
+        self.assertEqual(weapon_starforce_option(200, 23, 7, "str", ("DEX",), weapon_like=False)["attack_power"], 127)
+        self.assertIsNone(weapon_starforce_option(250, 23, 517, "int", ("LUK",)))  # 무기 23성 이상은 로그 가산
+
     def test_weapon_secondary_and_emblem_use_their_own_axes(self):
         weapon = weapon_item("무기", "한손검", soul_option="공격력 +3%", soul_potential_option_1="보스 몬스터 데미지 +2%")
-        secondary = weapon_item("보조무기", "방패")
+        secondary = weapon_item("보조무기", "방패", item_base_option={"base_equipment_level": 200, "attack_power": "7"},
+                                item_starforce_option={"str": "145", "dex": "145", "attack_power": "106"})  # 일반 보조무기 = 방어구 표
         emblem = weapon_item("엠블렘", "엠블렘")
         results = {r["slot"]: r for r in evaluate_equipment([weapon, secondary, emblem], "히어로", 285)}
 
@@ -71,7 +82,7 @@ class WeaponConversionTests(unittest.TestCase):
         self.assertGreater(w["detail"]["soul"], 0)
         self.assertEqual(sorted({e["category"] for e in w["scoring_basis"]["recognized_options"]}), ["소울", "에디셔널", "윗잠재", "추가옵션"])
         self.assertAlmostEqual(w["total_score"], w["detail"]["add"] + w["detail"]["pot"] + w["detail"]["pot_additional"] + w["detail"]["soul"] + w["detail"]["star"], delta=0.3)
-        # 보조무기는 윗잠·에디 + 200제 기준 스타포스, 엠블렘은 윗잠·에디만
+        # 보조무기는 윗잠·에디 + 스타포스(22성 = 100), 엠블렘은 윗잠·에디만
         secondary_result = results["보조무기"]
         self.assertEqual([row["key"] for row in secondary_result["scoring_basis"]["breakdown"]], ["pot", "pot_additional", "star"])
         self.assertEqual(secondary_result["detail"]["star"], 100.0)  # 22성 · 200제 기준

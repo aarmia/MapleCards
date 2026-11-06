@@ -94,6 +94,7 @@ _SCORING_SPEC = {
         "benchmark": {"benchmark_star": NUMBER, "bands": list, "glove_attack_bonus": NUMBER, "over_star_log_weight": NUMBER},
         "noljang": {"levels": list, "stat": list, "attack": list},
         "gain": {k: list for k in ("stat_1_15", "glove_attack_stars", "levels", "stat_16", "attack_16")},
+        "weapon": {"low_divisor": NUMBER, "weapon_like_min_attack": NUMBER, "attack_16": list},
     },
     "weights": {k: NUMBER for k in ("add", "superior_star")},
     "noljang": {k: NUMBER for k in ("star_min", "star_max", "max_level", "etc_stat_strong", "etc_attack_strong", "etc_stat_weak", "etc_attack_weak")},
@@ -143,6 +144,10 @@ def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
         band = next((b for b in data["starforce"]["benchmark"]["bands"] if b[0] == level), None)
         if band and len(attack) >= 7 and [sum(gain["stat_1_15"]) + sum(stat), sum(attack[:7])] != band[1:]:
             raise ConfigError(f"{path.name}: starforce.gain {level}제 22성 합계가 starforce.benchmark.bands 와 다릅니다")
+    weapon = data["starforce"]["weapon"]
+    if len(weapon["attack_16"]) != len(gain["levels"]) or any(
+            len(w) != len(st) for w, st in zip(weapon["attack_16"], gain["stat_16"])):
+        raise ConfigError(f"{path.name}: starforce.weapon.attack_16 은 starforce.gain 과 레벨 수, 레벨별 16~22성 수(stat_16)가 같아야 합니다")
     noljang = data["starforce"]["noljang"]
     if not (len(noljang["levels"]) == len(noljang["stat"]) == len(noljang["attack"])
             and all(len(row) == 5 for row in noljang["stat"]) and all(len(row) == 10 for row in noljang["attack"])):

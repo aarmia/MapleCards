@@ -387,6 +387,27 @@ def starforce_option(level: int, star: int, main_stat: str, sub_names=(), part: 
     return _stat_option(stat, attack, main_stat, sub_names)
 
 
+def weapon_starforce_option(level: int, star: int, pure_attack: float, main_stat: str, sub_names=(),
+                            weapon_like: bool = True) -> dict | None:
+    """무기·보조무기 star 성까지 스타포스로 오른 스탯·공/마 (scoring.toml starforce.weapon).
+    weapon_like=False(공/마가 낮은 일반 보조무기)는 방어구 표와 같습니다. 22성 초과·표 밖 레벨은 None 입니다."""
+    option = starforce_option(level, star, main_stat, sub_names)
+    if option is None or not weapon_like:
+        return option
+    gain, config = SCORING.starforce.gain, SCORING.starforce.weapon
+    index = next(i for i, low in enumerate(gain.levels) if level >= low)
+    star = int(star)
+    if star > 22:
+        return None
+    attack, pure = 0, pure_attack
+    for _ in range(min(star, 15)):
+        step = math.floor(pure / config.low_divisor) + 1
+        attack, pure = attack + step, pure + step
+    attack += sum(config.attack_16[index][:max(0, star - 15)])
+    option["magic_power" if main_stat == "int" else "attack_power"] = attack
+    return option
+
+
 def noljang_option(level: int, star: int, main_stat: str, sub_names=()) -> dict:
     """놀장 star 성의 스탯·공/마 합계 (scoring.toml starforce.noljang). 놀장은 API 스타포스 옵션이 비고 작과 같은 칸에 들어 있어 표로 계산합니다."""
     config = SCORING.starforce.noljang
