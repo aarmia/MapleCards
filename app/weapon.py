@@ -147,7 +147,7 @@ def weapon_add_value(add_option: dict, context: WeaponContext, char_level: int) 
         (f"{label} +{add_option.get('magic_power' if label == '마력' else 'attack_power') or 0}", None),
         (f"보스 몬스터 데미지 +{add_option.get('boss_damage') or 0}%", None),
         (f"데미지 +{add_option.get('damage') or 0}%", None),
-        (f"올스탯 +{add_option.get('all_stat') or 0}", None),
+        (f"올스탯 +{add_option.get('all_stat') or 0}%", None),  # 불꽃 올스탯은 % (API all_stat 6 = 올스탯 6%)
     ]
     if main in ("STR", "DEX", "INT", "LUK"):
         lines.append((f"{main} +{add_option.get(main.lower()) or 0}", None))
@@ -244,7 +244,7 @@ def weapon_add_best(item_data: dict, context: WeaponContext, char_level: int) ->
     others = [
         f"보스 몬스터 데미지 +{config.boss_damage_per_tier * tier:g}%",
         f"데미지 +{config.damage_per_tier * tier:g}%",
-        f"올스탯 +{config.all_stat_per_tier * tier:g}",
+        f"올스탯 +{config.all_stat_per_tier * tier:g}%",
     ]
     if main in ("STR", "DEX", "INT", "LUK"):
         others.append(f"{main} +{single:g}")

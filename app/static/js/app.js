@@ -669,7 +669,7 @@ document.addEventListener('alpine:init', () => {
                     const perPct = this.report?.profile?.weapon?.boss_per_pct || 0;  // 보공·데미지 1% 의 공% 가치
                     const flat = /^(공격력|마력) \+\d+$/;
                     const tier = item.scoring_basis?.add_attack_tier;
-                    const chu = tier ? `${8 - tier}추(${tier}단계)` : '단계 ?';  // 7단계 = 1추
+                    const chu = tier ? `${8 - tier}추` : '단계 ?';  // 불꽃 7단계 = 1추
                     const damage = entry => perPct ? Number((entry.value / perPct).toFixed(1)) : 0;
                     const rest = entries.filter(entry => !flat.test(entry.option));
                     lines = entries.map(entry => ({ text: entry.option, value: flat.test(entry.option) ? chu : `+${damage(entry)}%p` }));

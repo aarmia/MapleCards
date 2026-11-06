@@ -4,7 +4,7 @@ from app.analyzer import evaluate_equipment
 from app.calculator import weapon_starforce_option
 from app.potential import reference_context
 from app.scoring_config import POTENTIAL
-from app.weapon import WeaponContext, best_lines_total, convert_weapon_line
+from app.weapon import WeaponContext, best_lines_total, convert_weapon_line, weapon_add_value
 
 
 def weapon_item(slot, part, **fields):
@@ -59,6 +59,13 @@ class WeaponConversionTests(unittest.TestCase):
         self.assertLessEqual(best_lines_total("potential", "emblem", c, 285), best_lines_total("potential", "weapon", c, 285))
         # 데스티니 표(공 13%)는 제네시스·보조·엠블렘 표(공 12%)보다 기준점이 높습니다
         self.assertGreater(best_lines_total("potential", "weapon", c, 285, "destiny"), best_lines_total("potential", "weapon", c, 285, "default"))
+
+    def test_flame_all_stat_is_a_percentage(self):
+        # 불꽃 올스탯은 % (API all_stat 5 = 올스탯 5%). 고정 올스탯으로 읽으면 주스탯 몇 점보다도 작아집니다.
+        _, entries = weapon_add_value({"all_stat": "5", "str": "60"}, self.context, 280)
+        values = {entry["option"]: entry["value"] for entry in entries}
+        self.assertAlmostEqual(values["올스탯 +5%"], round(convert_weapon_line("올스탯 +5%", self.context, 280)[0], 2))
+        self.assertGreater(values["올스탯 +5%"], values["STR +60"])
 
     def test_weapon_starforce_matches_real_items(self):
         # 1~15성 내림(순수 공/마 ÷ 50) + 1, 16~22성 무기 표. 실제 API 스타포스 값과 같아야 합니다.
