@@ -1,9 +1,10 @@
 import unittest
 
 from app.analyzer import evaluate_equipment
+from app.calculator import weapon_starforce_option
 from app.potential import reference_context
 from app.scoring_config import POTENTIAL
-from app.weapon import WeaponContext, best_lines_total, convert_weapon_line
+from app.weapon import WeaponContext, best_lines_total, convert_weapon_line, weapon_add_value
 
 
 def weapon_item(slot, part, **fields):
@@ -21,7 +22,7 @@ def weapon_item(slot, part, **fields):
         "item_base_option": {"base_equipment_level": 200, "attack_power": "400"},
         "item_add_option": {"attack_power": "150", "boss_damage": "6"},
         "item_etc_option": {},
-        "item_starforce_option": {},
+        "item_starforce_option": {"str": "145", "dex": "145", "attack_power": "250"},  # 200제 순수 공 400 의 22성 (무기 규칙)
     }
     item.update(fields)
     return item
@@ -59,25 +60,51 @@ class WeaponConversionTests(unittest.TestCase):
         # 데스티니 표(공 13%)는 제네시스·보조·엠블렘 표(공 12%)보다 기준점이 높습니다
         self.assertGreater(best_lines_total("potential", "weapon", c, 285, "destiny"), best_lines_total("potential", "weapon", c, 285, "default"))
 
+    def test_index_leaves_out_secondary_scrolls_only(self):
+        from app.analyzer import standard_total
+        shield = weapon_item("보조무기", "방패", item_base_option={"base_equipment_level": 200, "attack_power": "7"},
+                             scroll_upgrade="5", item_etc_option={"str": "150", "attack_power": "50"})
+        bare = {**shield, "item_etc_option": {}}
+        row = evaluate_equipment([shield], "히어로", 285)[0]
+        self.assertGreater(row["detail"]["scroll"], 0)  # 장비 점수에는 주문서 축이 그대로
+        self.assertAlmostEqual(standard_total([shield], "히어로", "str"), standard_total([bare], "히어로", "str"), delta=0.2)  # 지수에서만 뺌 (반올림 오차)
+
+    def test_flame_all_stat_is_a_percentage(self):
+        # 불꽃 올스탯은 % (API all_stat 5 = 올스탯 5%). 고정 올스탯으로 읽으면 주스탯 몇 점보다도 작아집니다.
+        _, entries = weapon_add_value({"all_stat": "5", "str": "60"}, self.context, 280)
+        values = {entry["option"]: entry["value"] for entry in entries}
+        self.assertAlmostEqual(values["올스탯 +5%"], round(convert_weapon_line("올스탯 +5%", self.context, 280)[0], 2))
+        self.assertGreater(values["올스탯 +5%"], values["STR +60"])
+
+    def test_weapon_starforce_matches_real_items(self):
+        # 1~15성 내림(순수 공/마 ÷ 50) + 1, 16~22성 무기 표. 실제 API 스타포스 값과 같아야 합니다.
+        self.assertEqual(weapon_starforce_option(200, 22, 390, "luk", ("DEX",))["attack_power"], 246)  # 제네시스 대거 (318 + 작 72)
+        self.assertEqual(weapon_starforce_option(250, 22, 517, "int", ("LUK",))["magic_power"], 310)  # 데스티니 스태프 (445 + 72)
+        self.assertEqual(weapon_starforce_option(160, 18, 286, "str", ("DEX",)), {"str": 79, "dex": 79, "attack_power": 135})  # 도전자의 폭검
+        # 공격력이 낮은 일반 보조무기(아스트라)는 방어구 표를 따르고 23성 이상도 계산됩니다
+        self.assertEqual(weapon_starforce_option(200, 23, 7, "str", ("DEX",), weapon_like=False)["attack_power"], 127)
+        self.assertIsNone(weapon_starforce_option(250, 23, 517, "int", ("LUK",)))  # 무기 23성 이상은 로그 가산
+
     def test_weapon_secondary_and_emblem_use_their_own_axes(self):
         weapon = weapon_item("무기", "한손검", soul_option="공격력 +3%", soul_potential_option_1="보스 몬스터 데미지 +2%")
-        secondary = weapon_item("보조무기", "방패")
+        secondary = weapon_item("보조무기", "방패", item_base_option={"base_equipment_level": 200, "attack_power": "7"},
+                                item_starforce_option={"str": "145", "dex": "145", "attack_power": "106"})  # 일반 보조무기 = 방어구 표
         emblem = weapon_item("엠블렘", "엠블렘")
         results = {r["slot"]: r for r in evaluate_equipment([weapon, secondary, emblem], "히어로", 285)}
 
         w = results["무기"]
-        self.assertEqual([row["key"] for row in w["scoring_basis"]["breakdown"]], ["add", "pot", "pot_additional", "soul", "star"])
+        self.assertEqual([row["key"] for row in w["scoring_basis"]["breakdown"]], ["base", "add", "star", "pot", "pot_additional", "soul"])
         self.assertGreater(w["detail"]["add"], 0)
         self.assertGreater(w["detail"]["soul"], 0)
         self.assertEqual(sorted({e["category"] for e in w["scoring_basis"]["recognized_options"]}), ["소울", "에디셔널", "윗잠재", "추가옵션"])
-        self.assertAlmostEqual(w["total_score"], w["detail"]["add"] + w["detail"]["pot"] + w["detail"]["pot_additional"] + w["detail"]["soul"] + w["detail"]["star"], delta=0.3)
-        # 보조무기는 윗잠·에디 + 200제 기준 스타포스, 엠블렘은 윗잠·에디만
+        self.assertAlmostEqual(w["total_score"], sum(w["detail"].values()), delta=0.3)
+        # 보조무기는 스타포스(22성 = 만점) + 윗잠·에디, 엠블렘은 윗잠·에디만
         secondary_result = results["보조무기"]
-        self.assertEqual([row["key"] for row in secondary_result["scoring_basis"]["breakdown"]], ["pot", "pot_additional", "star"])
-        self.assertEqual(secondary_result["detail"]["star"], 100.0)  # 22성 · 200제 기준
+        self.assertEqual([row["key"] for row in secondary_result["scoring_basis"]["breakdown"] if row["key"] != "base"], ["star", "pot", "pot_additional"])
+        self.assertEqual(secondary_result["detail"]["star"], secondary_result["bar_max"]["star"])  # 22성 · 200제 기준
         emblem_result = results["엠블렘"]
-        self.assertEqual([row["key"] for row in emblem_result["scoring_basis"]["breakdown"]], ["pot", "pot_additional"])
-        self.assertAlmostEqual(emblem_result["total_score"], emblem_result["detail"]["pot"] + emblem_result["detail"]["pot_additional"], delta=0.3)
+        self.assertEqual([row["key"] for row in emblem_result["scoring_basis"]["breakdown"] if row["key"] != "base"], ["pot", "pot_additional"])
+        self.assertAlmostEqual(emblem_result["total_score"], sum(emblem_result["detail"].values()), delta=0.3)
         for slot in ("보조무기", "엠블렘"):
             self.assertNotIn("add", results[slot]["detail"])
         self.assertIn("pot", w["scoring_basis"]["benchmarks"])

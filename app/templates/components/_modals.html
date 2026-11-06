@@ -20,10 +20,7 @@
                   x-text="'적용 주스탯 · ' + (selectedItem?.scoring_basis?.main_stat || '-')"></span>
             <!-- 모바일: 결론(등급·점수)을 머리글에 고정 -->
             <div class="md:hidden text-right shrink-0" x-show="selectedItem?.scored !== false">
-                <span x-show="selectedItem?.graded !== false" class="block text-lg font-black leading-none"
-                      :class="getScoreDisplayData(selectedItem?.score_ratio).class" :style="getScoreDisplayData(selectedItem?.score_ratio).style"
-                      x-text="getGradeFromScore(selectedItem?.score_ratio)"></span>
-                <span class="block text-sm font-black text-blue-300 mt-0.5" x-text="selectedItem?.total_score"></span>
+                <span class="block text-lg font-black text-blue-300 leading-none tabular-nums" x-text="selectedItem?.total_score + '%p'"></span>
             </div>
             <button @click="closeDetail()" aria-label="닫기" class="p-2 -mr-1 md:mr-0 text-neutral-300 hover:text-white transition-colors shrink-0">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -78,17 +75,13 @@
                             <h4 class="text-xs font-black" :class="card.color" x-text="card.title"></h4>
                             <!-- :style 은 객체로 써야 x-show 의 display:none 을 덮어쓰지 않습니다 -->
                             <span x-show="card.grade" class="text-[9px] font-black px-2 py-0.5 rounded-full border text-white" :style="{ borderColor: getGradeColor(card.grade), backgroundColor: getGradeColor(card.grade) + '20' }" x-text="card.grade"></span>
+                            <span x-show="card.stage" class="text-[9px] font-black px-2 py-0.5 rounded-full border border-amber-400 bg-amber-400/20 text-amber-200" x-text="'증폭 ' + card.stage + '단계'"></span>
                             <span class="ml-auto text-sm font-black text-emerald-400 whitespace-nowrap" x-text="card.total"></span>
                         </div>
                         <ul class="space-y-1.5" :class="card.wide ? 'lg:grid lg:grid-cols-2 lg:gap-1.5 lg:space-y-0' : ''">
                             <template x-for="line in card.lines" :key="line.key">
                                 <li class="rounded-lg bg-neutral-800/80 border border-neutral-600 px-3 py-2 flex items-center gap-2.5">
-                                    <!-- 추가옵션은 점 대신 불꽃 단계. 단계를 확정할 수 없으면 '?' -->
-                                    <span x-show="card.key === 'add'" class="flex-none w-4 text-center text-xs font-black tabular-nums"
-                                          :class="line.tier ? 'text-emerald-300' : 'text-neutral-500'"
-                                          :title="line.tier ? (line.guess ? '같은 합계를 만드는 불꽃 조합이 여러 개라 그중 하나를 표시합니다' : '') : '불꽃 줄을 확정할 수 없거나 단계 기준이 없는 옵션'"
-                                          x-text="line.tier ? line.tier : '?'"></span>
-                                    <span x-show="card.key !== 'add'" class="w-1.5 h-1.5 rounded-full flex-none" :style="{ backgroundColor: line.dot }"></span>
+                                    <span class="w-1.5 h-1.5 rounded-full flex-none" :style="{ backgroundColor: line.dot }"></span>
                                     <div class="min-w-0 flex-1">
                                         <p class="text-xs font-bold text-neutral-100 break-keep" x-text="line.text"></p>
                                         <p x-show="line.sub" class="text-[10px] text-neutral-400 truncate" x-text="line.sub"></p>
@@ -142,16 +135,18 @@
                 <div class="flex items-center justify-between mb-3">
                     <h4 class="text-xs font-black text-neutral-300 uppercase tracking-widest">Scoring Basis</h4>
                     <span class="text-[10px] font-bold text-neutral-300" x-show="selectedItem?.benchmark_total"
-                          x-text="'기준 만점 ' + selectedItem?.benchmark_total + ' · 달성 ' + selectedItem?.score_ratio + '%'"></span>
+                          x-text="'만점 ' + selectedItem?.benchmark_total + '%p · 달성 ' + selectedItem?.score_ratio + '%'"></span>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-                    <template x-for="(entry, index) in selectedItem?.scoring_basis?.breakdown || []" :key="entry.key">
-                        <div class="relative rounded-xl bg-neutral-800/80 border border-neutral-600 px-2.5 py-2 min-w-0">
-                            <span x-show="index > 0" class="hidden md:flex absolute -left-2.5 top-1/2 -translate-y-1/2 z-10 w-4 h-4 items-center justify-center rounded-full bg-neutral-600 border border-neutral-500 text-blue-300 text-[10px]">→</span>
+                <!-- 칸 수가 많아 두 줄이 되면 줄마다 칸이 고르게 늘어나도록 flex-wrap (화살표는 줄바꿈에서 어색해 쓰지 않음) -->
+                <div class="flex flex-wrap gap-2">
+                    <template x-for="entry in selectedItem?.scoring_basis?.breakdown || []" :key="entry.key">
+                        <div class="flex-1 basis-[calc(50%_-_0.25rem)] md:basis-[calc(25%_-_0.375rem)] rounded-xl bg-neutral-800/80 border border-neutral-600 px-2.5 py-2 min-w-0">
                             <p class="text-[10px] font-black text-blue-300 mb-0.5" x-text="entry.label"></p>
-                            <p class="text-base font-black text-emerald-400" x-text="'+' + entry.weighted_score"></p>
-                            <p class="text-[10px] text-white/90 font-semibold mt-1" x-show="entry.key !== 'star'" x-text="'원점수 ' + entry.raw_score"></p>
-                            <p class="text-[11px] font-bold text-yellow-300 mt-1" x-show="entry.key === 'star'" x-text="entry.star + '★ → 환산 ' + entry.weighted_score + '점'"></p>
+                            <p class="text-base font-black text-emerald-400 tabular-nums" x-text="'+' + entry.value + '%p'"></p>
+                            <!-- 기본 옵션은 만점이 현재 값과 같아 표시하지 않습니다 -->
+                            <p class="text-[10px] text-white/90 font-semibold mt-1 min-h-[1rem]"
+                               x-text="[entry.key === 'star' ? entry.raw + '★' : entry.key === 'add' && entry.raw != null ? entry.raw + '급' : entry.key === 'exceptional' || entry.key === 'scroll' ? entry.raw + '회' : null,
+                                        entry.key === 'base' ? null : entry.max ? '만점 ' + entry.max + '%p' : '만점 밖 가산'].filter(Boolean).join(' · ')"></p>
                         </div>
                     </template>
                 </div>
@@ -159,8 +154,8 @@
         </div>
 
         <div class="hidden md:flex px-4 py-3 md:p-6 bg-blue-600/10 border-t border-neutral-600 justify-between items-center">
-            <span class="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Item Score</span>
-            <span x-show="selectedItem?.scored !== false" class="text-xl md:text-2xl font-black text-blue-300" x-text="selectedItem?.total_score"></span>
+            <span class="text-[10px] font-bold text-blue-300 uppercase tracking-widest" x-text="(report?.spec_up?.stat_label || '주스탯') + ' 환산 점수'"></span>
+            <span x-show="selectedItem?.scored !== false" class="text-xl md:text-2xl font-black text-blue-300" x-text="selectedItem?.total_score + '%p'"></span>
         </div>
     </div>
 </div>
@@ -211,61 +206,25 @@
             <div x-show="helpTab === 'score'" class="space-y-6 animate-fade-in">
                 <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100 shadow-sm">
                     <h4 class="font-bold text-slate-800 mb-2 flex items-center gap-2">
-                        <span>📊</span> 아이템별 종합 점수 산출
+                        <span>📊</span> 점수 = 주스탯 %p 환산
                     </h4>
-                    <p class="text-xs text-slate-500 leading-relaxed">추가옵션, 잠재능력, 에디셔널, 스타포스 등 모든 수치를 점수로 환산하여 합산합니다. 잠재능력과 에디셔널은 캐릭터의 스탯으로 계산한 유효 스탯%(주스탯 1%와 같은 가치)로 바꾸며, 장비 레벨과 부위별 가중치가 적용되어 실질적인 기여도를 평가합니다.</p>
+                    <p class="text-xs text-slate-500 leading-relaxed">추가옵션, 스타포스, 잠재능력, 에디셔널, 소울, 고유 옵션을 모두 "주스탯 몇 %와 같은 가치인가"로 바꿔 더합니다. 환산 계수는 내 캐릭터의 스탯으로 계산하므로, 같은 장비라도 캐릭터마다 점수가 다를 수 있습니다.</p>
                 </div>
-
-                <div class="grid grid-cols-3 gap-3">
-                    <div class="p-3 border border-blue-100 bg-blue-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
-                        <span class="text-[9px] font-bold text-blue-600 uppercase tracking-tighter mb-1">Transcendence</span>
-                        <span class="text-base font-black text-slate-800">SSS+</span>
-                        <span class="text-[10px] text-slate-500" x-text="gradeCutText('SSS+')"></span>
+                <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <h4 class="font-bold text-slate-800 mb-2">테두리 색 = 만점 대비 달성률</h4>
+                    <p class="text-xs text-slate-500 leading-relaxed mb-3">만점은 같은 장비의 최상 상태입니다: 추가옵션은 그 레벨 불꽃 최대 조합, 스타포스는 22성, 잠재는 내 캐릭터에게 가장 좋은 최상 조합. 23성 이상과 익셉셔널은 만점을 넘는 가산입니다.</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <template x-for="[cut, tier] in (getGrades().card_highlight || [])" :key="tier">
+                            <div class="flex items-center gap-2 rounded-xl px-3 py-2" :class="getBorderColor(cut)">
+                                <span class="text-xs font-black text-slate-700" x-text="cut + '% 이상'"></span>
+                            </div>
+                        </template>
                     </div>
-
-                    <div class="p-3 border border-emerald-100 bg-emerald-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
-                        <span class="text-[9px] font-bold text-emerald-600 uppercase tracking-tighter mb-1">Legendary</span>
-                        <span class="text-base font-black text-slate-800">SSS</span>
-                        <span class="text-[10px] text-slate-500" x-text="gradeCutText('SSS')"></span>
-                    </div>
-                    <div class="p-3 border border-emerald-100 bg-emerald-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
-                        <span class="text-[9px] font-bold text-emerald-600 uppercase tracking-tighter mb-1">Legendary</span>
-                        <span class="text-base font-black text-slate-800">SS</span>
-                        <span class="text-[10px] text-slate-500" x-text="gradeCutText('SS')"></span>
-                    </div>
-
-                    <div class="p-3 border border-amber-100 bg-amber-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
-                        <span class="text-[9px] font-bold text-amber-600 uppercase tracking-tighter mb-1">Unique</span>
-                        <span class="text-base font-black text-slate-800">S</span>
-                        <span class="text-[10px] text-slate-500" x-text="gradeCutText('S')"></span>
-                    </div>
-                    <div class="p-3 border border-amber-100 bg-amber-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
-                        <span class="text-[9px] font-bold text-amber-600 uppercase tracking-tighter mb-1">Unique</span>
-                        <span class="text-base font-black text-slate-800">A</span>
-                        <span class="text-[10px] text-slate-500" x-text="gradeCutText('A')"></span>
-                    </div>
-
-                    <div class="p-3 border border-violet-100 bg-violet-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
-                        <span class="text-[9px] font-bold text-violet-600 uppercase tracking-tighter mb-1">Epic</span>
-                        <span class="text-base font-black text-slate-800">B</span>
-                        <span class="text-[10px] text-slate-500" x-text="gradeCutText('B')"></span>
-                    </div>
-                    <div class="p-3 border border-violet-100 bg-violet-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
-                        <span class="text-[9px] font-bold text-violet-600 uppercase tracking-tighter mb-1">Epic</span>
-                        <span class="text-base font-black text-slate-800">C</span>
-                        <span class="text-[10px] text-slate-500" x-text="gradeCutText('C')"></span>
-                    </div>
-
-                    <div class="p-3 border border-red-100 bg-red-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
-                        <span class="text-[9px] font-bold text-red-600 uppercase tracking-tighter mb-1">Rare</span>
-                        <span class="text-base font-black text-slate-800">D</span>
-                        <span class="text-[10px] text-slate-500" x-text="gradeCutText('D')"></span>
-                    </div>
-                    <div class="p-3 border border-red-100 bg-red-50/40 rounded-xl shadow-sm flex flex-col justify-center text-center">
-                        <span class="text-[9px] font-bold text-red-600 uppercase tracking-tighter mb-1">Rare</span>
-                        <span class="text-base font-black text-slate-800">F</span>
-                        <span class="text-[10px] text-slate-500">50- 점</span>
-                    </div>
+                </div>
+                <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <h4 class="font-bold text-slate-800 mb-2">총평 랭크 = 장비 달성률</h4>
+                    <p class="text-xs text-slate-500 leading-relaxed">모든 장비의 점수 합 ÷ 만점 합입니다. 만점이 큰 부위(무기·시드링 등)일수록 크게 반영됩니다. 칭호와 뱃지는 빠집니다.</p>
+                    <p class="text-xs text-slate-500 leading-relaxed mt-2">상단의 메큘레이터 지수(P)는 모든 캐릭터의 장비를 같은 기준 캐릭터(고정 스탯)로 환산한 합이라 캐릭터끼리 비교할 수 있습니다.</p>
                 </div>
             </div>
 

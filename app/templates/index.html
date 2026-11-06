@@ -2,7 +2,7 @@
 
 {% macro view_tabs(extra_class) %}
 <div class="{{ extra_class }}">
-    <template x-for="mode in [['equip', '🧰 장비창', '🧰 장비창'], ['spec', '🚀 스펙업 추천', '🚀 스펙업'], ['all', '📊 모든 아이템 점수', '📊 전체 점수']]" :key="mode[0]">
+    <template x-for="mode in [['equip', '🧰 장비창', '🧰 장비창'], ['spec', '🚀 스펙업 추천', '🚀 스펙업']]" :key="mode[0]">
         <button @click="setViewMode(mode[0])" :aria-pressed="viewMode === mode[0]"
                 class="flex items-center justify-center gap-2 text-[12px] md:text-xs font-bold px-2 md:px-4 py-2.5 md:py-2 rounded-lg transition-all shadow-sm border leading-tight text-center"
                 :class="viewMode === mode[0] ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'">
@@ -24,7 +24,7 @@
         {% include "components/_overall_review.html" %}
 
         <!-- 모바일: 바뀌는 영역 바로 위에 붙고 스크롤해도 화면 위에 남는 탭 -->
-        {{ view_tabs("md:hidden sticky top-0 z-30 -mx-2 px-2 py-2 mb-2 grid grid-cols-3 gap-1.5 bg-slate-50/95 backdrop-blur") }}
+        {{ view_tabs("md:hidden sticky top-0 z-30 -mx-2 px-2 py-2 mb-2 grid grid-cols-2 gap-1.5 bg-slate-50/95 backdrop-blur") }}
 
         <div x-ref="views" class="space-y-4 scroll-mt-16 md:scroll-mt-0">
 
@@ -36,11 +36,6 @@
                 {% include "components/_spec_up.html" %}
             </template>
 
-            <template x-if="viewMode === 'all'">
-                <div class="space-y-4">
-                    {% include "components/_item_list.html" %}
-                </div>
-            </template>
         </div>
     </div>
 

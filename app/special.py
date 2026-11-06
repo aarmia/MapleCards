@@ -139,16 +139,6 @@ def is_seed_ring(item: dict) -> bool:
     return _number(item.get("special_ring_level")) > 0 or item.get("item_equipment_slot") == "예비 특수 반지"
 
 
-def ring_score(item: dict) -> tuple[float, dict]:
-    """시드링 점수(최상 100): 종류 가중치 × 레벨 ÷ max_level. 리스트레인트·컨티뉴어스 만렙이 100"""
-    config = POTENTIAL.special.ring
-    name = item.get("item_name") or ""
-    weight = next((value for keyword, value in config.weights.raw.items() if keyword in name), config.default)
-    level = _number(item.get("special_ring_level"))
-    score = round(weight * min(level, config.max_level) / config.max_level, 2)
-    rule = f"{name} Lv.{level:g} · 종류 {weight:g} × {level:g}/{config.max_level}"
-    return score, {"option": f"{name} Lv.{level:g}", "value": score, "rule": rule}
-
 
 def title_item(title: dict) -> dict | None:
     """장비 응답의 title 필드를 평가 목록에 넣을 아이템 모양으로 바꿉니다."""

@@ -1,5 +1,66 @@
+// 시세로 정해지는 비용(스타포스 기대 비용·시드링 연마석 비용)은 모두 화면이 계산합니다. 서버는 설정만 페이지에 넣습니다:
+// window.MECULATOR_PRICING = { starforce: 확률·비용 분모·이벤트·파괴 방지·복구, base_price: 노작 시세 기본값 표, materials: 연마석 기본 시세(억) }
+// (app/data/starforce_cost.toml · spec_up.toml). 스타포스 계산은 starforce.gg/ev 와 같은 방식이며 tests/spec_up_ui.cjs 가 그 값과 대조합니다.
+const pricing = () => (typeof window !== 'undefined' && window.MECULATOR_PRICING) || null;
+const STARFORCE_MEMO = new Map();
+const sfRound = (x) => Math.floor(x + 0.5);
+
+function sfStep(cfg, star, level, prevent) {
+    let [success, , destroy] = cfg.odds[star];
+    if (star <= cfg.event.destroy_max_star) destroy *= cfg.event.destroy_multiplier;
+    if (prevent) destroy = 0;
+    const base = sfRound((1000 + level ** 3 * (star + 1) ** 2.7 / cfg.cost_denominator[star]) / 100) * 100;
+    return [success, destroy, sfRound(base * cfg.event.cost_multiplier + (prevent ? 2 * base : 0))];
+}
+
+function sfRestore(cfg, star, level, basePrice) {
+    const meso = (cfg.restore.meso[level] || {})[star];
+    return meso === undefined ? null : basePrice * cfg.restore.items[star] + meso * cfg.event.restore_multiplier;
+}
+
+// 성마다 star → star + 1 기대 메소. 15~17성은 파괴 방지·복구·그냥 중 최소, 18~22성은 복구가 더 싸면 복구 (starforce_cost.optimal_plan).
+function sfStepCosts(cfg, level, basePrice) {
+    const key = level + ':' + basePrice;
+    if (STARFORCE_MEMO.has(key)) return STARFORCE_MEMO.get(key);
+    const prevent = new Set(), restore = new Set();
+    let cumulative = 0;
+    for (let star = 12; star < 23; star++) {
+        const [s, d, c] = sfStep(cfg, star, level, false);
+        const options = [[(d * (basePrice + cumulative) + c) / s, 2]];
+        const restoreCost = star >= 15 ? sfRestore(cfg, star, level, basePrice) : null;
+        if (restoreCost !== null) options.push([(d * restoreCost + c) / s, 1]);
+        if (cfg.prevention.stars.includes(star)) {
+            const [ps, pd, pc] = sfStep(cfg, star, level, true);
+            options.push([(pd * (basePrice + cumulative) + pc) / ps, 0]);
+        }
+        options.sort((a, b) => a[0] - b[0] || a[1] - b[1]);  // 같으면 파괴 방지 → 복구 → 그냥
+        if (options[0][1] === 0) prevent.add(star); else if (options[0][1] === 1) restore.add(star);
+        cumulative += options[0][0];
+    }
+    const costs = {};
+    let total = 0, restored22 = null, since22 = 0;
+    for (let star = 12; star < 30; star++) {
+        const [s, d, c] = sfStep(cfg, star, level, prevent.has(star));
+        const restoreCost = restore.has(star) ? sfRestore(cfg, star, level, basePrice) : null;
+        let expected;
+        if (restoreCost !== null) {
+            expected = (d * restoreCost + c) / s;
+            if (star === 22) { restored22 = restoreCost; since22 = 0; }
+        } else if (restored22 !== null) {
+            expected = (d * (restored22 + since22) + c) / s;
+        } else {
+            expected = (d * (basePrice + total) + c) / s;
+        }
+        costs[star] = expected;
+        total += expected;
+        since22 += expected;
+    }
+    if (STARFORCE_MEMO.size > 256) STARFORCE_MEMO.clear();
+    STARFORCE_MEMO.set(key, costs);
+    return costs;
+}
+
 // 티어 이름 → 화면 스타일. 각 티어의 점수 기준은 서버의 app/data/grades.toml 이 정합니다.
-const STAT_BAR_CLASS = { ultimate: 'bg-ultimate', legendary: 'bg-emerald-500', unique: 'bg-yellow-400', epic: 'bg-purple-500', rare: 'bg-sky-400', poor: 'bg-red-500' };
 const CARD_CLASS = {
     transcendent: 'border-[3px] border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.4)] bg-indigo-50/30',
     legendary: 'border-[3px] border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.2)] bg-green-50/30',
@@ -7,14 +68,6 @@ const CARD_CLASS = {
     epic: 'border-[3px] border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.2)] bg-purple-50/30',
     none: 'border border-slate-200 bg-slate-50',
 };
-const SCORE_STYLE = {
-    ultimate: { class: 'bg-ultimate text-transparent bg-clip-text', style: '' },   // base.html 의 bg-ultimate 그라데이션
-    legendary: { class: '', style: 'color: #b2e52c;' },
-    unique: { class: '', style: 'color: #ffb900;' },
-    epic: { class: '', style: 'color: #a855f7;' },
-    rare: { class: '', style: 'color: #3b82f6;' },
-};
-
 document.addEventListener('alpine:init', () => {
     Alpine.data('meculatorApp', () => ({
         nickname: '',
@@ -37,8 +90,10 @@ document.addEventListener('alpine:init', () => {
         // 스펙업 추천: 사용자가 바꾼 노작 시세(아이템 이름 → 억)와 그 시세로 다시 계산한 스타포스 비용(슬롯 → 메소)
         specUpExpanded: false,
         specUpPrices: {},
-        specUpCosts: {},
         specUpMaterials: {},  // 사용자가 바꾼 연마석 시세 (이름 → 억)
+        // 시세 입력 중에는 카드 순서를 고정하고 비용·효율만 바로 바꿉니다. 순서가 바뀌어 카드가 움직이면 입력칸 포커스가 풀리기 때문입니다.
+        specUpFrozen: null,
+        specUpFreezeToken: 0,
         // 장비창 배치 [슬롯, 열, 행]. 7열 격자: 1·2열 왼쪽 블록, 3~5열 캐릭터(1~4행)와 무기류(5행), 6·7열 오른쪽 블록.
         // 슬롯 이름은 넥슨 응답의 item_equipment_slot 과 같고, 칭호는 장비창에 보이지 않습니다.
         equipLayout: [
@@ -290,25 +345,68 @@ document.addEventListener('alpine:init', () => {
         },
 
         // 스펙업 추천: 100억당 최종뎀으로 정렬. 사용자 변경 시세도 같은 기준으로 반영합니다.
+        // 시세로 비용·효율을 다시 매깁니다. 스타포스는 노작 시세로 star → target_star 기대 비용, 시드링은 연마석 시세, 잠재·추옵은 서버가 준 고정 비용.
+        priceAction(action, unit = this.report?.spec_up?.unit || 1e10) {
+            let cost = action.cost;
+            if (action.axis === '스타포스') {
+                cost = this.starforceCost(action.level, Math.round(this.specUpPrice(action) * 1e8), action.star, action.target_star ?? action.star + 1);
+            }
+            if (action.material) cost = action.material.count * this.materialPrice(action) * 1e8 + action.material.meso;
+            return { ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0,
+                damage_efficiency: cost > 0 ? action.final_damage / (cost / unit) : 0 };
+        },
+
+        // 화면에 보이는 목록: 시세 입력 중이면 고정한 순서 그대로 비용만 다시 계산, 아니면 전체를 다시 정렬
+        specUpVisibleActions() {
+            return this.specUpFrozen ? this.specUpFrozen.map(action => this.priceAction(action)) : this.specUpActions();
+        },
+
+        freezeSpecUp(actions) {
+            this.specUpFreezeToken += 1;
+            if (!this.specUpFrozen) this.specUpFrozen = actions;
+        },
+
+        // 입력칸을 벗어나면 순서를 다시 정합니다. 같은 카드의 '기본 시세로' 버튼 클릭이 먼저 처리되도록 잠깐 기다립니다.
+        unfreezeSpecUp() {
+            const token = this.specUpFreezeToken;
+            setTimeout(() => { if (this.specUpFreezeToken === token) this.specUpFrozen = null; }, 200);
+        },
+
+        // 시세 입력값 검사: 숫자와 소수점 하나만 남깁니다 (입력칸에도 바로 반영). 반영할 수 있는 숫자인지는 priceValid 로 봅니다.
+        cleanPriceInput(event) {
+            const el = event.target;
+            let text = el.value.replace(/[^0-9.]/g, '');
+            const dot = text.indexOf('.');
+            if (dot >= 0) text = text.slice(0, dot + 1) + text.slice(dot + 1).replace(/\./g, '');
+            if (text !== el.value) el.value = text;
+            return text;
+        },
+
+        priceValid(text) {
+            return text !== '' && text !== '.' && Number.isFinite(Number(text));
+        },
+
         specUpActions(raw = false) {
             if (!this.report?.results) return [];
             const unit = this.report.spec_up?.unit || 1e10;
             const rows = [];
             for (const item of this.report.results) {
-                for (const action of item.spec_up || []) {
-                    let cost = action.axis === '스타포스' ? (this.specUpCosts[this.specUpCostKey({ ...action, item })] ?? action.cost) : action.cost;
-                    if (action.material) cost = action.material.count * this.materialPrice(action) * 1e8 + action.material.meso;
-                    rows.push({ ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0,
-                        damage_efficiency: cost > 0 ? action.final_damage / (cost / unit) : 0, item });
-                }
+                for (const action of item.spec_up || []) rows.push(this.priceAction({ ...action, item }, unit));
             }
             if (raw) return rows;
-            const pending = [...rows], result = [];
-            while (pending.length) {
-                const eligible = pending.filter(a => a.axis !== '스타포스' || !pending.some(b =>
-                    b.axis === '스타포스' && b.item.slot === a.item.slot && b.star < a.star));
-                const action = eligible.reduce((a, b) => b.damage_efficiency > a.damage_efficiency ? b : a);
-                pending.splice(pending.indexOf(action), 1);
+            // 같은 아이템의 스타포스는 낮은 성부터: 슬롯별 대기열의 맨 앞만 고를 수 있습니다.
+            const queues = {};
+            for (const a of rows) if (a.axis === '스타포스') (queues[a.item.slot] ||= []).push(a);
+            for (const queue of Object.values(queues)) queue.sort((a, b) => a.star - b.star);
+            const pending = new Set(rows), result = [];
+            while (pending.size) {
+                let action = null;
+                for (const a of pending) {
+                    if (a.axis === '스타포스' && queues[a.item.slot][0] !== a) continue;
+                    if (!action || a.damage_efficiency > action.damage_efficiency) action = a;
+                }
+                pending.delete(action);
+                if (action.axis === '스타포스') queues[action.item.slot].shift();
                 const previous = result[result.length - 1];
                 if (previous && action.axis === '스타포스' && previous.axis === '스타포스'
                     && previous.item.slot === action.item.slot && previous.target_star === action.star) {
@@ -325,35 +423,53 @@ document.addEventListener('alpine:init', () => {
             return result;
         },
 
-        visibleSpecUp() {
-            const all = this.specUpActions();
-            return this.specUpExpanded ? all : all.slice(0, this.report?.spec_up?.limit || 5);
-        },
-
         formatEfficiency(value) {
             const n = Number(value) || 0;
             return n >= 0.1 ? n.toFixed(2) : n.toFixed(3);
         },
 
+        // 노작 시세(억): 사용자가 바꾼 값, 없으면 기본값 표(starforce_cost.toml base_price)에서 찾은 값
         specUpPrice(action) {
             const saved = this.specUpPrices[action.item.name];
-            return saved ?? Math.round(action.base_price / 1e6) / 100;
+            return saved ?? this.defaultBasePrice(action.item).price;
         },
 
-        specUpCostKey(action) {
-            return action.item.slot + ':' + (action.target_star ?? action.star + 1);
+        // 노작 시세 기본값: 이름에 name 이 들어 있고 (parts 가 있으면 부위나 장착 칸도 맞는) 첫 항목, 없으면 레벨별 기본값.
+        // 무기류는 부위가 무기 종류(단검 등)라 장착 칸(무기·보조무기)으로 맞춥니다.
+        defaultBasePrice(item) {
+            const table = pricing()?.base_price;
+            if (!table) return { price: 0, registered: false };
+            const name = item.name || '';
+            const hit = table.item.find(row => name.includes(row.name)
+                && (!row.parts || row.parts.includes(item.part) || row.parts.includes(item.slot)));
+            if (hit) return { price: hit.price, registered: true };
+            const band = table.default.find(([floor]) => (item.level || 0) >= floor);
+            return { price: band ? band[1] : 0, registered: false };
+        },
+
+        basePriceRegistered(action) {
+            return this.defaultBasePrice(action.item).registered;
+        },
+
+        // start 성에서 end 성까지 기대 메소 (12성 미만은 0). 설정이 없으면 0 입니다.
+        starforceCost(level, basePrice, start, end) {
+            const cfg = pricing()?.starforce;
+            if (!cfg) return 0;
+            const costs = sfStepCosts(cfg, level, basePrice);
+            let sum = 0;
+            for (let star = Math.max(start, 12); star < Math.min(end, 30); star++) sum += costs[star];
+            return sum;
         },
 
         specUpPriceCustom(action) {
             return this.specUpPrices[action.item.name] !== undefined;
         },
 
-        async setSpecUpPrice(action, value) {
+        setSpecUpPrice(action, value) {
             const eok = Number(value);
             if (value === '' || !Number.isFinite(eok) || eok < 0) return;
             this.specUpPrices = { ...this.specUpPrices, [action.item.name]: eok };
             try { localStorage.setItem('specup-prices', JSON.stringify(this.specUpPrices)); } catch (e) { /* 저장 불가(사생활 보호 모드 등) */ }
-            await this.refreshSpecUpCosts(this.specUpActions(true).filter(a => a.axis === '스타포스' && a.item.name === action.item.name));
         },
 
         resetSpecUpPrice(action) {
@@ -361,37 +477,12 @@ document.addEventListener('alpine:init', () => {
             delete prices[action.item.name];
             this.specUpPrices = prices;
             try { localStorage.setItem('specup-prices', JSON.stringify(prices)); } catch (e) { /* 무시 */ }
-            const costs = { ...this.specUpCosts };
-            this.specUpActions(true).filter(a => a.axis === '스타포스' && a.item.name === action.item.name)
-                .forEach(a => { delete costs[this.specUpCostKey(a)]; });
-            this.specUpCosts = costs;
-        },
-
-        // 바꾼 노작 시세로 스타포스 기대 비용만 서버에서 다시 계산합니다 (넥슨 API 호출 없음).
-        async refreshSpecUpCosts(actions) {
-            if (!actions.length) return;
-            if (actions.length > 40) {
-                for (let i = 0; i < actions.length; i += 40) await this.refreshSpecUpCosts(actions.slice(i, i + 40));
-                return;
-            }
-            try {
-                const res = await fetch('/spec-up/starforce-cost', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: actions.map(a => ({ level: a.level, star: a.star, target_star: a.target_star, base_price: Math.round(this.specUpPrice(a) * 1e8) })) }),
-                });
-                if (!res.ok) return;
-                const { costs } = await res.json();
-                const next = { ...this.specUpCosts };
-                actions.forEach((a, i) => { if (costs[i] !== null && costs[i] !== undefined) next[this.specUpCostKey(a)] = costs[i]; });
-                this.specUpCosts = next;
-            } catch (e) { /* 실패하면 기본 시세 비용을 그대로 씁니다 */ }
         },
 
         // 시드링 연마석 시세(억): 사용자가 바꾼 값, 없으면 기본 시세. 같은 연마석을 쓰는 모든 반지에 함께 적용됩니다.
         materialPrice(action) {
             const saved = this.specUpMaterials[action.material.name];
-            return saved ?? Math.round(action.material.price / 1e6) / 100;
+            return saved ?? (pricing()?.materials?.[action.material.name] || 0);
         },
 
         materialPriceCustom(action) {
@@ -414,17 +505,9 @@ document.addEventListener('alpine:init', () => {
 
         applySavedSpecUpPrices() {
             try { this.specUpMaterials = JSON.parse(localStorage.getItem('specup-materials') || '{}') || {}; } catch (e) { this.specUpMaterials = {}; }
-            this.specUpCosts = {};
-            this.specUpExpanded = false;
             try { this.specUpPrices = JSON.parse(localStorage.getItem('specup-prices') || '{}') || {}; } catch (e) { this.specUpPrices = {}; }
-            const saved = this.specUpActions(true).filter(a => a.axis === '스타포스' && this.specUpPriceCustom(a));
-            this.refreshSpecUpCosts(saved);
-        },
-
-        getFilteredItems() {
-            if (!this.report || !this.report.results) return [];
-            // 모든 아이템 점수: 칭호를 뺀 전부 (기준 대비 % 오름차순)
-            return [...this.report.results].filter(item => item.part !== '칭호').sort((a, b) => a.score_ratio - b.score_ratio);
+            this.specUpExpanded = false;
+            this.specUpFrozen = null;
         },
 
         // 모바일 장비창: 부위 그룹별로 나눕니다. 비어 있는 예비 특수 반지는 숨깁니다.
@@ -462,18 +545,8 @@ document.addEventListener('alpine:init', () => {
             return (item?.scoring_basis?.recognized_options || []).filter(entry => entry.category === category && (includeHidden || !entry.hidden));
         },
 
-        recognizedCategories(item) {
-            const order = ['윗잠재', '에디셔널', '소울', '고유 옵션'];
-            const present = new Set((item?.scoring_basis?.recognized_options || []).map(entry => entry.category));
-            return order.filter(category => present.has(category));
-        },
-
         categoryColor(category) {
             return { '윗잠재': 'text-red-300', '에디셔널': 'text-blue-400', '소울': 'text-amber-400', '추가옵션': 'text-emerald-300', '익셉셔널': 'text-rose-400', '고유 옵션': 'text-violet-300' }[category] || 'text-neutral-300';
-        },
-
-        summaryUnit(item) {
-            return item?.is_wse ? '공격력%' : '유효 스탯%';
         },
 
         entryValueText(item, entry) {
@@ -515,7 +588,7 @@ document.addEventListener('alpine:init', () => {
             const blocks = [
                 { key: 'potential', title: 'Potential', grade: raw.potential_grade, options: (raw.potential_options || []).filter(Boolean), category: '윗잠재' },
                 { key: 'additional', title: 'Additional', grade: raw.additional_grade, options: (raw.additional_options || []).filter(Boolean), category: '에디셔널' },
-                { key: 'soul', title: 'Soul', grade: null, options: raw.soul_options || [], category: '소울' },
+                { key: 'soul', title: 'Soul', grade: raw.soul_grade || null, stage: raw.soul_stage || null, options: raw.soul_options || [], category: '소울' },
             ];
             return blocks.filter(block => block.options.length || this.axisEntries(item, block.category).length);
         },
@@ -559,29 +632,36 @@ document.addEventListener('alpine:init', () => {
             if (!item || this.baseOnly(item)) return [];
             const rows = Object.fromEntries((item.scoring_basis?.breakdown || []).map(row => [row.key, row]));
             const cards = [];
-            const exceptional = rows.exceptional && Number(rows.exceptional.raw_score) > 0 ? rows.exceptional : null;
+            const exceptional = rows.exceptional && Number(rows.exceptional.raw) > 0 ? rows.exceptional : null;
             if (rows.add) {
+                // 합산된 옵션마다 오르는 수치: 방어구·장신구는 급수, 무기는 공/마 불꽃 단계(N추)와 나머지의 데미지 %p 환산
                 const entries = this.axisEntries(item, '추가옵션');
-                const mark = item.scoring_basis?.benchmarks?.add || 0;
-                const total = item.is_wse ? `최대 대비 ${mark ? Math.round(100 * rows.add.weighted_score / mark) : 0}%` : `${rows.add.raw_score}급`;
-                // 불꽃 줄로 되돌린 add_lines 가 있으면 줄마다 단계를 붙이고, 없으면 합계 줄에 단계 '?' 를 둡니다.
-                const flame = item.scoring_basis?.add_lines;
-                const valueText = value => item.is_wse ? `+${value}% (공)` : `+${value}`;
-                const lines = Array.isArray(flame)
-                    ? flame.map(line => ({ text: line.option, tier: line.tier, guess: !!line.guess, value: line.value ? valueText(line.value) : null }))
-                    : entries.length
-                        ? entries.map(entry => ({ text: entry.option, tier: null, value: valueText(entry.value) }))
-                        : this.addSummaryLines(item).map(text => ({ text, tier: null }));
+                let total = `${rows.add.raw}급`;
+                let lines = entries.length
+                    ? entries.map(entry => ({ text: entry.option, value: `+${entry.value}` }))
+                    : this.addSummaryLines(item).map(text => ({ text }));
+                if (item.is_wse) {
+                    const perPct = this.report?.profile?.weapon?.boss_per_pct || 0;  // 보공·데미지 1% 의 공% 가치
+                    const flat = /^(공격력|마력) \+\d+$/;
+                    const tier = item.scoring_basis?.add_attack_tier;
+                    const chu = tier ? `${8 - tier}추` : '단계 ?';  // 불꽃 7단계 = 1추
+                    const damage = entry => perPct ? Number((entry.value / perPct).toFixed(1)) : 0;
+                    const rest = entries.filter(entry => !flat.test(entry.option));
+                    lines = entries.map(entry => ({ text: entry.option, value: flat.test(entry.option) ? chu : `+${damage(entry)}%p` }));
+                    const sum = Number(rest.reduce((s, entry) => s + entry.value / (perPct || 1), 0).toFixed(1));
+                    total = [entries.some(entry => flat.test(entry.option)) ? chu : null, rest.length ? `데미지${sum}%` : null]
+                        .filter(Boolean).join(' + ') || '-';
+                }
                 cards.push({ key: 'add', title: '추가옵션', color: this.categoryColor('추가옵션'), dot: '#34d399', total, lines, wide: !exceptional });
             }
             if (exceptional) {
                 const lines = this.exceptionalLines(item).map(text => ({ text }));
                 cards.push({ key: 'exceptional', title: '익셉셔널', color: this.categoryColor('익셉셔널'), dot: '#fb7185',
-                             total: `${exceptional.raw_score}회`, lines, wide: !rows.add });
+                             total: `${exceptional.raw}회`, lines, wide: !rows.add });
             }
             this.optionBlocks(item).forEach(block => {
                 cards.push({
-                    key: block.key, title: block.category, color: this.categoryColor(block.category), grade: block.grade,
+                    key: block.key, title: block.category, color: this.categoryColor(block.category), grade: block.grade, stage: block.stage,
                     total: this.axisTotalText(item, block.category), wide: block.key === 'soul',
                     lines: this.mergedLines(item, block).map(line => ({
                         text: line.text, sub: line.entry?.rule, dot: line.dot,
@@ -655,24 +735,6 @@ document.addEventListener('alpine:init', () => {
             return hit ? hit[1] : fallback;
         },
 
-        gradeCutText(label) {
-            const band = (this.getGrades().item_grade || []).find(([, name]) => name === label);
-            return band ? band[0] + '+ 점' : '';
-        },
-
-        getStatColor(val, key) {
-            const grades = this.getGrades();
-            const bands = grades.stat_bar?.[key] || grades.stat_bar?.add;
-            const tier = this.pickTier(bands, parseFloat(val), grades.stat_bar?.default || 'poor');
-            return STAT_BAR_CLASS[tier] || STAT_BAR_CLASS.poor;
-        },
-
-        getStatWidth(val, key, item) {
-            // 아이템마다 서버가 레벨·세트로 고른 만점(bar_max)을 먼저 씁니다
-            const max = item?.bar_max?.[key] ?? this.getGrades().stat_bar_max?.[key] ?? 100.0;
-            return Math.min((parseFloat(val) / max) * 100, 100);
-        },
-
         getBorderColor(score) {
             const grades = this.getGrades();
             const tier = this.pickTier(grades.card_highlight, score, grades.card_highlight_default || 'none');
@@ -725,25 +787,6 @@ document.addEventListener('alpine:init', () => {
             return reason === 'unsupported'
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
                 : 'bg-slate-700/60 text-slate-400 border border-slate-600';
-        },
-
-        getGuideStyle(guideText) {
-            if (!guideText) return '';
-            if (guideText.includes('종결') || guideText.includes('완벽')) return 'bg-indigo-50 text-indigo-700 border-indigo-100';
-            if (guideText.includes('교체') || guideText.includes('시급')) return 'bg-red-50 text-red-700 border-red-100';
-            if (guideText.includes('강화') || guideText.includes('권장')) return 'bg-blue-50 text-blue-700 border-blue-100';
-            return 'bg-emerald-50 text-emerald-700 border-emerald-100';
-        },
-
-        getGradeFromScore(score) {
-            const grades = this.getGrades();
-            return this.pickTier(grades.item_grade, score, grades.item_grade_default || 'F');
-        },
-
-        getScoreDisplayData(score) {
-            const grades = this.getGrades();
-            const tier = this.pickTier(grades.score_color, score, grades.score_color_default || 'rare');
-            return SCORE_STYLE[tier] || SCORE_STYLE.rare;
         }
     }));
 });

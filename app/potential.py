@@ -253,6 +253,29 @@ def reference_context(char_class, main_stat: str) -> StatContext:
     )
 
 
+def standard_context(char_class, main_stat: str) -> StatContext:
+    """메큘레이터 지수의 공통 기준 캐릭터 (potential.toml [standard]). 직업·주스탯 종류만 그 캐릭터 것을 씁니다."""
+    std = POTENTIAL.standard
+    return StatContext(
+        main_stat=main_stat,
+        main_names=main_names(main_stat),
+        sub_names=secondary_names(char_class, main_stat),
+        stat_weight=stat_weight(char_class),
+        base_stat=float(std.base_stat),
+        stat_pct=float(std.stat_pct),
+        exempt_stat=float(std.exempt_stat),
+        final_main=float(std.final_main),
+        final_sub=float(std.final_sub),
+        attack=float(std.attack),
+        attack_multiplier=float(std.attack_multiplier),
+        crit_damage=float(std.crit_damage),
+        crit_rate=float(std.crit_rate),
+        is_archer=is_archer(char_class),
+        ap_stat=ap_stat(std.level),
+        basis="standard",
+    )
+
+
 def _all_stat_factor(context: StatContext) -> float:
     """올스탯 N 의 배율: 주스탯 1 + 부스탯 수 × sub_stat_ratio. 데몬어벤져의 HP 는 올스탯에 들지 않습니다."""
     main_share = 0.0 if context.main_stat == "hp" else 1.0

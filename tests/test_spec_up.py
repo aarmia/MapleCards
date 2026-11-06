@@ -5,7 +5,10 @@ from unittest.mock import patch
 
 from app.calculator import calculate_item_score, flame_best_add_option
 from app.potential import reference_context
+from app.scoring_config import POTENTIAL
 from app.spec_up import (
+    amplify_tries,
+    attach_spec_up,
     best_target,
     burst_share,
     expected_resets,
@@ -15,9 +18,9 @@ from app.spec_up import (
     potential_actions,
     potential_distribution,
     seed_ring_action,
-    attach_spec_up,
+    soul_action,
 )
-from app.scoring_config import POTENTIAL
+from app.weapon import WeaponContext
 
 
 def str_pct(text):
@@ -41,16 +44,15 @@ class SpecUpTests(unittest.TestCase):
                             action.assert_not_called()
                     self.assertEqual(row["spec_up"], [])
                     self.assertEqual((row["total_score"], row["score_ratio"]), (42, 80))
-                    self.assertEqual(report["top"], [])
                     self.assertEqual(report["count"], 0)
 
     def test_assumptions_follow_config_and_are_in_report(self):
         context = reference_context("나이트로드", "luk")
-        with patch.dict(POTENTIAL.buff.raw, {"attack_flat": 432}):
+        with patch.dict(POTENTIAL.raw, {"cooldown_per_second": 7.5}):
             report = attach_spec_up([], [], context, "나이트로드", "luk", 280)
         self.assertTrue(report["estimate"])
         notes = " ".join(report["assumptions"])
-        for token in ("+432", "보스 장비", "비실측", "자동 식별", "실제 DPS", "평균"):
+        for token in ("주스탯 7.5%", "비실측", "실제 DPS", "평균"):
             self.assertIn(token, notes)
 
     def test_official_odds_match_mapletiptip_examples(self):
@@ -90,12 +92,12 @@ class SpecUpTests(unittest.TestCase):
         base = context.attack_multiplier_effective * 100 + 12  # 컨티 5레벨 공/마 12%
         # 지금 레벨의 전체 딜(1 + 구간 비중 × 공/마 ÷ 배율) 대비 증가
         self.assertAlmostEqual(r45["gain"] * final_damage_per_pct(context), 100 * ((1 + s20 * 68 / base) / (1 + s15 * 68 / base) - 1), places=6)
-        self.assertEqual(r45["cost"], 10 * 8.43e8 + 50e8)  # 생명의 연마석 10개 + 50억
+        self.assertEqual(r45["material"], {"name": "생명의 연마석", "count": 10, "meso": 50e8})  # 비용은 연마석 시세로 화면이 계산
         r56 = seed_ring_action("리스트레인트 링", 5, "나이트로드", context, 0.0, 5)
         self.assertAlmostEqual(r56["gain"] * final_damage_per_pct(context), 100 * ((1 + s20 * 85 / base) / (1 + s20 * 68 / base) - 1), places=6)
         self.assertIsNone(seed_ring_action("리스트레인트 링", 6, "나이트로드", context, 0.0, 5))  # 만렙
         c56 = seed_ring_action("컨티뉴어스 링", 5, "처음 보는 직업", context, 100.0, 5)  # 표에 없는 직업은 평균
-        self.assertEqual(c56["cost"], 20 * 31.67e8 + 200e8)
+        self.assertEqual(c56["material"], {"name": "신념의 연마석", "count": 20, "meso": 200e8})
         self.assertGreater(c56["gain"], 0)
 
     def test_best_target_trades_gain_against_cost(self):
@@ -126,6 +128,29 @@ class SpecUpTests(unittest.TestCase):
         self.assertAlmostEqual(sum(dist.values()), 1.0, places=9)
         best = calculate_item_score(flame_best_add_option(250, "나이트로드", "luk", context.sub_names, context), "나이트로드", "luk", context)
         self.assertAlmostEqual(max(dist), round(best, 1), places=1)
+
+    def test_soul_amplify_next_stage(self):
+        # 기대 시도 수: 게이지(실패당 확률 증가)와 확정을 반영한 값 (hoonjaelab 9.18회 · 19.11회와 같음)
+        self.assertAlmostEqual(amplify_tries(0.05, 0.01, 25), 9.18, places=2)
+        self.assertAlmostEqual(amplify_tries(0.015, 0.003, 50), 19.11, places=2)
+        context = reference_context("나이트로드", "luk")
+        weapon = WeaponContext(stats=context, ignore_defense=90)
+        item = {"soul_name": "위대한 데미안의 소울 적용", "soul_potential_grade": "레전드리", "soul_potential_amplified_grade": 2,
+                "soul_potential_option_1": "공격력 +4%", "soul_potential_option_2": "공격력 +3%",
+                "soul_potential_option_3": "크리티컬 확률 +4%"}
+        action = soul_action(item, 200, context, weapon, 280, 0.0)
+        # 공식 표의 다음 단계 값: 공% 는 정비례(4→6, 3→4.5), 크확은 아님(4→5)
+        self.assertTrue(action["detail"].endswith("공격력 +6% · 공격력 +4.5% · 크리티컬 확률 +5%"))
+        self.assertEqual(action["material"]["name"], "3단계 소울 에테르")
+        self.assertAlmostEqual(action["material"]["meso"], action["material"]["count"] * 1_750_000_000)
+        self.assertGreater(action["final_damage"], 0)
+        # 0단계: 레전드리 공% 두 줄을 가정하고, 미라클 등급업 + 두 줄 재설정 메소를 증폭 메소에 더함
+        fresh = soul_action({"soul_name": "위대한 데미안의 소울 적용"}, 200, context, weapon, 280, 0.0)
+        self.assertTrue(fresh["detail"].startswith("가정: 레전드리 공격력 +2% · 공격력 +1.5%"))
+        self.assertGreater(fresh["material"]["meso"], fresh["material"]["count"] * 500_000_000 + 100 * 10**8)
+        self.assertIsNone(soul_action({**item, "soul_potential_amplified_grade": 4}, 200, context, weapon, 280, 0.0))
+        self.assertIsNone(soul_action({**item, "soul_name": "데미안의 소울 적용"}, 200, context, weapon, 280, 0.0))
+        self.assertIsNone(soul_action(item, 160, context, weapon, 280, 0.0))
 
 
 if __name__ == "__main__":

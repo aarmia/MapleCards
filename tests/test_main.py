@@ -82,7 +82,8 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
         body = response.json()
         self.assertEqual((body["character"], body["class"], body["level"], body["combat_power"]), ("테스트", "레테", 285, "123"))
         self.assertEqual(body["results"][0]["name"], "도전자의 상의")
-        self.assertEqual(body["grades"]["item_grade"][0], [90, "SSS+"])
+        self.assertEqual(body["grades"]["card_highlight"][0], [90, "transcendent"])
+        self.assertIn("standard_total", body["overall"])  # 캐릭터끼리 비교하는 표준 환산 합계
         self.assertEqual(body["profile"]["context"]["basis"], "estimated")  # 추가 조회 실패 → 레벨로 추정
         self.assertEqual(api.max_active, 3)  # basic · item · stat 은 동시에 조회합니다.
         event = next(record for record in logs.records if record.getMessage() == "diagnosis")
@@ -96,31 +97,8 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
             response = await c.get("/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('window.MECULATOR_GRADES = {"item_grade": [[90, "SSS+"]', response.text)
-        self.assertIn("gradeCutText('SSS+')", response.text)
-
-    async def test_spec_up_cost_recalculates_with_user_price_without_nexon_calls(self):
-        api = FakeNexonAPI()
-        with patch("app.main.nexon_api", api):
-            async with client() as c:
-                response = await c.post("/spec-up/starforce-cost", json={"items": [
-                    {"level": 140, "star": 21, "base_price": 1e8}, {"level": 140, "star": 5, "base_price": 1e8}]})
-                rejected = await c.post("/spec-up/starforce-cost", json={"items": [{"level": 140, "star": 22, "base_price": -1}]})
-                targets = await c.post("/spec-up/starforce-cost", json={"items": [
-                    {"level": 200, "star": 22, "target_star": 25, "base_price": 1e8},
-                    {"level": 200, "star": 22, "base_price": 1e8}]})
-                backwards = await c.post("/spec-up/starforce-cost", json={"items": [
-                    {"level": 200, "star": 22, "target_star": 21, "base_price": 1e8}]})
-        self.assertEqual(response.status_code, 200)
-        costs = response.json()["costs"]
-        self.assertAlmostEqual(costs[0] / 1e8, 59.08 - 34.84, delta=0.01)  # starforce.gg 140제·노작 1억: 12→22 − 12→21
-        self.assertIsNone(costs[1])  # 12성 미만은 계산하지 않음
-        self.assertEqual(rejected.status_code, 422)
-        from app.starforce_cost import expected_cost
-        self.assertEqual(targets.status_code, 200)
-        self.assertEqual(targets.json()["costs"], [round(expected_cost(200, 1e8, 22, 25)), round(expected_cost(200, 1e8, 22, 23))])
-        self.assertEqual(backwards.status_code, 422)
-        self.assertEqual(api.max_active, 0)
+        self.assertIn('window.MECULATOR_GRADES = {"card_highlight": [[90, "transcendent"]', response.text)
+        self.assertIn('window.MECULATOR_PRICING = {"starforce"', response.text)  # 시세 비용은 화면이 계산
 
     async def test_nexon_error_becomes_json_with_code_and_retry_after(self):
         error = NexonAPIError("메이플스토리 점검 중입니다.", status_code=503, code="OPENAPI00010", retry_after=600)

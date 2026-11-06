@@ -10,12 +10,11 @@ from dataclasses import replace
 
 from app.calculator import final_stat_float, get_potential_options
 from app.character_profile import _effect_stats, build_stat_context
+from app.damage_index import boss_index
 from app.preset_projection import active_items, project_context
 from app.scoring_config import POTENTIAL
-from app.damage_index import boss_index
 from app.set_projection import sum_subs
 
-BOSS_DEFENSE = 380.0
 FIELDS = ("main_flat", "main_exempt", "main_pct", "sub_flat", "sub_exempt", "sub_pct",
           "attack", "attack_pct", "damage", "boss", "crit", "rate")
 
@@ -232,7 +231,7 @@ def optimize_presets(char_class, main_stat, level, item_data, stat_data, extras,
         combat_context, _, combat_boss, _ = combat_projected
         combat_inputs = {"main_stat": combat_context.final_main, "sub_stat": combat_context.final_sub, "attack": combat_context.attack,
                          "boss_damage_pct": combat_boss, "crit_damage_pct": combat_context.crit_damage}
-    metadata = {"method": "saved_presets_boss_stat_index", "boss_defense_percent": BOSS_DEFENSE, "is_current": is_current,
+    metadata = {"method": "saved_presets_boss_stat_index", "boss_defense_percent": POTENTIAL.weapon.boss_defense, "is_current": is_current,
         "combat_power_inputs": combat_inputs, "combat_power_is_current": combat_is_current,
         "selected": ids, "combinations_evaluated": count, "unavailable": unavailable,
         "relative_index": round(score / baseline_score, 6) if baseline_score > 0 else None,

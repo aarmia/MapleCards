@@ -7,9 +7,6 @@ from app.analyzer import (
     _preset_main_flat_delta,
     build_report,
     evaluate_equipment,
-    get_dynamic_guide,
-    select_guide,
-    split_guide,
     unsupported_registry,
 )
 from app.calculator import (
@@ -226,14 +223,24 @@ class PotentialOptionTests(unittest.TestCase):
             ["INT +9%", "INT +6%", "INT +4%", "마력 +10"],
         )
         self.assertEqual(
-            [entry["weighted_value"] for entry in result["scoring_basis"]["recognized_options"]],
+            [entry["value"] for entry in result["scoring_basis"]["recognized_options"]],
             [9.0, 6.0, 4.0, round(10 * magic, 2)],
         )
-        self.assertEqual(
-            [entry["weighted_score"] for entry in result["scoring_basis"]["breakdown"]],
-            [0, 15.0, eddy_raw, 100.0],
-        )
-        self.assertEqual(result["scoring_basis"]["star_score"], 100.0)
+        rows = {entry["key"]: entry for entry in result["scoring_basis"]["breakdown"]}
+        # 점수 = 축별 주스탯 %p: 잠재는 유효 스탯% 그대로, 22성 스타포스는 만점과 같음
+        self.assertEqual([rows[key]["value"] for key in ("add", "pot", "pot_additional")], [0, 15.0, round(eddy_raw, 1)])
+        self.assertEqual(rows["star"]["value"], rows["star"]["max"])
+        self.assertAlmostEqual(result["total_score"], sum(row["value"] for row in rows.values()), delta=0.3)
+
+    def test_scroll_axis_is_against_best_scrolls_for_the_slot_count(self):
+        # 주문서 만점 = 횟수(성공 + 남은 + 복구 가능) × 최상 1작(그 외: 올스탯 +6 · 공/마 +6). 기본 옵션은 만점 = 현재 값
+        item = {**self.challenger_top, "scroll_upgrade": "6", "scroll_upgradeable_count": "1", "scroll_resilience_count": "1",
+                "item_etc_option": {"int": "36", "luk": "36", "magic_power": "36"}}
+        row = evaluate_equipment([item], "레테", 285)[0]
+        scroll = next(entry for entry in row["scoring_basis"]["breakdown"] if entry["key"] == "scroll")
+        self.assertEqual(scroll["raw"], "6/8")
+        self.assertAlmostEqual(scroll["value"] / scroll["max"], 6 / 8, delta=0.02)  # 6장을 최상 주문서로 바른 상태
+
 
     def test_starforce_option_per_star_table(self):
         # 22성 합계는 만점 표와 같고, 23성부터는 공/마만 오르며, 장갑은 15성까지 공/마 +1 이 7번 붙습니다.
@@ -242,27 +249,22 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertEqual(starforce_option(200, 15, "str", ("DEX",), "장갑"), {"str": 40, "dex": 40, "attack_power": 7})
         self.assertIsNone(starforce_option(130, 21, "str"))  # 130제는 20성까지
 
-    def test_starforce_axis_is_stat_based_to_22_and_log_bonus_above(self):
+    def test_starforce_axis_is_real_stats_against_22_stars(self):
         over = {**self.challenger_top, "starforce": "25", "item_starforce_option": {"int": "145", "luk": "145", "magic_power": "175"}}
         low = {**self.challenger_top, "starforce": "18", "item_starforce_option": {"int": "85", "luk": "85", "magic_power": "30"}}
-        def star(item):
-            return evaluate_equipment([item], "레테", 285)[0]["scoring_basis"]["star_score"]
+        def star(item, job="레테"):
+            row = evaluate_equipment([item], job, 285)[0]
+            return row["detail"].get("star"), row["bar_max"].get("star")
 
-        self.assertAlmostEqual(star(over), round(100 + 10 * math.log(4), 2))  # 23성부터 100 + 10 × ln(별 − 21)
-        self.assertLess(star(low), 50)  # 18성은 22성 스탯 환산의 절반 미만
-
-    def test_ring_does_not_recommend_unavailable_add_option(self):
-        guide = get_dynamic_guide(
-            [100.0, 108.9, 45.0, 100.0],
-            22,
-            "반지",
-            353.9,
-            "마이스터링",
-            140,
-        )
-
-        self.assertNotIn("추가옵션", guide)
-        self.assertIn("종결", guide)
+        value, best = star(over)
+        self.assertGreater(value, best)  # 23성 이상은 실제 값이 22성 만점을 넘습니다
+        value, best = star(low)
+        self.assertLess(value, best / 2)  # 18성은 22성 스탯 환산의 절반 미만
+        # 데몬어벤져: 주스탯 자리를 최대 HP 로 둔 같은 상승표로 스타포스 축이 들어갑니다
+        demon = {**self.challenger_top, "starforce": "22", "item_starforce_option": {"max_hp": "145", "str": "145", "attack_power": "106"}}
+        value, best = star(demon, "데몬어벤져")
+        self.assertIsNotNone(best)
+        self.assertGreater(value, 0)
 
     def test_unsupported_option_is_warned_once_and_counted(self):
         item = dict(self.challenger_top)
@@ -428,53 +430,6 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertAlmostEqual(by_level, 9 + 62 * flat1, places=2)
         self.assertAlmostEqual(unknown_level, 9 + 60 * flat1, places=2)
 
-    def test_guide_rules_match_in_order_and_fill_fields(self):
-        rules = [
-            {"name_any": "hearts", "when": [["total", ">=", 100]], "text": "하트 {star_next}성"},
-            {"when": [["star", "<", "max_star"], ["limited", "==", False]], "text": "강화 '{worst}'"},
-            {"text": "기본"},
-        ]
-        names = {"hearts": ["리튬 하트"]}
-        context = {"total": 120, "star": 17, "star_next": 18, "max_star": 22, "limited": False, "worst": "윗잠재"}
-
-        self.assertEqual(select_guide(rules, context, names, "리튬 하트"), "하트 18성")
-        self.assertEqual(select_guide(rules, context, names, "앱솔랩스 슈즈"), "강화 '윗잠재'")
-        self.assertEqual(select_guide(rules, {**context, "star": 22}, names, "앱솔랩스 슈즈"), "기본")
-
-    def test_split_guide_separates_tag_and_message(self):
-        self.assertEqual(
-            split_guide("👑 [종결] 완벽한 장비입니다. 23성 도전 외엔 투자가 무의미합니다."),
-            ("종결", "👑 완벽한 장비입니다. 23성 도전 외엔 투자가 무의미합니다."),
-        )
-        self.assertEqual(
-            split_guide("✅ 해당 부위는 표준 성능을 보여주고 있습니다."),
-            ("INFO", "✅ 해당 부위는 표준 성능을 보여주고 있습니다."),
-        )
-        self.assertEqual(split_guide(""), ("INFO", ""))
-
-    def test_evaluated_items_expose_guide_tag_and_message(self):
-        result = evaluate_equipment([self.challenger_top], "레테", 285)[0]
-
-        self.assertEqual(result["guide_tag"], "교체 시급")
-        self.assertNotIn("[", result["guide_message"])
-        self.assertIn(f"[{result['guide_tag']}]", result["guide"])
-
-    def test_black_heart_guide_has_a_tag(self):
-        black_heart = dict(self.challenger_top)
-        black_heart.update({
-            "item_equipment_part": "기계 심장",
-            "item_equipment_slot": "기계 심장",
-            "item_name": "블랙 하트",
-        })
-
-        result = evaluate_equipment([black_heart], "레테", 285)[0]
-
-        self.assertEqual(result["guide_tag"], "미지원")
-        self.assertIn("블랙 하트", result["guide_message"])
-
-
-
-class AddOptionEntriesTests(unittest.TestCase):
     def test_line_values_sum_to_add_option_score_for_every_stat_kind(self):
         option = {"str": "40", "dex": "42", "int": "30", "luk": "168", "max_hp": "2100",
                   "attack_power": "3", "magic_power": "4", "all_stat": "6"}
@@ -497,30 +452,6 @@ class AddOptionEntriesTests(unittest.TestCase):
         self.assertEqual(grades["LUK +120"], 120)  # 주스탯은 1당 1급
         self.assertAlmostEqual(grades["공격력 +10"], round(10 * context.pct_per_attack / context.pct_per_flat, 2))
         self.assertAlmostEqual(sum(grades.values()), calculate_item_score(option, "섀도어", "luk", context), places=1)
-
-    def test_flame_stat_totals_are_split_back_into_tiered_lines(self):
-        from app.calculator import flame_lines, flame_stat_lines
-        gloves = {"luk": "168", "dex": "42", "int": "42", "all_stat": "6"}
-        self.assertEqual(flame_stat_lines(gloves, 250), [
-            {"stats": {"luk": 84}, "tier": 7}, {"stats": {"dex": 42, "luk": 42}, "tier": 6}, {"stats": {"int": 42, "luk": 42}, "tier": 6}])
-        lines = flame_lines(gloves, 250, "섀도어", main_stat="luk")
-        self.assertEqual([(line["option"], line["tier"]) for line in lines],
-                         [("LUK +84", 7), ("올스탯 +6%", 6), ("LUK +42 · DEX +42", 6), ("LUK +42 · INT +42", 6)])
-        self.assertAlmostEqual(sum(line["value"] for line in lines), calculate_item_score(gloves, "섀도어", main_stat="luk"))
-        # 140제 미만은 레벨 ÷ 20 + 1 · 레벨 ÷ 40 + 1 (120제: 단일 7, 이중 4/단계)
-        self.assertEqual(flame_stat_lines({"str": 12, "dex": 12}, 120), [{"stats": {"str": 12, "dex": 12}, "tier": 3}])
-        # 100제 STR 6 · DEX 6 은 이중 2단계와 단일 1단계 두 줄이 모두 가능해 판별하지 않습니다.
-        self.assertIsNone(flame_stat_lines({"str": 6, "dex": 6}, 100))
-
-    def test_flame_stat_lines_refuses_impossible_or_ambiguous_totals(self):
-        from app.calculator import flame_stat_lines
-        self.assertIsNone(flame_stat_lines({"luk": 5}, 250))                       # 12 의 배수 아님
-        self.assertIsNone(flame_stat_lines({"luk": 84, "speed": 1, "jump": 1, "armor": 1, "all_stat": 1}, 250))  # 남은 줄 0
-        self.assertIsNone(flame_stat_lines({"str": 7, "dex": 7, "int": 7, "luk": 7}, 250))  # 이중 두 줄 조합이 여러 개
-        guess = flame_stat_lines({"str": 7, "dex": 7, "int": 7, "luk": 7}, 250, allow_ambiguous=True)  # 화면용: 그중 하나
-        self.assertEqual(sum(sum(line["stats"].values()) for line in guess), 28)
-        self.assertTrue(all(line["guess"] for line in guess))
-        self.assertEqual(flame_stat_lines({}, 250), [])
 
 
 if __name__ == "__main__":

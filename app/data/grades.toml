@@ -1,77 +1,36 @@
-# 점수 컷오프. 화면의 등급 문자, 카드 강조, 점수 색, 스탯 막대 색과 총평 랭크가 모두 이 파일을 따릅니다.
+# 점수 구간. 장비 테두리 색과 총평 랭크가 이 파일을 따릅니다. 점수 자체는 주스탯 %p 환산값입니다.
 # 구간은 내림차순으로 적고 첫 일치를 씁니다. 티어 이름(ultimate, legendary …)에 어떤 색을 입힐지는 app.js 가 정합니다.
-# 아이템 등급·카드 강조·점수 색·총평 랭크의 기준은 총점이 아니라 "기준 만점 대비 %"(score_ratio) 입니다.
-# 기준 만점 = 평가하는 축의 기준점 합(캐릭터별 최상 조합 포함). 특수부위·시드링은 이미 % 척도이고 익셉셔널은 100 을 넘는 가산입니다.
+# 테두리 색은 장비의 만점 대비 %, 총평 랭크는 장비 달성률(%p 합 ÷ 만점 %p 합) 입니다.
 
-item_grade = [[90, "SSS+"], [86, "SSS"], [78, "SS"], [67, "S"], [56, "A"], [43, "B"], [28, "C"], [14, "D"]]   # 기준 대비 % → 등급 문자. SSS+ 는 최상위 랭커 장비가 전부 들어오는 선
-item_grade_default = "F"
-
-card_highlight = [[90, "transcendent"], [86, "legendary"], [78, "unique"], [67, "epic"]]   # 아이템 카드 테두리 강조. 등급 컷과 같음: SSS+ · SSS · SS · S
+card_highlight = [[90, "transcendent"], [86, "legendary"], [78, "unique"], [67, "epic"]]   # 장비 테두리 색: 만점 대비 %
 card_highlight_default = "none"
 
-score_color = [[90, "ultimate"], [78, "legendary"], [56, "unique"], [28, "epic"]]   # 점수 숫자 색
-score_color_default = "rare"
-
-[stat_bar]   # 축별 막대 색 구간. [기준, 티어, 초과 여부]. 초과(true)면 >, 아니면 >= 로 비교
-pot = [[36, "ultimate", true], [30, "legendary", false], [28, "unique", false], [20, "epic", false], [15, "rare", false]]   # 유효 스탯% 합
-pot_additional = [[19, "ultimate", true], [13, "legendary", false], [10, "unique", false], [8, "epic", false], [4, "rare", false]]
-star = [[100, "legendary", false], [90, "unique", false], [75, "epic", false], [50, "rare", false]]
-add = [[108, "ultimate", true], [105, "legendary", false], [90, "unique", false], [75, "epic", false], [50, "rare", false]]
-exceptional = []   # 익셉셔널 막대는 구간 없이 기본 색(빨강)으로 통일
-default = "poor"
-
-[stat_bar_max]   # 막대 길이가 100% 가 되는 값. 아이템마다 analyzer 가 레벨·세트로 골라 bar_max 로 내려 줍니다
-add = 100.0
-star = 100.0
-pot = 39.0                    # 윗잠재 (아이템 레벨 low_level_max 초과, 250제)
-pot_low = 36.0                # 윗잠재 (200제 이하)
-pot_additional = 23.0         # 에디셔널 (250제)
-pot_additional_low = 20.0     # 에디셔널 (200제 이하)
-low_level_max = 200
-exceptional = 30.0            # 익셉셔널 (광휘 등 3회)
-exceptional_pitched = 10.0    # 익셉셔널 (칠흑 1회)
-soul = 20.0                   # 소울 잠재 기준 만점과 같음
-special = 100.0               # 특수부위 고유 옵션 (이미 % 척도)
-
-# 총평 랭크. 칭호·뱃지를 뺀 모든 아이템의 기준 대비 % 평균이 min 이상인 첫 항목 (최상위 랭커 98% 가 ABSOLUTE 에 들어오는 선).
-# weapon_keyword 가 장비 이름에 있으면 with_weapon 문구를 씁니다. 랭크별 색은 app/templates/components/_overall_review.html 이 정합니다.
+# 총평 랭크. 칭호·뱃지를 뺀 모든 장비의 달성률(주스탯 %p 합 ÷ 만점 %p 합)이 min 이상인 첫 항목. 샘플 8명이 기존 랭크와 같게 나오는 선.
+# 랭크별 색은 app/templates/components/_overall_review.html 이 정합니다.
 [[overall]]
 min = 97
 rank = "ABSOLUTE"
-comment = "전서버 최상위권 장비입니다. 컨텐츠가 없으시군요."
 
 [[overall]]
 min = 92
 rank = "DESTINY+"
-comment = "서버권 최상위권 장비입니다. 이제 데스티니 2차 초월의 영역입니다."
 
 [[overall]]
 min = 87
 rank = "ELDER"
-comment = "데스티니 초월에 충분히 도전할만한 스펙입니다.  당신의 가능성을 믿고 초월에 도전하세요!"
-weapon_keyword = "데스티니"
-with_weapon = "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 2차 초월을 향한 성장을 준비하세요!"
 
 [[overall]]
 min = 80
 rank = "DESTINY"
-comment = "데스티니 초월이 가시권에 들어왔습니다.  천천히 부족한 부위를 강화하고 데스티니 초월에 도전하세요!"
-weapon_keyword = "데스티니"
-with_weapon = "이미 데스티니 무기를 쟁취한 훌륭한 스펙입니다!  부족한 부위를 다듬고 더 높은 곳으로의 성장을 준비하세요!"
 
 [[overall]]
 min = 70
 rank = "ASTRA"
-comment = "본격적으로 아스트라 해방에 도전하세요.  2차 해방까지는 가성비의 영역으로 들어섰습니다."
 
 [[overall]]
 min = 55
 rank = "GENESIS"
-comment = "제네시스 해방을 위한 준비를 할 때 입니다.  해방 준비를 해 보세요."
-weapon_keyword = "제네시스"
-with_weapon = "제네시스 해방에 성공하셨군요!  더 높은 곳을 위한 성장의 준비가 필요한 단계입니다."
 
 [[overall]]
 min = 0
 rank = "EPIC"
-comment = "성장 가능성이 큽니다. 낮은 점수 부위부터 교체해보세요."

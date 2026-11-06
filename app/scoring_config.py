@@ -83,21 +83,22 @@ _CLASSES_SPEC = {
     "secondary_stat": dict, "secondary_stat_overrides": dict, "archer_classes": list, "stat_weight": dict,
 }
 _SCORING_SPEC = {
+    "scroll": {"weapon": dict, "default": dict, "parts": dict},
     "add_option": {
         "grade": {k: NUMBER for k in ("all_stat_pct_default", "all_stat_pct_all_stat", "attack_default", "attack_all_stat", "attack_hp", "magic_int", "sub_stat_divisor")},
         "flame": {"max_tier": NUMBER, "bands": list, "other_per_tier": NUMBER},
     },
     "potential": {"excluded_slots": list, "ignored_keywords": list, "stat_keywords": list, "relevant_keywords": dict},
     "starforce": {
-        **{k: NUMBER for k in ("reference_level", "level_weight_divisor", "base_star", "over_star_log_weight")},
         "max_star": {"bands": list, "default": NUMBER, "superior": NUMBER, "names": dict},
-        "benchmark": {"benchmark_star": NUMBER, "bands": list, "glove_attack_bonus": NUMBER, "over_star_log_weight": NUMBER},
+        "benchmark": {"benchmark_star": NUMBER, "bands": list, "glove_attack_bonus": NUMBER},
         "noljang": {"levels": list, "stat": list, "attack": list},
         "gain": {k: list for k in ("stat_1_15", "glove_attack_stars", "levels", "stat_16", "attack_16")},
+        "weapon": {"low_divisor": NUMBER, "weapon_like_min_attack": NUMBER, "attack_16": list},
     },
-    "weights": {k: NUMBER for k in ("add", "superior_star")},
     "noljang": {k: NUMBER for k in ("star_min", "star_max", "max_level", "etc_stat_strong", "etc_attack_strong", "etc_stat_weak", "etc_attack_weak")},
-    "special_items": {"wse_slots": list, "special_parts": list, "secondary_slots": list, "superior_keyword": str},
+    "special_items": {"wse_slots": list, "special_parts": list, "secondary_slots": list, "superior_keyword": str,
+                      "no_add_parts": list, "limited_names": list},
 }
 
 
@@ -118,6 +119,11 @@ def load_classes(path: Path = DATA_DIR / "classes.toml") -> Section:
 def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
     data = load_toml(path)
     validate(data, _SCORING_SPEC, path.name)
+    scroll = data["scroll"]
+    for name, rule in [("weapon", scroll["weapon"]), ("default", scroll["default"]), *scroll["parts"].items()]:
+        if not isinstance(rule, dict) or not isinstance(rule.get("attack"), NUMBER) or \
+                not any(isinstance(rule.get(key), NUMBER) for key in ("main_stat", "all_stat")):
+            raise ConfigError(f"{path.name}: scroll.{name} 에는 attack 과 main_stat 또는 all_stat 숫자가 필요합니다")
     previous = None
     for band in data["add_option"]["flame"]["bands"]:
         if not (isinstance(band, list) and len(band) == 4 and all(isinstance(v, NUMBER) for v in band)):
@@ -143,6 +149,10 @@ def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
         band = next((b for b in data["starforce"]["benchmark"]["bands"] if b[0] == level), None)
         if band and len(attack) >= 7 and [sum(gain["stat_1_15"]) + sum(stat), sum(attack[:7])] != band[1:]:
             raise ConfigError(f"{path.name}: starforce.gain {level}제 22성 합계가 starforce.benchmark.bands 와 다릅니다")
+    weapon = data["starforce"]["weapon"]
+    if len(weapon["attack_16"]) != len(gain["levels"]) or any(
+            len(w) != len(st) for w, st in zip(weapon["attack_16"], gain["stat_16"])):
+        raise ConfigError(f"{path.name}: starforce.weapon.attack_16 은 starforce.gain 과 레벨 수, 레벨별 16~22성 수(stat_16)가 같아야 합니다")
     noljang = data["starforce"]["noljang"]
     if not (len(noljang["levels"]) == len(noljang["stat"]) == len(noljang["attack"])
             and all(len(row) == 5 for row in noljang["stat"]) and all(len(row) == 10 for row in noljang["attack"])):
@@ -158,12 +168,7 @@ def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
 
 
 _GRADES_SPEC = {
-    "item_grade": list, "item_grade_default": str,
     "card_highlight": list, "card_highlight_default": str,
-    "score_color": list, "score_color_default": str,
-    "stat_bar": {"pot": list, "pot_additional": list, "star": list, "add": list, "default": str},
-    "stat_bar_max": {k: NUMBER for k in ("add", "star", "pot", "pot_low", "pot_additional", "pot_additional_low", "low_level_max",
-                                         "exceptional", "exceptional_pitched", "soul", "special")},
     "overall": list,
 }
 
@@ -184,67 +189,15 @@ def check_bands(bands, source: str, width: int) -> None:
 def load_grades(path: Path = DATA_DIR / "grades.toml") -> Section:
     data = load_toml(path)
     validate(data, _GRADES_SPEC, path.name)
-    for name in ("item_grade", "card_highlight", "score_color"):
+    for name in ("card_highlight",):
         check_bands(data[name], f"{path.name}: {name}", 2)
-    for name in ("pot", "pot_additional", "star", "add"):
-        check_bands(data["stat_bar"][name], f"{path.name}: stat_bar.{name}", 3)
     previous = None
     for entry in data["overall"]:
-        if not isinstance(entry, dict) or not {"min", "rank", "comment"} <= set(entry):
-            raise ConfigError(f"{path.name}: overall 항목에는 min, rank, comment 가 필요합니다")
-        if ("weapon_keyword" in entry) != ("with_weapon" in entry):
-            raise ConfigError(f"{path.name}: overall 의 weapon_keyword 와 with_weapon 은 함께 있어야 합니다")
+        if not isinstance(entry, dict) or not {"min", "rank"} <= set(entry):
+            raise ConfigError(f"{path.name}: overall 항목에는 min, rank 가 필요합니다")
         if previous is not None and entry["min"] > previous:
             raise ConfigError(f"{path.name}: overall 의 min 은 내림차순이어야 합니다")
         previous = entry["min"]
-    return Section(data, path.name)
-
-
-RULE_OPERATORS = ("<", "<=", ">", ">=", "==", "!=")
-_GUIDES_SPEC = {
-    "axes": {"labels": list, "benchmarks": list, "no_add_parts": list, "no_star_parts": list},
-    "targets": {k: NUMBER for k in ("star_330_level_split", "star_330_low", "star_330_high", "star_mid", "star_step")},
-    "names": {k: list for k in ("upgrade_hearts", "target_hearts", "black_hearts", "superior", "limited")},
-    "special_rule": list,
-    "rule": list,
-}
-
-
-def check_rules(rules: list, names: dict, fields: set, source: str) -> None:
-    """규칙 표의 구조를 검증합니다. 모르는 필드·비교 연산자·names 참조는 기동 시점에 걸립니다."""
-    if not rules:
-        raise ConfigError(f"{source}: 규칙이 하나도 없습니다")
-    for index, rule in enumerate(rules):
-        where = f"{source}[{index}]"
-        if not isinstance(rule, dict) or not isinstance(rule.get("text"), str):
-            raise ConfigError(f"{where}: text 가 필요합니다")
-        name_any = rule.get("name_any")
-        if isinstance(name_any, str) and name_any not in names:
-            raise ConfigError(f"{where}: names 표에 '{name_any}' 가 없습니다")
-        if name_any is not None and not isinstance(name_any, (str, list)):
-            raise ConfigError(f"{where}: name_any 는 names 표의 이름이나 목록이어야 합니다")
-        for condition in rule.get("when", []):
-            if not (isinstance(condition, list) and len(condition) == 3):
-                raise ConfigError(f"{where}: when 항목은 [필드, 비교, 값] 이어야 합니다")
-            field, op, value = condition
-            if field not in fields or op not in RULE_OPERATORS:
-                raise ConfigError(f"{where}: 알 수 없는 필드나 비교 ({field!r} {op!r})")
-            if isinstance(value, str) and value not in fields:
-                raise ConfigError(f"{where}: 값 자리의 '{value}' 는 필드 이름이 아닙니다")
-    last = rules[-1]
-    if any(key in last for key in ("when", "name_any", "part_any")):
-        raise ConfigError(f"{source}: 마지막 규칙은 조건 없이 모든 경우를 받아야 합니다")
-
-
-def load_guides(path: Path = DATA_DIR / "guides.toml", rule_fields: set | None = None, special_fields: set | None = None) -> Section:
-    data = load_toml(path)
-    validate(data, _GUIDES_SPEC, path.name)
-    if len(data["axes"]["labels"]) != 4 or len(data["axes"]["benchmarks"]) != 4:
-        raise ConfigError(f"{path.name}: axes.labels 와 axes.benchmarks 는 4개여야 합니다")
-    if rule_fields is not None:
-        check_rules(data["rule"], data["names"], rule_fields, f"{path.name}: rule")
-    if special_fields is not None:
-        check_rules(data["special_rule"], data["names"], special_fields, f"{path.name}: special_rule")
     return Section(data, path.name)
 
 
@@ -255,6 +208,8 @@ _POTENTIAL_SPEC = {
     "ap": {"base": NUMBER, "per_level": NUMBER},
     "bounds": {"pct_per_flat": list, "pct_per_attack": list, "pct_per_crit_damage": list},
     "reference": {k: NUMBER for k in ("level", "base_stat", "stat_pct", "attack", "crit_damage", "crit_rate")},
+    "standard": {k: NUMBER for k in ("level", "base_stat", "stat_pct", "exempt_stat", "final_main", "final_sub", "attack",
+                                     "attack_multiplier", "crit_damage", "crit_rate", "damage", "boss_damage", "ignore_defense")},
     "exempt_estimate": {"bands": list},
     "hyper_stat": {"main_stat_per_level": NUMBER},
     "crit_rate": {"zero_threshold": NUMBER, "reinforce_ratio": NUMBER, "reinforce_uptime": NUMBER},
@@ -270,9 +225,9 @@ _POTENTIAL_SPEC = {
     },
     "special": {
         "ignored_keys": list, "add_option_parts": list, "ring_part": str, "no_grade_parts": list, "no_score_parts": list,
-        "best": dict, "ring": {"max_level": NUMBER, "weights": dict, "default": NUMBER},
+        "best": dict,
     },
-    "exceptional": {"parts": list, "points_per_upgrade": NUMBER},
+    "exceptional": {"parts": list},
     "armor": {"best_lines": {"count": dict, "tiers": list}},
 }
 
@@ -349,7 +304,15 @@ def load_spec_up(path: Path = DATA_DIR / "spec_up.toml") -> Section:
         "flame": {"cost": NUMBER, "first_step": NUMBER, "step": NUMBER, "tiers": list, "tier_odds": list, "boss_bonus": NUMBER,
                   "lines": NUMBER, "options": list},
         "seed_ring": {"restraint": dict, "continuous": dict, "upgrade": dict, "materials": dict, "burst_share": dict},
+        "soul": {"min_level": NUMBER, "keyword": str, "reset_cost": list, "grade_up": list, "pity": list, "miracle": NUMBER,
+                 "amplify": dict, "materials": dict},
     }, path.name)
+    soul = data["soul"]
+    if not len(soul["grade_up"]) == len(soul["pity"]) == len(soul["reset_cost"]) - 1:
+        raise ConfigError(f"{path.name}: soul.grade_up·pity 는 등급 수 − 1 개, reset_cost 는 등급 수여야 합니다")
+    for stage, step in soul["amplify"].items():
+        if step.get("material") not in soul["materials"] or not all(isinstance(step.get(k), NUMBER) for k in ("chance", "step", "pity", "meso")):
+            raise ConfigError(f"{path.name}: soul.amplify.{stage} 의 material 은 soul.materials 에 있어야 하고 chance·step·pity·meso 는 숫자여야 합니다")
     ring = data["seed_ring"]
     if not all(isinstance(v, list) and len(v) == 2 and 0 < v[0] <= v[1] < 100 for v in ring["burst_share"].values()) \
             or "default" not in ring["burst_share"] or not 0 < ring["continuous"].get("uptime", 0) <= 1:

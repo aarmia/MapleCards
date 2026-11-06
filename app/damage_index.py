@@ -9,7 +9,8 @@ import re
 from app.scoring_config import POTENTIAL
 
 
-def boss_index(context, damage=0, boss=0, remaining_defense=0, defense=380):
+def boss_index(context, damage=0, boss=0, remaining_defense=0, defense=None):
+    defense = POTENTIAL.weapon.boss_defense if defense is None else defense  # 방무 환산 기준 보스 방어율 (설정 하나)
     rate = min(100, max(0, context.crit_rate or 0)) / 100
     critical = 1 + rate * (POTENTIAL.crit_base - 1 + context.crit_damage_effective / 100)
     dmg = 1 + (damage + boss + POTENTIAL.buff.damage_pct + POTENTIAL.buff.boss_damage_pct) / 100
@@ -29,7 +30,7 @@ def line_options(lines, level):
                 continue
             key, value = stat.lower(), int(value) * (level // int(interval))
         else:
-            match = re.fullmatch(r"(STR|DEX|INT|LUK|올스탯|공격력|마력|크리티컬 데미지|크리티컬 확률) \+(\d+)(%?)", line)
+            match = re.fullmatch(r"(STR|DEX|INT|LUK|올스탯|공격력|마력|크리티컬 데미지|크리티컬 확률) \+(\d+(?:\.\d+)?)(%?)", line)
             if not match:
                 cooldown = re.search(r"재사용 대기시간 -(\d+)초", line)
                 if cooldown:
@@ -74,28 +75,38 @@ class ReplacementModel:
         self.per_pct = context.stat_weight * context.base_stat_effective / context.stat_attack
         if min(context.stat_attack, context.attack_effective, self.per_pct) <= 0:
             raise ValueError("전투 기준 수치 부족")
+        # gain() 은 잠재 결과마다 수천 번 불리므로 기준 상태의 값을 한 번만 계산해 둡니다 (수식은 같음).
+        self.stat_attack = context.stat_attack
+        self.attack_base = context.attack / context.attack_multiplier + POTENTIAL.buff.attack_flat
+        self.attack_multiplier = context.attack_multiplier_effective
+        self.attack_effective = context.attack_effective
+        self.crit_rate = context.crit_rate or 0
+        self.crit_extra = POTENTIAL.crit_base - 1
+        self.crit_damage = context.crit_damage_effective
+        self.critical0 = 1 + min(100, max(0, self.crit_rate)) / 100 * (self.crit_extra + self.crit_damage / 100)
+        self.cooldown_value = POTENTIAL.cooldown_per_second * self.per_pct
+        self.is_archer = context.is_archer
+        self.excess_value = context.pct_per_excess_crit_rate * self.per_pct if context.is_archer else 0.0
 
     def gain(self, before, after, cooldown=True):
-        c = self.context
         delta = {k: after.get(k, 0) - before.get(k, 0) for k in before.keys() | after.keys()}
-        stat = c.stat_attack
+        stat = self.stat_attack
+        all_flat, all_pct = delta.get("all_stat", 0), delta.get("all_stat_pct", 0)
         for key, base, mult, weight in self.stats:
-            flat = delta.get(key, 0) + delta.get("all_stat", 0)
-            pct = (delta.get(key + "_pct", 0) + delta.get("all_stat_pct", 0)) / 100
+            flat = delta.get(key, 0) + all_flat
+            pct = (delta.get(key + "_pct", 0) + all_pct) / 100
             stat += weight * ((base + flat) * (mult + pct) - base * mult)
-        attack = (c.attack / c.attack_multiplier + POTENTIAL.buff.attack_flat + delta.get(self.attack_key, 0))
-        attack *= c.attack_multiplier_effective + delta.get(self.attack_key + "_pct", 0) / 100
-        rate0 = min(100, max(0, c.crit_rate or 0)) / 100
-        rate = min(100, max(0, (c.crit_rate or 0) + delta.get("rate", 0))) / 100
-        critical0 = 1 + rate0 * (POTENTIAL.crit_base - 1 + c.crit_damage_effective / 100)
-        critical = 1 + rate * (POTENTIAL.crit_base - 1 + (c.crit_damage_effective + delta.get("crit", 0)) / 100)
-        result = 100 * (max(0, stat) / c.stat_attack * max(0, attack) / c.attack_effective * critical / critical0 - 1)
+        attack = (self.attack_base + delta.get(self.attack_key, 0)) * (self.attack_multiplier + delta.get(self.attack_key + "_pct", 0) / 100)
+        rate_delta = delta.get("rate", 0)
+        rate = min(100, max(0, self.crit_rate + rate_delta)) / 100
+        critical = 1 + rate * (self.crit_extra + (self.crit_damage + delta.get("crit", 0)) / 100)
+        result = 100 * (max(0, stat) / self.stat_attack * max(0, attack) / self.attack_effective * critical / self.critical0 - 1)
         # Explicit legacy models, separate from the direct permanent-stat ratio.
         if cooldown:
-            result += delta.get("cooldown", 0) * POTENTIAL.cooldown_per_second * self.per_pct
-        if c.is_archer:
-            excess = max(0, (c.crit_rate or 0) + delta.get("rate", 0) - 100) - max(0, (c.crit_rate or 0) - 100)
-            result += excess * c.pct_per_excess_crit_rate * self.per_pct
+            result += delta.get("cooldown", 0) * self.cooldown_value
+        if self.is_archer:
+            excess = max(0, self.crit_rate + rate_delta - 100) - max(0, self.crit_rate - 100)
+            result += excess * self.excess_value
         if not math.isfinite(result):
             raise ValueError("유효하지 않은 데미지 증가율")
         return result

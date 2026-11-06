@@ -21,8 +21,8 @@ class ScoringConfigTests(unittest.TestCase):
         self.assertIn("히어로", classes.main_stat.str)
         self.assertEqual(potential.reference.base_stat * potential.bounds.pct_per_flat[0], 60)  # 범위는 [최소, 최대] 쌍으로 읽힙니다
         self.assertEqual(scoring.add_option.flame.bands[0], [250, 12, 7, 700])
-        self.assertEqual(scoring.weights.add, 1.1)
-        self.assertEqual(grades.item_grade[0], [90, "SSS+"])
+        self.assertEqual(scoring.scroll.raw["weapon"], {"main_stat": 4, "attack": 9})
+        self.assertEqual(grades.card_highlight[0], [90, "transcendent"])
         mins = [entry["min"] for entry in grades.overall]
         self.assertEqual(mins, sorted(mins, reverse=True))  # 첫 일치 규칙이라 내림차순
         self.assertEqual(grades.overall[-1]["min"], 0)  # 마지막 항목이 모든 평균을 받습니다

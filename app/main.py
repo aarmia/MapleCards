@@ -13,7 +13,6 @@ from fastapi import FastAPI, Query, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field, model_validator
 from starlette.requests import ClientDisconnect
 
 from app.analyzer import build_report, unsupported_registry
@@ -24,7 +23,7 @@ from app.request_tracker import DiagnosticRequestTracker
 from app.scoring_config import GRADES
 from app.scraper import NexonAPIError, NexonAPIHandler
 from app.settings import Settings
-from app.starforce_cost import FIRST_STAR, LAST_STAR, expected_cost
+from app.spec_up import pricing_config
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -108,6 +107,8 @@ def _static_asset_version(path: str) -> str:
 APP_JS_VERSION = _static_asset_version(os.path.join(static_dir, "js", "app.js"))
 # 등급·색 컷오프(app/data/grades.toml). 페이지에 심어 두어 진단 전에도 도움말이 같은 값을 보여줍니다.
 GRADES_JSON = json.dumps(GRADES.raw, ensure_ascii=False)
+# 시세 설정: 스타포스·시드링 비용은 화면이 노작·연마석 시세로 계산합니다 (app.js starforceCost · specUpActions)
+PRICING_JSON = json.dumps(pricing_config(), ensure_ascii=False)
 
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -134,7 +135,7 @@ async def read_root(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"app_js_version": APP_JS_VERSION, "grades_json": GRADES_JSON},
+        context={"app_js_version": APP_JS_VERSION, "grades_json": GRADES_JSON, "pricing_json": PRICING_JSON},
         headers={"Cache-Control": "no-cache"},
     )
 
@@ -158,30 +159,6 @@ async def sitemap_xml():
 @app.get("/request-status/{request_id}")
 async def request_status(request_id: str):
     return await request_tracker.status(request_id)
-
-
-class StarforceCostItem(BaseModel):
-    level: int = Field(ge=0, le=300)
-    star: int = Field(ge=0, le=LAST_STAR)
-    target_star: int | None = Field(default=None, ge=1, le=LAST_STAR)
-    base_price: float = Field(ge=0, le=1e15)  # 노작 시세 (메소)
-
-    @model_validator(mode='after')
-    def validate_target(self):
-        if self.target_star is not None and self.target_star <= self.star:
-            raise ValueError('target_star must exceed star')
-        return self
-
-
-class StarforceCostRequest(BaseModel):
-    items: list[StarforceCostItem] = Field(max_length=40)
-
-
-@app.post("/spec-up/starforce-cost")
-async def spec_up_starforce_cost(body: StarforceCostRequest):
-    """사용자가 노작 시세를 바꾸면 스타포스 다음 1성 기대 비용만 다시 계산합니다 (넥슨 API 호출 없음)."""
-    return {"costs": [round(expected_cost(row.level, row.base_price, row.star, row.target_star or row.star + 1))
-                      if FIRST_STAR <= row.star < LAST_STAR else None for row in body.items]}
 
 
 async def client_disconnected(request: Request) -> bool:

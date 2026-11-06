@@ -9,7 +9,7 @@ from app.damage_index import ReplacementModel, boss_index, flame_options, line_o
 from app.flame_damage import distribution, rewards
 from app.potential import reference_context
 from app.scoring_config import POTENTIAL, SPEC_UP
-from app.spec_up import _flame_option, best_target, flame_distribution, finish, potential_actions
+from app.spec_up import _flame_option, best_target, finish, flame_distribution, potential_actions
 
 
 class DamageIndexTests(unittest.TestCase):
