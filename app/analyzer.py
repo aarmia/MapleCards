@@ -466,7 +466,25 @@ def standard_total(items, char_class, main_stat) -> float:
     return standard_index(items, char_class, main_stat)["total"]
 
 
-def generate_overall_review(evaluate_list):
+def rank_matches(entry, achievement, weapon=None):
+    """총평 랭크 조건 (grades.toml overall): min 이상 · above 초과 · 무기 이름 · 무기 주문서 작 수를 모두 만족하는지"""
+    if "min" in entry and achievement < entry["min"]:
+        return False
+    if "above" in entry and achievement <= entry["above"]:
+        return False
+    if "weapon" in entry:
+        if entry["weapon"] not in ((weapon or {}).get("item_name") or ""):
+            return False
+        try:
+            scrolls = int(float((weapon or {}).get("scroll_upgrade") or 0))
+        except (TypeError, ValueError):
+            scrolls = 0
+        if "min_scroll" in entry and scrolls < entry["min_scroll"]:
+            return False
+    return True
+
+
+def generate_overall_review(evaluate_list, weapon=None):
     # 총평: 장비 달성률 = 주스탯 %p 합 ÷ 만점 %p 합. 만점이 큰 부위(무기 등)일수록 크게 반영됩니다.
     counted = counted_items(evaluate_list)
     total = sum(item["total_score"] for item in counted)
@@ -474,8 +492,8 @@ def generate_overall_review(evaluate_list):
     achievement = 100 * total / best if best > 0 else 0.0
     all_sorted_results = sorted(evaluate_list, key=lambda x: x["score_ratio"])
 
-    # 랭크 컷은 app/data/grades.toml 의 overall 표. 달성률이 min 이상인 첫 항목, 없으면 마지막 항목을 씁니다.
-    entry = next((candidate for candidate in GRADES.overall if achievement >= candidate["min"]), GRADES.overall[-1])
+    # 랭크는 app/data/grades.toml 의 overall 표. 위에서부터 조건(달성률·무기)을 모두 만족하는 첫 항목, 없으면 마지막 항목.
+    entry = next((candidate for candidate in GRADES.overall if rank_matches(candidate, achievement, weapon)), GRADES.overall[-1])
     overall_review = {"rank": entry["rank"], "achievement": round(achievement, 2), "total": round(total, 1), "max": round(best, 1)}
 
     return overall_review, all_sorted_results
@@ -617,7 +635,8 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
     index = standard_index([*items, *extra_items], char_class, main_stat)
     spec_up = attach_spec_up(evaluate_list, [*items, *extra_items], profile["context"], char_class, main_stat, char_level,
                              SCORING.special_items.limited_names, damage_total, profile["weapon"], index)
-    overall_review, all_sorted_results = generate_overall_review(evaluate_list)
+    weapon_item = next((item for item in items if item.get("item_equipment_slot") == "무기"), None)
+    overall_review, all_sorted_results = generate_overall_review(evaluate_list, weapon_item)
     overall_review["standard_total"] = index["total"]
 
     return {

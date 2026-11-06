@@ -192,12 +192,18 @@ def load_grades(path: Path = DATA_DIR / "grades.toml") -> Section:
     for name in ("card_highlight",):
         check_bands(data[name], f"{path.name}: {name}", 2)
     previous = None
+    allowed = {"rank", "min", "above", "weapon", "min_scroll"}
     for entry in data["overall"]:
-        if not isinstance(entry, dict) or not {"min", "rank"} <= set(entry):
-            raise ConfigError(f"{path.name}: overall 항목에는 min, rank 가 필요합니다")
-        if previous is not None and entry["min"] > previous:
-            raise ConfigError(f"{path.name}: overall 의 min 은 내림차순이어야 합니다")
-        previous = entry["min"]
+        if not isinstance(entry, dict) or "rank" not in entry or not ({"min", "above", "weapon"} & set(entry)) or set(entry) - allowed:
+            raise ConfigError(f"{path.name}: overall 항목에는 rank 와 min·above·weapon 중 하나 이상이 필요합니다 (그 밖의 키 불가)")
+        if "min_scroll" in entry and "weapon" not in entry:
+            raise ConfigError(f"{path.name}: overall 의 min_scroll 은 weapon 과 함께 써야 합니다")
+        if "weapon" not in entry and "min" in entry:  # 무기 조건이 없는 달성률 컷끼리는 내림차순
+            if previous is not None and entry["min"] > previous:
+                raise ConfigError(f"{path.name}: overall 의 min 은 내림차순이어야 합니다")
+            previous = entry["min"]
+    if set(data["overall"][-1]) != {"min", "rank"} or data["overall"][-1]["min"] != 0:
+        raise ConfigError(f"{path.name}: overall 마지막 항목은 min = 0 인 기본 랭크여야 합니다")
     return Section(data, path.name)
 
 

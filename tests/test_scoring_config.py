@@ -23,8 +23,8 @@ class ScoringConfigTests(unittest.TestCase):
         self.assertEqual(scoring.add_option.flame.bands[0], [250, 12, 7, 700])
         self.assertEqual(scoring.scroll.raw["weapon"], {"main_stat": 4, "attack": 9})
         self.assertEqual(grades.card_highlight[0], [90, "transcendent"])
-        mins = [entry["min"] for entry in grades.overall]
-        self.assertEqual(mins, sorted(mins, reverse=True))  # 첫 일치 규칙이라 내림차순
+        mins = [entry["min"] for entry in grades.overall if "weapon" not in entry and "min" in entry]
+        self.assertEqual(mins, sorted(mins, reverse=True))  # 첫 일치 규칙이라 달성률 컷끼리는 내림차순 (무기 조건 랭크는 따로)
         self.assertEqual(grades.overall[-1]["min"], 0)  # 마지막 항목이 모든 평균을 받습니다
         with self.assertRaises(ConfigError):
             check_bands([[300, "a"], [350, "b"]], "x", 2)  # 첫 일치 규칙이라 내림차순이 아니면 거부
