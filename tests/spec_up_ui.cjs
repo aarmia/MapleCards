@@ -124,3 +124,20 @@ app.report = {spec_up: {unit: 1e10}, results: [
 const rings = app.specUpActions().map(a => a.item.slot + '→' + a.price_item.name);
 assert.deepEqual(JSON.parse(JSON.stringify(rings)), ['r1→근원의 속삭임', 'r2→황홀한 악몽']);
 console.log('one ring per target, the other slot gets the remaining one: OK');
+
+// 8. 광휘 순서(chain)는 효율과 관계없이 앞 단계부터, 서로 다른 아이템 묶음은 아이템마다 노작 시세
+app.report = {spec_up: {unit: 1e10}, results: [
+    {slot: 'm', name: 'THE RED', part: '훈장', level: 0, spec_up: [
+        {axis: '상위 교체', chain: 1, rank: 30, level: 250, star: 0, target_star: 0, listing_fixed: 0, gain: 10, final_damage: 1, price_item: {name: '불멸의 유산', level: 250}},
+    ]},
+    {slot: 'r', name: '마이스터링', part: '반지', level: 140, spec_up: [
+        {axis: '상위 교체', chain: 2, rank: 31, level: 250, star: 0, target_star: 18, listing_fixed: 1e9, gain: 90, final_damage: 9,
+         slots: ['r', 'p'], bundle: true, pieces: 2,
+         price_items: [{name: '황홀한 악몽', level: 250}, {name: '죽음의 맹세', level: 250}]},
+    ]},
+]};
+const radiant = app.specUpActions();
+assert.deepEqual(JSON.parse(JSON.stringify(radiant.map(a => a.chain))), [1, 2]);  // 효율이 높아도 2단계는 1단계 뒤
+const craft = name => { const clean = Math.round(app.specUpPrice({ price_item: { name, level: 250 } }) * 1e8); return clean + app.starforceCost(250, clean, 0, 18); };
+assert.ok(Math.abs(radiant[1].cost - (craft('황홀한 악몽') + craft('죽음의 맹세') + 1e9)) < 1e-3);
+console.log('radiant chain order and per-item prices: OK');

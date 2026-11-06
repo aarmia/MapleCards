@@ -468,14 +468,14 @@ def special_replace_action(row: dict, item: dict, items: list, context: StatCont
                            class_name: str, main_stat: str) -> dict | None:
     """특수 부위 최상 아이템으로 교체 (비용 = 그 아이템 시세, 화면에서 입력):
     뱃지 → 창세의 뱃지 (뱃지 옵션 = 부위 최상 + 칠흑 세트 +1),
-    훈장 → 불멸의 유산 (기본 옵션 + 추옵 medal_add 급, 1단계 하나 + 광휘 세트 +1, 칠흑 10세트 완성 뒤에만)."""
+    훈장 → 불멸의 유산 (기본 옵션 + 추옵 medal_add 급, 1단계 하나 + 광휘 세트 +1). 훈장은 광휘 순서(radiant_chain_actions)의 첫 단계로만 씁니다."""
     part, name = row.get("part"), item.get("item_name") or ""
     if weapon is None or final_damage_per_pct(context) <= 0:
         return None
     if part == "뱃지" and name != GENESIS_BADGE:
         target, level, target_value = GENESIS_BADGE, 200, row.get("benchmark_total") or 0
         note = "뱃지 옵션"
-    elif part == "훈장" and name != IMMORTAL_MEDAL and IMMORTAL_MEDAL in CATALOG_ITEMS             and pitched_count(items) >= SPEC_UP.listing.radiant_needs_pitched:
+    elif part == "훈장" and name != IMMORTAL_MEDAL and IMMORTAL_MEDAL in CATALOG_ITEMS:
         entry, flame = CATALOG_ITEMS[IMMORTAL_MEDAL], SPEC_UP.listing.medal_add
         target, level = IMMORTAL_MEDAL, entry["level"]
         target_value = fixed_option_pct(entry.get("base") or {}, weapon, class_name, main_stat, char_level, False) + flame * context.pct_per_flat
@@ -638,7 +638,7 @@ def _with_set(target: dict, items_before: list, items_after: list, context, weap
 
 
 def _accessory_targets(item, part, slot, path, tier, items, context, weapon, standard, class_name, main_stat, char_level) -> list[dict]:
-    """장신구: 같은 부위의 상위 세트 아이템(보스 → 여명 → 칠흑 → 광휘, 이미 낀 아이템 제외). 하트: 컴플리트 언더컨트롤."""
+    """장신구: 같은 부위의 상위 세트 아이템(보스 → 여명 → 칠흑, 이미 낀 아이템 제외). 광휘는 radiant_chain_actions. 하트: 컴플리트 언더컨트롤."""
     from app.set_projection import _name
     equipped = {_name(other.get("item_name") or "") for other in items}
     std_weapon = (standard or {}).get("weapon")
@@ -647,9 +647,8 @@ def _accessory_targets(item, part, slot, path, tier, items, context, weapon, sta
     if path == "heart":
         candidates = [(TOP_HEART, 1)] if tier == 0 and TOP_HEART in CATALOG_ITEMS else []
     else:
-        radiant_open = pitched_count(items) >= SPEC_UP.listing.radiant_needs_pitched
         candidates = [(name, index) for index, set_name in enumerate(ACCESSORY_TIERS) if index > tier
-                      and (set_name != RADIANT or radiant_open)  # 광휘는 칠흑 10세트를 완성한 뒤에만
+                      and set_name != RADIANT  # 광휘는 정해진 순서로만 (radiant_chain_actions)
                       for name in sorted(MEMBERS[set_name])
                       if name in CATALOG_ITEMS and CATALOG_ITEMS[name].get("part") == part and name not in equipped]
     targets = []
@@ -722,6 +721,75 @@ def bundle_actions(rows: list, items: list, context: StatContext, class_name: st
             action["slots"] = sorted(swapped_slots)
             action["bundle"] = True
             out.append((bundle[0][0], action))
+    return out
+
+
+def radiant_chain_actions(rows: list, items: list, context: StatContext, class_name: str, main_stat: str, char_level: int, memo: dict,
+                          standard: dict | None, weapon: WeaponContext | None) -> list[tuple[dict, dict]]:
+    """광휘 교체 순서 (spec_up.toml radiant_order, 부위 단위): 불멸의 유산 → 광휘 반지 → 광휘 반지 + 죽음의 맹세 → 원혼 → 원죄.
+    칠흑 radiant_needs_pitched 세트를 완성했거나 이미 광휘를 낀 캐릭터만. 단계마다 앞 단계를 마친 장비로 세트 변화를 계산합니다.
+    바꿀 칸은 세트를 덜 깨뜨리는(세트 변화 %p 가 큰) 칸, 같으면 지금 점수가 낮은 칸. 광휘는 1단계 매물로만 (그 위는 같은 아이템 매물).
+    한 단계라도 추천할 수 없으면(바꿀 칸이 없거나 이득·지수 기준 미달) 그 뒤 단계는 만들지 않습니다. 화면은 chain 순서대로만 고릅니다."""
+    from app.set_projection import _name, count_sets
+    if weapon is None or final_damage_per_pct(context) <= 0:
+        return []
+    if pitched_count(items) < SPEC_UP.listing.radiant_needs_pitched and not count_sets(items, tuple(CATALOG_SETS))[RADIANT]:
+        return []
+    by_slot = {other.get("item_equipment_slot"): other for other in items}
+    std_weapon, std_rows = (standard or {}).get("weapon"), (standard or {}).get("rows", {})
+    state, used, out = list(items), set(), []
+    for number, parts in enumerate(SPEC_UP.listing.radiant_order, 1):
+        swaps, after = [], state
+        for part in parts:
+            worn = {_name(other.get("item_name") or "") for other in after}
+            target = next((name for name in sorted(MEMBERS[RADIANT]) if name in CATALOG_ITEMS
+                           and CATALOG_ITEMS[name].get("part") == part and name not in worn), None)
+            if target is None:
+                continue  # 이미 낀 부위
+            options = []
+            for row in rows:
+                item = by_slot.get(row["slot"])
+                if not item or row.get("part") != part or row["slot"] in used or row.get("total_score") is None:
+                    continue
+                name = _name(item.get("item_name") or "")
+                if name in MEMBERS[RADIANT] or name in SPEC_UP.listing.final_items \
+                        or (part != "훈장" and item_tier(item.get("item_name") or "", row["slot"])[0] != "accessory"):
+                    continue  # 시드링·이벤트 반지 등 교체 경로 밖, 최종 아이템은 그대로
+                swapped = [{**other, "item_name": target} if other.get("item_equipment_slot") == row["slot"] else other for other in after]
+                delta, _ = set_change(after, swapped)
+                options.append(((set_fields_pct(delta, context, weapon, char_level) if delta else 0.0, -row["total_score"]), row, swapped))
+            if not options:
+                return out  # 바꿀 칸이 없으면 순서가 끊깁니다
+            _, row, after = max(options, key=lambda option: option[0])
+            swaps.append((row, target))
+            used.add(row["slot"])
+        if not swaps:
+            continue  # 이미 마친 단계
+        first = swaps[0][0]
+        if first.get("part") == "훈장":
+            action = special_replace_action(first, by_slot[first["slot"]], state, context, weapon, char_level, class_name, main_stat)
+        else:
+            names = [target for _, target in swaps]
+            pieces = [_piece(target, row["slot"], weapon, std_weapon, class_name, main_stat, char_level) for row, target in swaps]
+            target = _with_set({"axis": UPGRADE_AXIS, "names": names, "pieces": pieces, "rank": ACCESSORY_TIERS.index(RADIANT),
+                                "max_grade": 1, "radiant": True,
+                                "title": " + ".join(f"{name}({row['slot']})" for row, name in swaps) if len(swaps) > 1 else None,
+                                "price_item": {"name": names[0], "part": pieces[0]["part"], "slot": first["slot"], "level": pieces[0]["level"]}},
+                               state, after, context, weapon, standard, char_level)
+            std_current = {"total_score": sum(std_rows[row["slot"]]["total_score"] for row, _ in swaps)} \
+                if all(row["slot"] in std_rows for row, _ in swaps) else None
+            found = _grade_actions(target, sum(row["total_score"] for row, _ in swaps), std_current, context, standard,
+                                   class_name, main_stat, char_level, memo)
+            action = found[0] if found else None
+            if action:
+                action["price_items"] = [{"name": name, "part": piece["part"], "slot": row["slot"], "level": piece["level"]}
+                                         for (row, name), piece in zip(swaps, pieces)]
+                action["bundle"] = len(swaps) > 1
+        if not action:
+            return out
+        action["chain"], action["slots"] = number, sorted(row["slot"] for row, _ in swaps)
+        out.append((first, action))
+        state = after
     return out
 
 
@@ -1019,8 +1087,9 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
             row["spec_up"] = [finish(action)] if action else []
             count += len(row["spec_up"])
             continue
-        if item and row.get("part") in ("뱃지", "훈장"):
-            action = special_replace_action(row, item, items, context, weapon, char_level, class_name, main_stat)
+        if item and row.get("part") in ("뱃지", "훈장"):  # 훈장(불멸의 유산)은 아래 광휘 순서로
+            action = special_replace_action(row, item, items, context, weapon, char_level, class_name, main_stat) \
+                if row.get("part") == "뱃지" else None
             row["spec_up"] = [finish(action)] if action else []
             count += len(row["spec_up"])
             continue
@@ -1090,7 +1159,8 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
                                            "chance": round(step["chance"], 8), "tries": round(step["tries"], 1)} for step in steps]})
         row["spec_up"] = [finish(a) for a in actions if a]
         count += len(row["spec_up"])
-    for row, action in bundle_actions(rows, items, context, class_name, main_stat, char_level, cube_memo, standard, weapon):
+    for row, action in [*bundle_actions(rows, items, context, class_name, main_stat, char_level, cube_memo, standard, weapon),
+                        *radiant_chain_actions(rows, items, context, class_name, main_stat, char_level, cube_memo, standard, weapon)]:
         row["spec_up"].append(finish(action))
         count += 1
     # 순서(100억당 최종뎀)는 노작·연마석 시세에 따라 바뀌어 화면(app.js specUpActions)이 정합니다.

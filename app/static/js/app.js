@@ -353,8 +353,13 @@ document.addEventListener('alpine:init', () => {
             }
             if (action.material) cost = action.material.count * this.materialPrice(action) * 1e8 + action.material.meso;
             if (action.listing_fixed !== undefined) {  // 매물 = 직접 만드는 기댓값: (노작 + 스타포스 0→목표 성) × 부위 수 + 큐브·불꽃·주문서(서버)
-                const clean = Math.round(this.specUpPrice(action) * 1e8);
-                cost = (clean + this.starforceCost(action.level, clean, 0, action.target_star)) * (action.pieces || 1) + action.listing_fixed;
+                const craft = (priced, level) => {
+                    const clean = Math.round(this.specUpPrice(priced) * 1e8);
+                    return clean + this.starforceCost(level, clean, 0, action.target_star);
+                };
+                cost = action.price_items  // 서로 다른 아이템 묶음(광휘 반지 + 죽음의 맹세)은 아이템마다 노작 시세
+                    ? action.price_items.reduce((sum, item) => sum + craft({ price_item: item }, item.level), 0) + action.listing_fixed
+                    : craft(action, action.level) * (action.pieces || 1) + action.listing_fixed;
             }
             return { ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0,
                 damage_efficiency: cost > 0 ? action.final_damage / (cost / unit) : 0 };
@@ -420,6 +425,7 @@ document.addEventListener('alpine:init', () => {
                 let action = null;
                 for (const a of pending) {
                     if (a.axis === '스타포스' && queues[a.item.slot][0] !== a) continue;
+                    if (a.chain && [...pending].some(p => p.chain && p.chain < a.chain)) continue;  // 광휘는 정해진 순서대로
                     if (!action || a.damage_efficiency > action.damage_efficiency) action = a;
                 }
                 if (!action) break;

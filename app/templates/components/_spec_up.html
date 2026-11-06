@@ -122,19 +122,21 @@
                         </label>
                     </div>
                 </template>
-                <template x-if="action.axis === '스타포스' || action.listing_fixed !== undefined">
+                <template x-for="priced in (action.axis === '스타포스' || action.listing_fixed !== undefined
+                                             ? (action.price_items || [priceItem(action)]).map(p => ({ price_item: p })) : [])">
                     <div class="col-span-2 rounded-lg bg-amber-50 border border-amber-100 px-2.5 py-2">
                         <label class="flex items-center gap-2">
-                            <span class="text-[10px] font-bold text-amber-700 shrink-0">노작 시세</span>
+                            <span class="text-[10px] font-bold text-amber-700 shrink-0"
+                                  x-text="action.price_items && action.price_items.length > 1 ? priced.price_item.name + ' 노작 시세' : '노작 시세'"></span>
                             <input type="text" inputmode="decimal" autocomplete="off" x-data="{ draft: null }"
                                    @focus="freezeSpecUp(specActions)" @blur="draft = null; unfreezeSpecUp()" @keydown.enter="$event.target.blur()"
                                    class="w-24 rounded border bg-white px-2 py-1 text-right font-black text-slate-700 tabular-nums"
                                    :class="draft !== null && !priceValid(draft) ? 'border-red-400' : 'border-amber-200'"
-                                   :value="draft ?? specUpPrice(action)"
-                                   @input="draft = cleanPriceInput($event); if (priceValid(draft)) setSpecUpPrice(action, draft)">
+                                   :value="draft ?? specUpPrice(priced)"
+                                   @input="draft = cleanPriceInput($event); if (priceValid(draft)) setSpecUpPrice(priced, draft)">
                             <span class="text-[11px] font-bold text-slate-500">억</span>
-                            <span x-show="!specUpPriceCustom(action) && !basePriceRegistered(action)" class="text-[10px] font-bold text-amber-600">기본값</span>
-                            <button type="button" x-show="specUpPriceCustom(action)" @click="resetSpecUpPrice(action)"
+                            <span x-show="!specUpPriceCustom(priced) && !basePriceRegistered(priced)" class="text-[10px] font-bold text-amber-600">기본값</span>
+                            <button type="button" x-show="specUpPriceCustom(priced)" @click="resetSpecUpPrice(priced)"
                                     class="ml-auto text-[10px] font-bold text-slate-400 hover:text-slate-600 underline">기본 시세로</button>
                         </label>
                     </div>
