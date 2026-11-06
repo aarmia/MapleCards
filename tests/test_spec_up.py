@@ -215,6 +215,7 @@ class SpecUpTests(unittest.TestCase):
         self.assertFalse({"근원의 속삭임", "황홀한 악몽"} & {a["price_item"]["name"] for a in ring if a["axis"] == "상위 교체"})  # 칠흑 9세트
         _, ring = actions(dawn, [dawn, *pitched])
         self.assertEqual({a["price_item"]["name"] for a in ring if a["axis"] == "상위 교체"}, {"근원의 속삭임", "황홀한 악몽"})  # 10세트
+        self.assertTrue(all(a["grade"] <= 3 and a["target_star"] in (18, 21, 22) for a in ring if a["axis"] == "상위 교체"))  # 광휘 전용 3단계
         # 거대한 공포는 최종 아이템: 같은 아이템의 상위 매물만
         horror = item("반지2", "반지", "거대한 공포", 200)
         _, final = actions(horror, [horror, *pitched[:9]])

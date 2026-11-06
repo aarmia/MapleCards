@@ -50,6 +50,9 @@
                        x-text="(report?.spec_up?.stat_label || '주스탯') + ' +' + formatEfficiency(action.efficiency) + '% / 100억'"></p>
                     <p class="text-base md:text-2xl font-black text-emerald-600 tabular-nums leading-tight whitespace-nowrap"
                        x-text="'최종뎀 +' + (action.final_damage ?? 0).toFixed(2) + '%'"></p>
+                    <!-- 매물·상위 교체: 메큘레이터 지수 증가 -->
+                    <p x-show="action.index_gain != null" class="mt-0.5 text-[13px] font-black text-blue-600 tabular-nums whitespace-nowrap"
+                       x-text="'메큘레이터 지수 +' + action.index_gain + 'P'"></p>
                 </div>
             </div>
 

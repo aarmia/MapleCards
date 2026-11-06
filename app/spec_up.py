@@ -298,11 +298,20 @@ def flame_distribution(level: int, class_name: str, main_stat: str, context: Sta
     return {value: chance for value, chance in result.items() if chance}
 
 
+def radiant_replaceable() -> set:
+    """칠흑 아이템 중 같은 부위에 광휘 아이템이 있는 것 (최종 아이템 제외): 스타포스는 radiant_star_cap 까지만 추천"""
+    radiant_parts = {CATALOG_ITEMS[name]["part"] for name in MEMBERS[RADIANT] if name in CATALOG_ITEMS}
+    return {name for name in MEMBERS[PITCHED] if name in CATALOG_ITEMS and CATALOG_ITEMS[name]["part"] in radiant_parts
+            and name not in SPEC_UP.listing.final_items}
+
+
 def starforce_recommendation_cap(name: str) -> int:
     """User's recommendation ceiling, not the game's enhancement limit."""
     name = ' '.join(name.split())
     if name == '플라즈마 하트':
         return 18
+    if name in radiant_replaceable():
+        return int(SPEC_UP.listing.radiant_star_cap)
     if name.startswith('에테르넬') or name in MEMBERS[RADIANT]:
         return 26
     if name in MEMBERS[PITCHED]:
@@ -540,7 +549,7 @@ def listing_actions(row: dict, item: dict, context: StatContext, class_name: str
     path, tier, group = item_tier(item.get("item_name") or "", slot)
     targets = [] if item.get("item_name") in LOWER_HEARTS else [{
         "axis": LISTING_AXIS, "names": [], "pieces": [same_item], "set": {"own": 0.0, "std": 0.0}, "set_text": "",
-        "max_grade": SPEC_UP.listing.grade_cap.get(group), "rank": tier}]
+        "max_grade": SPEC_UP.listing.grade_cap.get(group), "rank": tier, "radiant": group == RADIANT}]
     if weapon is not None and items is not None and path:
         if path == "armor" and slot in ARMOR_SLOTS:
             targets += _upgrade_targets(item, part, slot, group, ARMOR_TIERS[tier], items, context, weapon, standard, class_name, main_stat,
@@ -648,7 +657,7 @@ def _accessory_targets(item, part, slot, path, tier, items, context, weapon, sta
         after = [{**other, "item_name": name} if other is item else other for other in items]
         set_name = TOP_HEART if path == "heart" else ACCESSORY_TIERS[index]
         targets.append(_with_set({"axis": UPGRADE_AXIS, "names": [name], "rank": index,
-                                  "max_grade": SPEC_UP.listing.grade_cap.get(set_name),
+                                  "max_grade": SPEC_UP.listing.grade_cap.get(set_name), "radiant": set_name == RADIANT,
                                   "pieces": [_piece(name, slot, weapon, std_weapon, class_name, main_stat, char_level)],
                                   "price_item": {"name": name, "part": part, "slot": slot, "level": CATALOG_ITEMS[name]["level"]}},
                                  items, after, context, weapon, standard, char_level))
@@ -766,6 +775,7 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
         for key in ("str", "dex", "int", "luk"):
             scroll[key] = scroll.get(key, 0) + rule.get("all_stat", 0) * slots
         cost = (pot_cost + eddy_cost) * config.cube_cost_share + slots * slot_cost * EOK
+        flame_share = config.radiant_flame_cost_share if target.get("radiant") else config.flame_cost_share
         add = None
         if piece["has_add"]:
             add = round(grade["add"][column] * add_scale(level))
@@ -775,11 +785,11 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
             chance = sum(p for value, p in memo[key].items() if value >= add - 1e-9)
             if chance <= 0:
                 return None
-            cost += SPEC_UP.flame.cost * EOK / chance
+            cost += SPEC_UP.flame.cost * EOK / chance * flame_share
         return star_option, pot, eddy, scroll, add, cost, f"주문서 {slots}회 × {slot_cost:g}억"
 
     actions = []
-    for number, grade in enumerate(config.grades, 1):
+    for number, grade in enumerate(config.radiant_grades if target.get("radiant") else config.grades, 1):
         if target.get("max_grade") and number > target["max_grade"]:
             break  # 보스 장신구 4등급 · 여명 5등급까지만
         if any(piece["part"] == "기계 심장" for piece in target["pieces"]) and number > len(config.heart_scroll):
@@ -804,13 +814,12 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
         spec = f"{grade['star']}성 · 윗잠 {pot:g}% · 에디 {eddy:g}%" + (f" · 추옵 {add}급" if add is not None else "")
         if target.get("title") or target["names"]:
             spec = f"{target.get('title') or ' + '.join(target['names'])} · {spec}"
-        notes = [f"기대 비용 = 노작 시세 + 스타포스 0→{grade['star']}성 + 잠재·에디 큐브 기댓값 × {config.cube_cost_share:g}"
-                 + (" + 추옵 불꽃" if add is not None else "") + " + " + " · ".join(dict.fromkeys(state[6] for state in states))
+        flame_share = config.radiant_flame_cost_share if target.get("radiant") else config.flame_cost_share
+        notes = [f"기대 비용 = 노작 시세 + 스타포스 0→{grade['star']}성 + 잠재·에디 큐브 기댓값 × 1/{round(1 / config.cube_cost_share)}"
+                 + (f" + 추옵 불꽃 × 1/{round(1 / flame_share)}" if add is not None else "") + " + " + " · ".join(dict.fromkeys(state[6] for state in states))
                  + (f" (부위 {len(states)}개)" if len(states) > 1 else "")]
         if target["set_text"]:
             notes.append(f"세트 {target['set_text']} ({target['set']['own']:+.1f}%p)")
-        if index_gain is not None:
-            notes.append(f"메큘레이터 지수 +{index_gain:.1f}P")
         action = {"axis": target["axis"], "label": to_replace(spec), "grade": number,
                   "final_damage": gain * final_damage_per_pct(context), "gain": gain, "model": "listing_linear",
                   "level": target["pieces"][0]["level"], "pieces": len(states),
@@ -965,7 +974,7 @@ def recommendation_assumptions(context: StatContext, class_name: str) -> list[st
         "스타포스 비용은 샤타 이벤트(15→16 확정 미포함)와 설정된 파괴 방지·복구 전략 기준입니다. 노작·연마석 시세는 실시간 시세가 아니며 직접 수정할 수 있습니다.",
         "잠재는 설정된 줄별 확률·등급업 천장 기준입니다. 기대 비용은 평균이지 예산 내 성공 보장이 아니며, 증가량은 목표 이상 결과들의 조건부 평균입니다.",
         "소울 증폭은 지금 소울 잠재 줄을 넥슨 공식 확률표의 다음 단계 수치로 바꿔 비교합니다. 비용은 게이지를 반영한 기대 시도 수 × (메소 + 에테르 시세)입니다. 0→1단계는 소울 잠재가 레어로 생긴다고 보고 미라클 기준으로 레전드리까지 올린 뒤 첫 줄 포함 공/마% 두 줄이 나올 때까지의 평균 재설정 비용을 더합니다.",
-        f"매물 교체는 같은 아이템을 등급별 목표 상태(spec_up.toml [listing], 6등급)로 직접 만드는 기댓값을 비용으로 봅니다: 노작 시세 + 스타포스 0→목표 성 + 레어부터 잠재·에디 큐브 기댓값의 {SPEC_UP.listing.cube_cost_share:g}배 + 추옵 불꽃 + 주문서. 메큘레이터 지수가 {SPEC_UP.listing.min_index_gain_pct:g}% 이상 오를 때만 추천하고, 아이템마다 효율이 가장 좋은 등급 하나만 보여 줍니다.",
+        f"매물 교체는 같은 아이템을 등급별 목표 상태(spec_up.toml [listing], 6등급)로 직접 만드는 기댓값을 비용으로 봅니다: 노작 시세 + 스타포스 0→목표 성 + 레어부터 잠재·에디 큐브 기댓값의 1/3 + 추옵 불꽃 기댓값의 1/3(광휘 1/4) + 주문서. 광휘 아이템은 전용 3단계 매물. 메큘레이터 지수가 {SPEC_UP.listing.min_index_gain_pct:g}% 이상 오를 때만 추천하고, 아이템마다 효율이 가장 좋은 등급 하나만 보여 줍니다.",
         f"시드링은 {class_name}의 리레 15초/20초 딜 비중 {s15*100:.2f}%/{s20*100:.2f}%, 컨티 가동률 {SPEC_UP.seed_ring.continuous['uptime']*100:g}%를 가정합니다. 직업표에는 비실측 자료가 포함되며 개인 캐릭터 실측값이 아닙니다.",
     ]
 

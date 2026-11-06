@@ -33,7 +33,10 @@ min_step = 1.0
 #            + 주문서 횟수 × scroll_cost(억, armor·accessory).
 # 추천 조건: 교체로 오르는 메큘레이터 지수가 지금 지수의 min_index_gain_pct % 이상일 때만 (스펙에 비해 의미 있는 교체만).
 [listing]
-cube_cost_share = 0.5            # 잠재·에디 큐브 기댓값에 곱하는 비율 (관리자 입력: 기댓값의 절반)
+cube_cost_share = 0.3333333      # 잠재·에디 큐브 기댓값에 곱하는 비율 (관리자 입력: 기댓값의 1/3)
+flame_cost_share = 0.3333333     # 추옵 불꽃 기댓값에 곱하는 비율 (1/3)
+radiant_flame_cost_share = 0.25  # 광휘 아이템의 추옵 불꽃 비율 (1/4)
+radiant_star_cap = 23            # 광휘로 바꿀 수 있는 칠흑 아이템의 스타포스 추천 상한
 min_index_gain_pct = 0.5         # 메큘레이터 지수 대비 최소 증가 %
 grade_cap = { "보스 장신구 세트" = 4, "여명의 보스 세트" = 5 }   # 이 세트 아이템의 매물은 이 등급까지만 (같은 아이템·교체 대상 모두)
 eternal_bundle_sets = [4, 8]
@@ -96,6 +99,34 @@ eddy = [21, 18]
 add = [205, 185]
 armor = { attack = 6, main = 2.25 }
 accessory = { attack = 6, main = 2.25 }
+scroll_cost = { armor = 85, accessory = 85 }
+
+# 광휘 아이템 전용 매물 등급 (250제라 [250제, 200제 이하] 두 값이 같음). 주문서 비용은 관리자 미지정이라 6등급과 같은 작당 85억
+[[listing.radiant_grades]]
+star = 18
+pot = [33, 33]
+eddy = [21, 21]
+add = [200, 200]
+armor = { attack = 6, main = 2 }
+accessory = { attack = 6, main = 2 }
+scroll_cost = { armor = 85, accessory = 85 }
+
+[[listing.radiant_grades]]
+star = 21
+pot = [33, 33]
+eddy = [21, 21]
+add = [205, 205]
+armor = { attack = 6, main = 2.5 }
+accessory = { attack = 6, main = 2.5 }
+scroll_cost = { armor = 85, accessory = 85 }
+
+[[listing.radiant_grades]]
+star = 22
+pot = [36, 36]
+eddy = [22, 22]
+add = [210, 210]
+armor = { attack = 6, main = 3 }
+accessory = { attack = 6, main = 3 }
 scroll_cost = { armor = 85, accessory = 85 }
 
 # ── 시드링 (리스트레인트 링 · 컨티뉴어스 링) ──
