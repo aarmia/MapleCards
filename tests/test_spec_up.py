@@ -203,6 +203,7 @@ class SpecUpTests(unittest.TestCase):
         self.assertTrue(bundles)
         self.assertTrue(all(a["bundle"] and a["slots"] == ["상의", "어깨장식"] and a["pieces"] == 3 for a in bundles))
         self.assertIn("에테르넬 세트(마법사) 0→3", bundles[0]["detail"])
+        self.assertEqual(len(bundles[0]["price_items"]), 3)  # 서로 다른 아이템 묶음은 노작 시세도 아이템마다
         # 장신구: 여명 → 칠흑 (같은 부위), 광휘는 순서 체인으로만. 여명 같은 아이템 매물은 5등급까지
         dawn = item("반지1", "반지", "여명의 가디언 엔젤 링", 160)
         _, ring = actions(dawn)
@@ -266,6 +267,9 @@ class SpecUpTests(unittest.TestCase):
                          [(1, ["훈장"]), (2, ["반지1"]), (3, ["반지2", "펜던트2"]), (4, ["눈장식"]), (5, ["얼굴장식"])])
         self.assertEqual(steps[0]["price_item"]["name"], "불멸의 유산")
         self.assertEqual([p["name"] for p in steps[2]["price_items"]], ["황홀한 악몽", "죽음의 맹세"])
+        # 여러 아이템을 한꺼번에 바꾸면 칸마다 한 줄 (화면이 위아래로 붙여 표시), 한 아이템이면 없음
+        self.assertEqual([(swap["slot"], swap["to"]) for swap in steps[2]["swaps"]], [("반지2", "황홀한 악몽"), ("펜던트2", "죽음의 맹세")])
+        self.assertNotIn("swaps", steps[1])
         self.assertTrue(all(a["grade"] == 1 and a["target_star"] == 18 for a in steps[1:]))  # 광휘는 1단계 매물로만
         self.assertIn("× 0.4", steps[1]["detail"])  # 광휘 4종 제작 비용 할인 (원죄는 그대로)
         self.assertNotIn("× 0.4", steps[4]["detail"])

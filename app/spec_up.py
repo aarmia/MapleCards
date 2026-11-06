@@ -805,8 +805,6 @@ def radiant_chain_actions(rows: list, items: list, context: StatContext, class_n
                                    class_name, main_stat, char_level, memo)
             action = found[0] if found else None
             if action:
-                action["price_items"] = [{"name": name, "part": piece["part"], "slot": row["slot"], "level": piece["level"]}
-                                         for (row, name), piece in zip(swaps, pieces)]
                 action["bundle"] = len(swaps) > 1
         if not action:
             return out
@@ -918,6 +916,7 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
                 continue
         _, pot, eddy, _, add, _, _ = states[0]
         spec = f"{grade['star']}성 · 윗잠 {pot:g}% · 에디 {eddy:g}%" + (f" · 추옵 {add}급" if add is not None else "")
+        grade_spec = spec
         if target.get("title") or target["names"]:
             spec = f"{target.get('title') or ' + '.join(target['names'])} · {spec}"
         flame_share = config.radiant_flame_cost_share if target.get("radiant") else config.flame_cost_share
@@ -928,7 +927,15 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
         notes = [f"기대 비용 = 노작 시세 + 스타포스 0→{grade['star']}성 + {craft}" + (f" (부위 {len(states)}개)" if len(states) > 1 else "")]
         if target["set_text"]:
             notes.append(f"세트 {target['set_text']} ({target['set']['own']:+.1f}%p)")
-        action = {"axis": target["axis"], "label": to_replace(spec), "grade": number,
+        if len(target["names"]) > 1:  # 여러 아이템을 한꺼번에: 화면이 칸마다 한 줄씩 (from·아이콘은 attach_spec_up)
+            # 서로 다른 아이템이라 노작 시세도 아이템마다 (화면이 아이템별로 더함)
+            swaps = {"swaps": [{"slot": piece["slot"], "to": name} for name, piece in zip(target["names"], target["pieces"])],
+                     "spec_label": to_replace(grade_spec),
+                     "price_items": [{"name": name, "part": piece["part"], "slot": piece["slot"], "level": piece["level"]}
+                                     for name, piece in zip(target["names"], target["pieces"])]}
+        else:
+            swaps = {}
+        action = {**swaps, "axis": target["axis"], "label": to_replace(spec), "grade": number,
                   "final_damage": gain * final_damage_per_pct(context), "gain": gain, "model": "listing_linear",
                   "level": target["pieces"][0]["level"], "pieces": len(states),
                   "star": 0, "target_star": grade["star"], "listing_fixed": sum(state[5] for state in states),
@@ -1212,6 +1219,9 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
             icon = (CATALOG_ITEMS.get((action.get("price_item") or {}).get("name")) or {}).get("icon")
             if icon:
                 action["icon"] = icon
+            for swap in action.get("swaps") or []:  # 지금 그 칸의 아이템과 바꿀 아이템 아이콘
+                swap["from"] = (by_slot.get(swap["slot"]) or {}).get("item_name")
+                swap["icon"] = (CATALOG_ITEMS.get(swap["to"]) or {}).get("icon")
     if standard:
         own_total = sum(row.get("total_score") or 0 for row in rows)
         overall = standard["total"] / own_total if own_total > 0 else 1.0
