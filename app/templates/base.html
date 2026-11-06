@@ -53,6 +53,52 @@
             animation: rainbow-flow 3s ease infinite;
         }
 
+        /* DESTINY+ 총평 카드: 흐르는 보라·자홍 그라데이션 + 주기적으로 지나가는 빛 */
+        /* 카드 자체에는 등장 애니메이션(animate-fade-in)이 걸려 있어, 흐르는 배경은 ::before 층에 둡니다 */
+        .rank-destiny-plus { background: #1e1b4b; }
+        .rank-destiny-plus::before {
+            content: ""; position: absolute; inset: 0; pointer-events: none;
+            background: linear-gradient(120deg, #1e1b4b, #6d28d9, #c026d3, #f472b6, #7c3aed, #1e1b4b);
+            background-size: 300% 300%;
+            animation: rainbow-flow 8s ease infinite;
+        }
+        .rank-destiny-plus::after {
+            content: ""; position: absolute; inset: 0; pointer-events: none;
+            background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.35) 50%, transparent 65%);
+            transform: translateX(-120%);
+            animation: rank-shine 4s ease-in-out infinite;
+        }
+        @keyframes rank-shine {
+            0%, 55% { transform: translateX(-120%); }
+            100% { transform: translateX(120%); }
+        }
+        .rank-glow-destiny { text-shadow: 0 0 12px rgba(244, 114, 182, 0.9), 0 0 28px rgba(192, 38, 211, 0.7); }
+        /* ABSOLUTE 총평 카드: 흐르는 금빛 그라데이션 + 더 밝은 빛 쓸림 + 숨 쉬는 금빛 번짐 (DESTINY+ 보다 한 단계 위) */
+        .rank-absolute { background: #1c1917; }
+        .rank-absolute.animate-fade-in { animation: fadeIn 0.4s ease-out forwards, rank-gold-pulse 3s ease-in-out infinite; }
+        .rank-absolute::before {
+            content: ""; position: absolute; inset: 0; pointer-events: none;
+            background: linear-gradient(115deg, #0c0a09, #78350f, #b45309, #f59e0b, #d97706, #78350f, #0c0a09);
+            background-size: 300% 300%;
+            animation: rainbow-flow 7s ease infinite;
+        }
+        .rank-absolute::after {
+            content: ""; position: absolute; inset: 0; pointer-events: none;
+            background: linear-gradient(105deg, transparent 30%, rgba(255, 251, 235, 0.55) 48%, rgba(255, 255, 255, 0.8) 50%, rgba(255, 251, 235, 0.55) 52%, transparent 70%);
+            transform: translateX(-120%);
+            animation: rank-shine 3s ease-in-out infinite;
+        }
+        @keyframes rank-gold-pulse {
+            0%, 100% { box-shadow: 0 0 24px rgba(250, 204, 21, 0.45); }
+            50% { box-shadow: 0 0 60px rgba(250, 204, 21, 0.75), 0 0 120px rgba(245, 158, 11, 0.35); }
+        }
+        .rank-glow-absolute { text-shadow: 0 0 10px rgba(254, 240, 138, 0.95), 0 0 26px rgba(245, 158, 11, 0.8), 0 2px 0 rgba(120, 53, 15, 0.6); }
+
+        @media (prefers-reduced-motion: reduce) {
+            .rank-destiny-plus::before, .rank-destiny-plus::after, .rank-absolute::before, .rank-absolute::after { animation: none; }
+            .rank-absolute.animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        }
+
         .transition-layout { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn {

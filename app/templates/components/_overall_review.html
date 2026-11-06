@@ -1,9 +1,11 @@
 <template x-if="report?.overall">
     <div class="mb-4 md:mb-6 p-4 md:p-8 rounded-3xl shadow-xl animate-fade-in relative overflow-hidden transition-all duration-500 md:hover:shadow-2xl md:hover:scale-[1.01]"
          :class="{
-            'bg-gradient-to-br from-zinc-950 via-amber-700 to-yellow-500 text-white shadow-[0_0_70px_rgba(250,204,21,0.55)] border-4 border-yellow-300/40': report.overall.rank === 'ABSOLUTE',
-            'bg-gradient-to-br from-purple-900 via-fuchsia-800 to-blue-800 text-white shadow-[0_0_50px_rgba(168,85,247,0.5)] border-4 border-purple-400/30': report.overall.rank === 'DESTINY+',
-            'bg-gradient-to-br from-slate-950 via-blue-800 to-cyan-400 text-white shadow-[0_0_45px_rgba(34,211,238,0.5)] border-4 border-amber-300/60': report.overall.rank === 'ELDER',
+            /* 흐르는 금빛·빛 쓸림·숨 쉬는 번짐은 base.html 의 .rank-absolute */
+            'rank-absolute text-white border-4 border-yellow-200/80': report.overall.rank === 'ABSOLUTE',
+            /* 흐르는 그라데이션·빛 쓸림은 base.html 의 .rank-destiny-plus */
+            'rank-destiny-plus text-white shadow-[0_0_28px_rgba(217,70,239,0.6)] md:shadow-[0_0_70px_rgba(217,70,239,0.6)] border-4 border-fuchsia-200/70': report.overall.rank === 'DESTINY+',
+            'bg-gradient-to-br from-slate-950 via-blue-800 to-cyan-400 text-white shadow-[0_0_20px_rgba(34,211,238,0.4)] md:shadow-[0_0_45px_rgba(34,211,238,0.5)] border-4 border-amber-300/60': report.overall.rank === 'ELDER',
             'bg-gradient-to-br from-violet-700 via-pink-600 to-indigo-700 text-white shadow-[0_0_20px_rgba(139,92,246,0.3)]': report.overall.rank === 'DESTINY',
             /* 제네시스 무기로 데스티니에 도전: 제네시스의 붉은색에서 데스티니의 보라색으로 */
             'bg-gradient-to-br from-red-800 via-rose-600 to-violet-700 text-white shadow-[0_0_20px_rgba(225,29,72,0.35)] border-2 border-rose-300/40': report.overall.rank === 'DESTINY CHALLENGER',
@@ -23,19 +25,21 @@
                 <div class="flex flex-col md:flex-row md:items-center gap-2.5 md:gap-4">
                     <div class="px-6 py-1 rounded-xl backdrop-blur-md shadow-inner flex items-center justify-center border border-white/20"
                          :class="{
-                            'bg-black/20': report.overall.rank !== 'EPIC',
+                            'bg-black/20': report.overall.rank !== 'EPIC' && report.overall.rank !== 'ABSOLUTE',
+                            'bg-black/40': report.overall.rank === 'ABSOLUTE',   /* 금빛이 밝아지는 순간에도 글자가 읽히게 */
                             'bg-slate-700/50': report.overall.rank === 'EPIC'
                          }">
                         <!-- 긴 랭크 이름(DESTINY CHALLENGER)은 한 줄에 들어가게 글자를 줄입니다 -->
                         <h2 class="font-rank-impact uppercase drop-shadow-lg leading-none pt-1 whitespace-nowrap"
-                            :class="(report.overall.rank || '').length > 12 ? 'text-2xl md:text-4xl' : 'text-3xl md:text-5xl'"
+                            :class="[(report.overall.rank || '').length > 12 ? 'text-2xl md:text-4xl' : 'text-3xl md:text-5xl', report.overall.rank === 'DESTINY+' ? 'rank-glow-destiny' : '', report.overall.rank === 'ABSOLUTE' ? 'rank-glow-absolute text-amber-50' : '']"
                             x-text="report.overall.rank || '-'"></h2>
                     </div>
 
                     <span class="font-bold text-sm md:text-base px-4 py-1 md:py-1.5 rounded-full backdrop-blur-md shadow-inner"
                           :class="{
-                            'bg-amber-950/50 text-amber-100 border border-yellow-300/40': report.overall.rank === 'ABSOLUTE',
-                            'bg-blue-950/40 text-blue-100 border border-blue-400/30': report.overall.rank === 'DESTINY+' || report.overall.rank === 'DESTINY',
+                            'bg-amber-950/60 text-amber-50 border border-yellow-200/70': report.overall.rank === 'ABSOLUTE',
+                            'bg-fuchsia-950/50 text-fuchsia-50 border border-fuchsia-200/60': report.overall.rank === 'DESTINY+',
+                            'bg-blue-950/40 text-blue-100 border border-blue-400/30': report.overall.rank === 'DESTINY',
                             'bg-slate-950/50 text-cyan-100 border border-amber-300/50': report.overall.rank === 'ELDER',
                             'bg-rose-950/40 text-rose-100 border border-rose-300/40': report.overall.rank === 'DESTINY CHALLENGER',
                             'bg-green-900/40 text-green-100 border border-green-400/30': report.overall.rank === 'ASTRA',
