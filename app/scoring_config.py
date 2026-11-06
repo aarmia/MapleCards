@@ -163,12 +163,8 @@ def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
 
 
 _GRADES_SPEC = {
-    "item_grade": list, "item_grade_default": str,
     "card_highlight": list, "card_highlight_default": str,
-    "score_color": list, "score_color_default": str,
-    "stat_bar": {"pot": list, "pot_additional": list, "star": list, "add": list, "default": str},
-    "stat_bar_max": {k: NUMBER for k in ("add", "star", "pot", "pot_low", "pot_additional", "pot_additional_low", "low_level_max",
-                                         "exceptional", "exceptional_pitched", "soul", "special")},
+    "axis_bar": list, "axis_bar_default": str,
     "overall": list,
 }
 
@@ -189,10 +185,8 @@ def check_bands(bands, source: str, width: int) -> None:
 def load_grades(path: Path = DATA_DIR / "grades.toml") -> Section:
     data = load_toml(path)
     validate(data, _GRADES_SPEC, path.name)
-    for name in ("item_grade", "card_highlight", "score_color"):
+    for name in ("card_highlight", "axis_bar"):
         check_bands(data[name], f"{path.name}: {name}", 2)
-    for name in ("pot", "pot_additional", "star", "add"):
-        check_bands(data["stat_bar"][name], f"{path.name}: stat_bar.{name}", 3)
     previous = None
     for entry in data["overall"]:
         if not isinstance(entry, dict) or not {"min", "rank"} <= set(entry):

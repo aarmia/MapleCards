@@ -45,8 +45,8 @@
                         </div>
                     </div>
                     <div class="flex flex-col md:items-end">
-                        <span class="text-[10px] font-black text-blue-400 uppercase tracking-widest block mb-1">Total Score</span>
-                        <span class="text-xl md:text-4xl font-black text-blue-600 tracking-tighter break-all" x-text="report?.results ? report.results.filter(i => !i.is_wse && !i.is_special).reduce((acc, item) => acc + item.total_score, 0).toLocaleString() : 0"></span>
+                        <span class="text-[10px] font-black text-blue-400 tracking-widest block mb-1" x-text="'장비 환산 합계 · ' + (report?.spec_up?.stat_label || '주스탯')"></span>
+                        <span class="text-xl md:text-4xl font-black text-blue-600 tracking-tighter break-all" x-text="report?.overall ? Number(report.overall.total).toLocaleString() + '%p' : 0"></span>
                     </div>
                 </div>
             </div>

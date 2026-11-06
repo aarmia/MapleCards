@@ -229,10 +229,11 @@ class PotentialOptionTests(unittest.TestCase):
             [entry["weighted_value"] for entry in result["scoring_basis"]["recognized_options"]],
             [9.0, 6.0, 4.0, round(10 * magic, 2)],
         )
-        self.assertEqual(
-            [entry["weighted_score"] for entry in result["scoring_basis"]["breakdown"]],
-            [0, 15.0, eddy_raw, 100.0],
-        )
+        rows = {entry["key"]: entry for entry in result["scoring_basis"]["breakdown"]}
+        # 점수 = 축별 주스탯 %p: 잠재는 유효 스탯% 그대로, 22성 스타포스는 만점과 같음
+        self.assertEqual([rows[key]["value"] for key in ("add", "pot", "pot_additional")], [0, 15.0, round(eddy_raw, 1)])
+        self.assertEqual(rows["star"]["value"], rows["star"]["max"])
+        self.assertAlmostEqual(result["total_score"], sum(row["value"] for row in rows.values()), delta=0.3)
         self.assertEqual(result["scoring_basis"]["star_score"], 100.0)
 
     def test_starforce_option_per_star_table(self):

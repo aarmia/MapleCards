@@ -69,14 +69,6 @@ const CARD_CLASS = {
     epic: 'border-[3px] border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.2)] bg-purple-50/30',
     none: 'border border-slate-200 bg-slate-50',
 };
-const SCORE_STYLE = {
-    ultimate: { class: 'bg-ultimate text-transparent bg-clip-text', style: '' },   // base.html 의 bg-ultimate 그라데이션
-    legendary: { class: '', style: 'color: #b2e52c;' },
-    unique: { class: '', style: 'color: #ffb900;' },
-    epic: { class: '', style: 'color: #a855f7;' },
-    rare: { class: '', style: 'color: #3b82f6;' },
-};
-
 document.addEventListener('alpine:init', () => {
     Alpine.data('meculatorApp', () => ({
         nickname: '',
@@ -657,11 +649,11 @@ document.addEventListener('alpine:init', () => {
             if (!item || this.baseOnly(item)) return [];
             const rows = Object.fromEntries((item.scoring_basis?.breakdown || []).map(row => [row.key, row]));
             const cards = [];
-            const exceptional = rows.exceptional && Number(rows.exceptional.raw_score) > 0 ? rows.exceptional : null;
+            const exceptional = rows.exceptional && Number(rows.exceptional.raw) > 0 ? rows.exceptional : null;
             if (rows.add) {
                 // 합산된 옵션마다 오르는 수치: 방어구·장신구는 급수, 무기는 공/마 불꽃 단계(N추)와 나머지의 데미지 %p 환산
                 const entries = this.axisEntries(item, '추가옵션');
-                let total = `${rows.add.raw_score}급`;
+                let total = `${rows.add.raw}급`;
                 let lines = entries.length
                     ? entries.map(entry => ({ text: entry.option, value: `+${entry.value}` }))
                     : this.addSummaryLines(item).map(text => ({ text }));
@@ -682,7 +674,7 @@ document.addEventListener('alpine:init', () => {
             if (exceptional) {
                 const lines = this.exceptionalLines(item).map(text => ({ text }));
                 cards.push({ key: 'exceptional', title: '익셉셔널', color: this.categoryColor('익셉셔널'), dot: '#fb7185',
-                             total: `${exceptional.raw_score}회`, lines, wide: !rows.add });
+                             total: `${exceptional.raw}회`, lines, wide: !rows.add });
             }
             this.optionBlocks(item).forEach(block => {
                 cards.push({
@@ -760,22 +752,15 @@ document.addEventListener('alpine:init', () => {
             return hit ? hit[1] : fallback;
         },
 
-        gradeCutText(label) {
-            const band = (this.getGrades().item_grade || []).find(([, name]) => name === label);
-            return band ? band[0] + '+ 점' : '';
-        },
-
-        getStatColor(val, key) {
+        // 축 막대: 그 축의 만점(bar_max, 주스탯 %p) 대비 % 로 색과 길이를 정합니다
+        getStatColor(val, key, item) {
             const grades = this.getGrades();
-            const bands = grades.stat_bar?.[key] || grades.stat_bar?.add;
-            const tier = this.pickTier(bands, parseFloat(val), grades.stat_bar?.default || 'poor');
-            return STAT_BAR_CLASS[tier] || STAT_BAR_CLASS.poor;
+            const ratio = 100 * parseFloat(val) / (item?.bar_max?.[key] || 1);
+            return STAT_BAR_CLASS[this.pickTier(grades.axis_bar, ratio, grades.axis_bar_default || 'poor')] || STAT_BAR_CLASS.poor;
         },
 
         getStatWidth(val, key, item) {
-            // 아이템마다 서버가 레벨·세트로 고른 만점(bar_max)을 먼저 씁니다
-            const max = item?.bar_max?.[key] ?? this.getGrades().stat_bar_max?.[key] ?? 100.0;
-            return Math.min((parseFloat(val) / max) * 100, 100);
+            return Math.min((parseFloat(val) / (item?.bar_max?.[key] || 1)) * 100, 100);
         },
 
         getBorderColor(score) {
@@ -838,17 +823,6 @@ document.addEventListener('alpine:init', () => {
             if (guideText.includes('교체') || guideText.includes('시급')) return 'bg-red-50 text-red-700 border-red-100';
             if (guideText.includes('강화') || guideText.includes('권장')) return 'bg-blue-50 text-blue-700 border-blue-100';
             return 'bg-emerald-50 text-emerald-700 border-emerald-100';
-        },
-
-        getGradeFromScore(score) {
-            const grades = this.getGrades();
-            return this.pickTier(grades.item_grade, score, grades.item_grade_default || 'F');
-        },
-
-        getScoreDisplayData(score) {
-            const grades = this.getGrades();
-            const tier = this.pickTier(grades.score_color, score, grades.score_color_default || 'rare');
-            return SCORE_STYLE[tier] || SCORE_STYLE.rare;
         }
     }));
 });

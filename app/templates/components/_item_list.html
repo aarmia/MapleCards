@@ -13,12 +13,8 @@
                 <h3 class="font-black text-slate-800 tracking-tight text-base leading-snug break-keep" x-text="item.name"></h3>
             </div>
             <div class="md:hidden text-right shrink-0">
-                <span class="block text-3xl font-black tracking-tighter leading-none drop-shadow-sm"
-                      :class="getScoreDisplayData(item.score_ratio).class"
-                      :style="getScoreDisplayData(item.score_ratio).style"
-                      x-show="item.graded !== false"
-                      x-text="getGradeFromScore(item.score_ratio)"></span>
-                <span x-show="item.scored !== false" class="block text-xs font-black text-slate-400 mt-1" x-text="item.total_score"></span>
+                <span x-show="item.scored !== false" class="block text-2xl font-black tracking-tighter leading-none text-slate-800 tabular-nums" x-text="item.total_score"></span>
+                <span x-show="item.scored !== false" class="block text-[10px] font-black text-slate-400 mt-1">%p</span>
             </div>
         </div>
 
@@ -36,10 +32,10 @@
                     <div class="relative">
                         <div class="flex justify-between items-center mb-1">
                             <span class="text-[10px] md:text-[9px] font-bold text-slate-400 uppercase" x-text="key == 'pot_additional' ? '에디셔널' : key == 'pot' ? '잠재능력' : key == 'add' ? '추가옵션' : key == 'soul' ? '소울' : key == 'special' ? '고유 옵션' : key == 'exceptional' ? '익셉셔널' : '별'"></span>
-                            <span class="text-xs md:text-[11px] font-black text-slate-700" x-text="val"></span>
+                            <span class="text-xs md:text-[11px] font-black text-slate-700" x-text="val + '%p'"></span>
                         </div>
                         <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden border border-slate-50">
-                            <div class="h-full transition-all duration-500 rounded-full" :class="getStatColor(val, key)" :style="`width: ${getStatWidth(val, key, item)}%` "></div>
+                            <div class="h-full transition-all duration-500 rounded-full" :class="getStatColor(val, key, item)" :style="`width: ${getStatWidth(val, key, item)}%` "></div>
                         </div>
                     </div>
                 </template>
@@ -47,15 +43,9 @@
         </div>
 
         <div class="hidden md:flex w-28 border-l border-slate-100 flex-col justify-center items-center bg-slate-50/50 py-4 relative group">
-            <span class="text-[9px] font-bold text-slate-400 tracking-widest mb-1 uppercase">Total Grade</span>
-
-            <span class="text-4xl font-black tracking-tighter drop-shadow-sm"
-                  :class="getScoreDisplayData(item.score_ratio).class"
-                  :style="getScoreDisplayData(item.score_ratio).style"
-                  x-show="item.graded !== false"
-                  x-text="getGradeFromScore(item.score_ratio)"></span>
-
-            <span x-show="item.scored !== false" class="text-sm font-black text-slate-400 mt-1 group-hover:text-slate-600 transition-colors" x-text="item.total_score"></span>
+            <span class="text-[9px] font-bold text-slate-400 tracking-widest mb-1" x-text="(report?.spec_up?.stat_label || '주스탯') + ' 환산'"></span>
+            <span x-show="item.scored !== false" class="text-3xl font-black tracking-tighter text-slate-800 tabular-nums" x-text="item.total_score"></span>
+            <span x-show="item.scored !== false" class="text-xs font-black text-slate-400 mt-0.5">%p</span>
         </div>
 
     </div>

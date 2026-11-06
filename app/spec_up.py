@@ -492,6 +492,31 @@ def soul_action(item: dict, level: int, context: StatContext, weapon: WeaponCont
             "gain": final_damage / per_pct, "detail": detail, "material": {"name": step["material"], "count": tries, "meso": meso}}
 
 
+def seed_ring_value(name: str, level: int, class_name: str, context: StatContext, damage_total: float) -> tuple[float, float] | None:
+    """시드링 효과의 주스탯 %p 환산 (지금 레벨, 최고 레벨). 리스트레인트·컨티뉴어스만, 나머지는 None.
+    리레 = 구간 딜 비중 × 공/마 ÷ 공/마 배율, 컨티 = 가동률 × (보공·공/마 상대 증가). 다음 레벨 추천과 같은 식입니다."""
+    ring = SPEC_UP.seed_ring
+    per_pct = final_damage_per_pct(context)
+    attack = context.attack_multiplier_effective * 100
+    if per_pct <= 0 or attack <= 0:
+        return None
+    if RESTRAINT in name:
+        table, s15, s20 = ring.restraint, *burst_share(class_name)
+
+        def damage(effect):
+            return 100 * (s15 if effect[0] <= 15 else s20) * effect[1] / attack
+    elif CONTINUOUS in name:
+        table, boss = ring.continuous, 100 + damage_total + POTENTIAL.buff.damage_pct + POTENTIAL.buff.boss_damage_pct
+
+        def damage(effect):
+            return 100 * ring.continuous["uptime"] * ((1 + effect[0] / boss) * (1 + effect[1] / attack) - 1)
+    else:
+        return None
+    levels = sorted(int(key) for key in table.raw if key.isdigit())
+    now = table.raw.get(str(level))
+    return (damage(now) / per_pct if now else 0.0), damage(table.raw[str(levels[-1])]) / per_pct
+
+
 def finish(action: dict) -> dict:
     """화면용 반올림. 비용이 시세와 무관한 행동(잠재·추옵)만 서버가 효율을 붙이고, 스타포스·시드링은 화면이 시세로 계산합니다."""
     out = dict(action)

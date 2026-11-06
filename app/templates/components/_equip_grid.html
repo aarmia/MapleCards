@@ -6,11 +6,7 @@
          class="aspect-square flex flex-col items-center justify-center cursor-pointer transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400 {{ 'rounded-xl p-1' if mobile else 'rounded-xl md:rounded-2xl p-1 md:p-1.5 hover:scale-105' }}"
          :class="getSlotItem({{ slot }}).graded ? getBorderColor(getSlotItem({{ slot }}).score_ratio) : 'border border-slate-200 bg-slate-50'">
         <img :src="getSlotItem({{ slot }}).shape_icon || getSlotItem({{ slot }}).icon" class="{{ 'w-8 h-8' if mobile else 'w-7 h-7 md:w-11 md:h-11' }} object-contain drop-shadow-sm" alt="">
-        <span x-show="getSlotItem({{ slot }}).graded" class="mt-1 {{ 'text-[13px]' if mobile else 'text-[11px]' }} font-black leading-none"
-              :class="getScoreDisplayData(getSlotItem({{ slot }}).score_ratio).class"
-              :style="getScoreDisplayData(getSlotItem({{ slot }}).score_ratio).style"
-              x-text="getGradeFromScore(getSlotItem({{ slot }}).score_ratio)"></span>
-        <span x-show="getSlotItem({{ slot }}).scored" class="{{ 'text-[11px]' if mobile else 'text-[9px]' }} font-bold text-slate-500 leading-none mt-0.5" x-text="Math.round(getSlotItem({{ slot }}).total_score)"></span>
+        <span x-show="getSlotItem({{ slot }}).scored" class="mt-1 {{ 'text-[12px]' if mobile else 'text-[10px]' }} font-black text-slate-600 leading-none tabular-nums" x-text="Math.round(getSlotItem({{ slot }}).total_score)"></span>
     </div>
 </template>
 <template x-if="!getSlotItem({{ slot }})">
@@ -24,7 +20,7 @@
     <div class="flex items-start justify-between gap-3 mb-3 md:mb-4 px-1 md:px-0">
         <div class="min-w-0">
             <h3 class="font-black text-slate-800">장비창</h3>
-            <p class="text-[11px] text-slate-500 break-keep">아이콘을 누르면 상세 점수와 환산 근거가 열립니다. 테두리 색은 기준 대비 등급입니다.</p>
+            <p class="text-[11px] text-slate-500 break-keep">숫자는 주스탯 %p 환산 점수, 테두리 색은 만점 대비 달성률입니다. 아이콘을 누르면 환산 근거가 열립니다.</p>
         </div>
         <span class="text-xs font-bold text-blue-600 whitespace-nowrap" x-text="(report?.results?.length || 0) + '개'"></span>
     </div>
