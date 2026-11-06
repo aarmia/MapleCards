@@ -341,9 +341,14 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                                                  char_class, main_stat=main_stat, context=context)
                 pct_axes["add"] = (value * per_flat, benchmark * per_flat)
                 raw_axes["add"] = round(value, 1)
+                # 기본 옵션: 만점 = 같은 값 (일반 장비와 같은 규칙)
+                base_value = option_pct({key: amount for key, amount in (item.get("item_base_option") or {}).items()
+                                         if key != "base_equipment_level"}, False)
+                if base_value > 0:
+                    pct_axes["base"] = (base_value, base_value)
                 add_entries = [{**entry, "category": "추가옵션"}
                                for entry in add_option_entries(item.get("item_add_option") or {}, char_class, main_stat=main_stat, context=context)]
-                notes = [f"추가옵션 급수 {value:g} × {per_flat:.3g}%p · 만점 = {flame_level}제 불꽃 최대 급수 {benchmark:g} (기본 옵션은 보지 않음)"]
+                notes = [f"기본 옵션 + 추가옵션 급수 {value:g} × {per_flat:.3g}%p · 추가옵션 만점 = {flame_level}제 불꽃 최대 급수 {benchmark:g}"]
             else:
                 lines, expired = special_lines(item, weapon_context)
                 analysis = analyze_special_lines(lines, weapon_context, char_level)

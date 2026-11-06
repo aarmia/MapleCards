@@ -51,7 +51,7 @@ class SpecialPartTests(unittest.TestCase):
         }
         medal = {
             "item_equipment_part": "훈장", "item_equipment_slot": "훈장", "item_name": "불멸의 유산",
-            "item_add_option": {"str": "91"}, "item_exceptional_option": {"str": "30", "exceptional_upgrade": 3}, "item_base_option": {},
+            "item_add_option": {"str": "91"}, "item_exceptional_option": {"str": "30", "exceptional_upgrade": 3}, "item_base_option": {"str": "10", "dex": "10"},
         }
         results = {r["part"]: r for r in evaluate_equipment([belt, medal], "히어로", 285)}
         # 익셉셔널 = 오른 스탯의 주스탯 %p, 만점에는 넣지 않는 가산 (raw = 강화 횟수)
@@ -60,7 +60,9 @@ class SpecialPartTests(unittest.TestCase):
         self.assertGreater(belt_row["value"], 0)
         self.assertAlmostEqual(results["벨트"]["total_score"], sum(results["벨트"]["detail"].values()), delta=0.3)
         self.assertAlmostEqual(results["훈장"]["detail"]["exceptional"] / results["벨트"]["detail"]["exceptional"], 30 / 40, delta=0.06)  # 소수 첫째 자리 반올림 오차
-        self.assertAlmostEqual(results["훈장"]["total_score"], results["훈장"]["detail"]["add"] + results["훈장"]["detail"]["exceptional"], delta=0.1)
+        # 훈장도 기본 옵션 축(만점 = 현재 값)이 붙습니다
+        self.assertEqual(results["훈장"]["detail"]["base"], results["훈장"]["bar_max"]["base"])
+        self.assertAlmostEqual(results["훈장"]["total_score"], sum(results["훈장"]["detail"].values()), delta=0.1)
         # 강화가 없으면 축 자체가 보이지 않습니다
         plain = evaluate_equipment([{**belt, "item_exceptional_option": {"exceptional_upgrade": 0}}], "히어로", 285)[0]
         self.assertNotIn("exceptional", plain["detail"])
