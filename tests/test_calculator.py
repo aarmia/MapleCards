@@ -226,7 +226,7 @@ class PotentialOptionTests(unittest.TestCase):
             ["INT +9%", "INT +6%", "INT +4%", "마력 +10"],
         )
         self.assertEqual(
-            [entry["weighted_value"] for entry in result["scoring_basis"]["recognized_options"]],
+            [entry["value"] for entry in result["scoring_basis"]["recognized_options"]],
             [9.0, 6.0, 4.0, round(10 * magic, 2)],
         )
         rows = {entry["key"]: entry for entry in result["scoring_basis"]["breakdown"]}
@@ -234,7 +234,6 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertEqual([rows[key]["value"] for key in ("add", "pot", "pot_additional")], [0, 15.0, round(eddy_raw, 1)])
         self.assertEqual(rows["star"]["value"], rows["star"]["max"])
         self.assertAlmostEqual(result["total_score"], sum(row["value"] for row in rows.values()), delta=0.3)
-        self.assertEqual(result["scoring_basis"]["star_score"], 100.0)
 
     def test_starforce_option_per_star_table(self):
         # 22성 합계는 만점 표와 같고, 23성부터는 공/마만 오르며, 장갑은 15성까지 공/마 +1 이 7번 붙습니다.
@@ -243,24 +242,26 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertEqual(starforce_option(200, 15, "str", ("DEX",), "장갑"), {"str": 40, "dex": 40, "attack_power": 7})
         self.assertIsNone(starforce_option(130, 21, "str"))  # 130제는 20성까지
 
-    def test_starforce_axis_is_stat_based_to_22_and_log_bonus_above(self):
+    def test_starforce_axis_is_real_stats_against_22_stars(self):
         over = {**self.challenger_top, "starforce": "25", "item_starforce_option": {"int": "145", "luk": "145", "magic_power": "175"}}
         low = {**self.challenger_top, "starforce": "18", "item_starforce_option": {"int": "85", "luk": "85", "magic_power": "30"}}
-        def star(item):
-            return evaluate_equipment([item], "레테", 285)[0]["scoring_basis"]["star_score"]
+        def star(item, job="레테"):
+            row = evaluate_equipment([item], job, 285)[0]
+            return row["detail"].get("star"), row["bar_max"].get("star")
 
-        self.assertAlmostEqual(star(over), round(100 + 10 * math.log(4), 2))  # 23성부터 100 + 10 × ln(별 − 21)
-        self.assertLess(star(low), 50)  # 18성은 22성 스탯 환산의 절반 미만
+        value, best = star(over)
+        self.assertGreater(value, best)  # 23성 이상은 실제 값이 22성 만점을 넘습니다
+        value, best = star(low)
+        self.assertLess(value, best / 2)  # 18성은 22성 스탯 환산의 절반 미만
+        # 데몬어벤져: 주스탯 자리를 최대 HP 로 둔 같은 상승표로 스타포스 축이 들어갑니다
+        demon = {**self.challenger_top, "starforce": "22", "item_starforce_option": {"max_hp": "145", "str": "145", "attack_power": "106"}}
+        value, best = star(demon, "데몬어벤져")
+        self.assertIsNotNone(best)
+        self.assertGreater(value, 0)
 
     def test_ring_does_not_recommend_unavailable_add_option(self):
-        guide = get_dynamic_guide(
-            [100.0, 108.9, 45.0, 100.0],
-            22,
-            "반지",
-            353.9,
-            "마이스터링",
-            140,
-        )
+        axes = {"pot": (108.9, 108.0), "pot_additional": (45.0, 40.0), "star": (50.0, 50.0)}
+        guide = get_dynamic_guide(axes, 22, "반지", "마이스터링", 102.0, 140)
 
         self.assertNotIn("추가옵션", guide)
         self.assertIn("종결", guide)

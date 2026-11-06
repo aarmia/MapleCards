@@ -200,7 +200,9 @@ def flame_best_add_option(level: int, class_name: str, main_stat: str | None = N
 
 
 def _stat_option(stat: float, attack: float, main_stat: str, sub_names) -> dict:
-    stats = ("str", "dex", "luk") if main_stat == "all_stat" else (main_stat, *[name.lower() for name in sub_names])
+    # 데몬어벤져(주스탯 HP)는 다른 직업과 같은 상승치를 주스탯 자리인 최대 HP 에 둡니다 (HP 전용 상승표가 없는 동안의 보정).
+    main = "max_hp" if main_stat == "hp" else main_stat
+    stats = ("str", "dex", "luk") if main_stat == "all_stat" else (main, *[name.lower() for name in sub_names])
     option = {key: stat for key in stats}
     option["magic_power" if main_stat == "int" else "attack_power"] = attack
     return option
@@ -208,9 +210,7 @@ def _stat_option(stat: float, attack: float, main_stat: str, sub_names) -> dict:
 
 def starforce_benchmark_option(level: int, main_stat: str, sub_names=(), part: str = "") -> dict | None:
     """만점 스타포스(scoring.toml starforce.benchmark, 기본 25성)의 스탯·공/마 합계를 item_starforce_option 모양으로.
-    장갑은 공/마 보너스를 더합니다. 표의 최저 레벨 미만이거나 데몬어벤져(HP 기준 없음)이면 None 입니다."""
-    if main_stat == "hp":
-        return None
+    장갑은 공/마 보너스를 더합니다. 표의 최저 레벨 미만이면 None 입니다."""
     config = SCORING.starforce.benchmark
     band = next((band for band in config.bands if level >= band[0]), None)
     if band is None:
@@ -221,10 +221,10 @@ def starforce_benchmark_option(level: int, main_stat: str, sub_names=(), part: s
 
 def starforce_option(level: int, star: int, main_stat: str, sub_names=(), part: str = "") -> dict | None:
     """star 성까지 스타포스로 오른 스탯·공/마 합계 (scoring.toml starforce.gain) 를 item_starforce_option 모양으로.
-    표의 최저 레벨 미만, 그 레벨의 최대 성 초과, 데몬어벤져(HP 기준 없음)이면 None 입니다."""
+    표의 최저 레벨 미만이거나 그 레벨의 최대 성을 넘으면 None 입니다."""
     gain = SCORING.starforce.gain
     index = next((i for i, low in enumerate(gain.levels) if level >= low), None)
-    if main_stat == "hp" or index is None:
+    if index is None:
         return None
     stat_16, attack_16 = gain.stat_16[index], gain.attack_16[index]
     star = max(0, int(star))
@@ -323,13 +323,3 @@ def calculate_potential_score(
     context: StatContext | None = None,
 ) -> float:
     return analyze_potential_score(item_data, potential_type, class_name, char_level, main_stat=main_stat, context=context)["score"]
-
-
-def get_starforce_score(star, level):
-    if level <= 0: return 0.0
-    config = SCORING.starforce
-    weight = 1.0 + (level - config.reference_level) / config.level_weight_divisor
-    base22 = 100.0 * ((min(star, config.base_star) / float(config.base_star)) ** 2) * weight
-    if star <= config.base_star:
-        return base22
-    return base22 + (config.over_star_log_weight * math.log(star - (config.base_star - 1)))

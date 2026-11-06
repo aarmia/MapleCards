@@ -3,14 +3,14 @@
 # when 의 각 항목은 [필드, 비교, 값] 입니다. 값 자리에 필드 이름을 적으면 그 필드의 값과 비교합니다.
 # 비교: "<", "<=", ">", ">=", "==", "!="
 # 필드:
-#   total                         아이템 총점
-#   add / pot / eddy / starscore  축별 가중 점수 (추가옵션, 윗잠재, 에디셔널, 스타포스)
+#   ratio                         장비 점수(주스탯 %p) ÷ 만점 × 100
+#   add_ratio / pot_ratio / eddy_ratio   축 %p ÷ 축 만점 %p (추가옵션, 윗잠재, 에디셔널)
 #   star                          현재 스타포스        star_next   star + 1
 #   max_star                      기준 만점 스타포스 (scoring.toml starforce.max_star)
 #   at_cap                        star 가 22 이상이거나 max_star 이상
 #   level                         아이템 레벨
 #   add_evaluated / star_evaluated  이 부위에서 그 축을 평가하는지 (axes 표)
-#   worst / next                  기준 대비 비율이 가장 낮은 축, 그다음 축의 이름
+#   worst / next                  만점 대비 비율이 가장 낮은 축, 그다음 축의 이름
 #   min_ratio                     평가 축 중 최저 비율
 #   limited                       이벤트 반지 여부 (names.limited)      noljang   놀라운 장비 강화 여부
 #   target_star_330 / target_star_17 / target_star_21   스타포스 목표 (targets 표, max_star 로 제한)
@@ -20,7 +20,6 @@
 
 [axes]
 labels = ["추가옵션", "윗잠재", "에디셔널", "스타포스"]
-benchmarks = [110, 108, 40, 105]           # 축별 기준점의 예비값. 평가한 축은 캐릭터·아이템별 기준점(benchmarks)이 이 값을 대신합니다
 no_add_parts = ["반지", "어깨장식", "기계 심장", "보조무기", "엠블렘"]   # 추옵 축을 평가하지 않는 부위
 no_star_parts = ["엠블렘"]                                              # 스타포스 축을 평가하지 않는 부위 (보조무기는 200제 기준으로 평가)
 
@@ -40,7 +39,7 @@ limited = ["이터널 플레임 링", "어웨이크 링", "테네브리스 원�
 
 # ── 특수 장비 (훈장 · 뱃지 · 포켓 아이템 · 칭호). 필드는 total 만 있습니다. ──
 
-# 특수부위(훈장·뱃지·포켓·칭호): total 은 부위별 최상 아이템 대비 % (100 = 최상), expired 는 칭호 옵션 만료 여부
+# 특수부위(훈장·뱃지·포켓·칭호·시드링): total 은 만점(부위별 최상·만렙 시드링) 대비 %, expired 는 칭호 옵션 만료 여부
 [[special_rule]]
 part_any = ["칭호"]
 when = [["expired", "==", true]]
@@ -89,7 +88,7 @@ text = "💡 리스트레인트 링 또는 컨티뉴어스 링 고레벨로 교�
 text = "✅ 해당 부위는 표준 성능을 보여주고 있습니다."
 
 # ── 일반 장비 ──
-# 일반 규칙의 ratio 는 기준 만점 대비 % (등급·랭크와 같은 기준), *_ratio 는 축 점수 ÷ 축 기준점
+# 일반 규칙의 ratio 는 장비 점수(주스탯 %p) ÷ 만점 × 100 (테두리 색과 같은 기준), *_ratio 는 축 %p ÷ 축 만점 %p
 
 [[rule]]
 when = [["noljang", "==", true]]

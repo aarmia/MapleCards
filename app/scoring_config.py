@@ -89,14 +89,13 @@ _SCORING_SPEC = {
     },
     "potential": {"excluded_slots": list, "ignored_keywords": list, "stat_keywords": list, "relevant_keywords": dict},
     "starforce": {
-        **{k: NUMBER for k in ("reference_level", "level_weight_divisor", "base_star", "over_star_log_weight")},
+        "base_star": NUMBER,
         "max_star": {"bands": list, "default": NUMBER, "superior": NUMBER, "names": dict},
-        "benchmark": {"benchmark_star": NUMBER, "bands": list, "glove_attack_bonus": NUMBER, "over_star_log_weight": NUMBER},
+        "benchmark": {"benchmark_star": NUMBER, "bands": list, "glove_attack_bonus": NUMBER},
         "noljang": {"levels": list, "stat": list, "attack": list},
         "gain": {k: list for k in ("stat_1_15", "glove_attack_stars", "levels", "stat_16", "attack_16")},
         "weapon": {"low_divisor": NUMBER, "weapon_like_min_attack": NUMBER, "attack_16": list},
     },
-    "weights": {k: NUMBER for k in ("add", "superior_star")},
     "noljang": {k: NUMBER for k in ("star_min", "star_max", "max_level", "etc_stat_strong", "etc_attack_strong", "etc_stat_weak", "etc_attack_weak")},
     "special_items": {"wse_slots": list, "special_parts": list, "secondary_slots": list, "superior_keyword": str},
 }
@@ -199,7 +198,7 @@ def load_grades(path: Path = DATA_DIR / "grades.toml") -> Section:
 
 RULE_OPERATORS = ("<", "<=", ">", ">=", "==", "!=")
 _GUIDES_SPEC = {
-    "axes": {"labels": list, "benchmarks": list, "no_add_parts": list, "no_star_parts": list},
+    "axes": {"labels": list, "no_add_parts": list, "no_star_parts": list},
     "targets": {k: NUMBER for k in ("star_330_level_split", "star_330_low", "star_330_high", "star_mid", "star_step")},
     "names": {k: list for k in ("upgrade_hearts", "target_hearts", "black_hearts", "superior", "limited")},
     "special_rule": list,
@@ -236,8 +235,8 @@ def check_rules(rules: list, names: dict, fields: set, source: str) -> None:
 def load_guides(path: Path = DATA_DIR / "guides.toml", rule_fields: set | None = None, special_fields: set | None = None) -> Section:
     data = load_toml(path)
     validate(data, _GUIDES_SPEC, path.name)
-    if len(data["axes"]["labels"]) != 4 or len(data["axes"]["benchmarks"]) != 4:
-        raise ConfigError(f"{path.name}: axes.labels 와 axes.benchmarks 는 4개여야 합니다")
+    if len(data["axes"]["labels"]) != 4:
+        raise ConfigError(f"{path.name}: axes.labels 는 4개(추가옵션·윗잠재·에디셔널·스타포스)여야 합니다")
     if rule_fields is not None:
         check_rules(data["rule"], data["names"], rule_fields, f"{path.name}: rule")
     if special_fields is not None:
@@ -267,9 +266,9 @@ _POTENTIAL_SPEC = {
     },
     "special": {
         "ignored_keys": list, "add_option_parts": list, "ring_part": str, "no_grade_parts": list, "no_score_parts": list,
-        "best": dict, "ring": {"max_level": NUMBER, "weights": dict, "default": NUMBER},
+        "best": dict,
     },
-    "exceptional": {"parts": list, "points_per_upgrade": NUMBER},
+    "exceptional": {"parts": list},
     "armor": {"best_lines": {"count": dict, "tiers": list}},
 }
 
