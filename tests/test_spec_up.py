@@ -266,6 +266,10 @@ class SpecUpTests(unittest.TestCase):
         self.assertEqual(steps[0]["price_item"]["name"], "불멸의 유산")
         self.assertEqual([p["name"] for p in steps[2]["price_items"]], ["황홀한 악몽", "죽음의 맹세"])
         self.assertTrue(all(a["grade"] == 1 and a["target_star"] == 18 for a in steps[1:]))  # 광휘는 1단계 매물로만
+        # 원혼부터는 1단계가 지금 아이템보다 못하면 2단계(21성)로 바로
+        strong = [{**row, "total_score": row["total_score"] + steps[4]["gain"] + 0.1} if row["slot"] == "얼굴장식" else row for row in rows]
+        top = [action for _, action in radiant_chain_actions(strong, [*worn, *filler], context, job, "int", 285, {}, None, weapon)]
+        self.assertEqual([(a["chain"], a["grade"], a["target_star"]) for a in top[3:]], [(4, 1, 18), (5, 2, 21)])
         # 순서가 정해진 경로라 메큘레이터 지수 기준은 보지 않음 (기준이 아주 커도 다섯 단계 그대로)
         strict = {"total": 1e6, "rows": {row["slot"]: row for row in rows}, "context": context, "weapon": weapon}
         gated = radiant_chain_actions(rows, [*worn, *filler], context, job, "int", 285, {}, strict, weapon)

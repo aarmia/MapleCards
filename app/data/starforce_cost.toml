@@ -199,8 +199,8 @@ price = 0.3
 
 [[base_price.item]]
 name = "에테르넬"
-parts = ["장갑", "신발", "망토"]
-price = 20
+parts = ["장갑", "신발", "망토"]   # 모든 직업
+price = 17
 
 [[base_price.item]]
 name = "데스티니"
@@ -209,15 +209,15 @@ price = 100
 
 [[base_price.item]]
 name = "근원의 속삭임"
-price = 700
+price = 550
 
 [[base_price.item]]
 name = "죽음의 맹세"
-price = 800
+price = 700
 
 [[base_price.item]]
 name = "황홀한 악몽"
-price = 700
+price = 550
 
 [[base_price.item]]
 name = "오만의 원죄"
@@ -225,4 +225,4 @@ price = 5000
 
 [[base_price.item]]
 name = "굶주리는 핏빛 원혼"
-price = 900
+price = 550

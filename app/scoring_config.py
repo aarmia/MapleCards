@@ -307,7 +307,7 @@ def load_spec_up(path: Path = DATA_DIR / "spec_up.toml") -> Section:
         "listing": {"grades": list, "radiant_grades": list, "cube_cost_share": NUMBER, "flame_cost_share": NUMBER,
                     "radiant_flame_cost_share": NUMBER, "radiant_star_cap": NUMBER, "min_index_gain_pct": NUMBER, "grade_cap": dict,
                     "eternal_bundle_sets": list, "heart_scroll": list, "heart_scroll_cost": list,
-                    "final_items": list, "radiant_order": list, "radiant_needs_pitched": NUMBER, "medal_add": NUMBER},
+                    "final_items": list, "radiant_order": list, "radiant_grade2_from": NUMBER, "radiant_needs_pitched": NUMBER, "medal_add": NUMBER},
         "soul": {"min_level": NUMBER, "keyword": str, "reset_cost": list, "grade_up": list, "pity": list, "miracle": NUMBER,
                  "amplify": dict, "materials": dict},
     }, path.name)
