@@ -659,17 +659,24 @@ document.addEventListener('alpine:init', () => {
             const cards = [];
             const exceptional = rows.exceptional && Number(rows.exceptional.raw_score) > 0 ? rows.exceptional : null;
             if (rows.add) {
+                // 합산된 옵션마다 오르는 수치: 방어구·장신구는 급수, 무기는 공/마 불꽃 단계(N추)와 나머지의 데미지 %p 환산
                 const entries = this.axisEntries(item, '추가옵션');
-                const mark = item.scoring_basis?.benchmarks?.add || 0;
-                const total = item.is_wse ? `최대 대비 ${mark ? Math.round(100 * rows.add.weighted_score / mark) : 0}%` : `${rows.add.raw_score}급`;
-                // 불꽃 줄로 되돌린 add_lines 가 있으면 줄마다 단계를 붙이고, 없으면 합계 줄에 단계 '?' 를 둡니다.
-                const flame = item.scoring_basis?.add_lines;
-                const valueText = value => item.is_wse ? `+${value}% (공)` : `+${value}`;
-                const lines = Array.isArray(flame)
-                    ? flame.map(line => ({ text: line.option, tier: line.tier, guess: !!line.guess, value: line.value ? valueText(line.value) : null }))
-                    : entries.length
-                        ? entries.map(entry => ({ text: entry.option, tier: null, value: valueText(entry.value) }))
-                        : this.addSummaryLines(item).map(text => ({ text, tier: null }));
+                let total = `${rows.add.raw_score}급`;
+                let lines = entries.length
+                    ? entries.map(entry => ({ text: entry.option, value: `+${entry.value}` }))
+                    : this.addSummaryLines(item).map(text => ({ text }));
+                if (item.is_wse) {
+                    const perPct = this.report?.profile?.weapon?.boss_per_pct || 0;  // 보공·데미지 1% 의 공% 가치
+                    const flat = /^(공격력|마력) \+\d+$/;
+                    const tier = (item.scoring_basis?.add_lines || []).find(line => flat.test(line.option))?.tier;
+                    const chu = tier ? `${8 - tier}추(${tier}단계)` : '단계 ?';  // 7단계 = 1추
+                    const damage = entry => perPct ? Number((entry.value / perPct).toFixed(1)) : 0;
+                    const rest = entries.filter(entry => !flat.test(entry.option));
+                    lines = entries.map(entry => ({ text: entry.option, value: flat.test(entry.option) ? chu : `+${damage(entry)}%p` }));
+                    const sum = Number(rest.reduce((s, entry) => s + entry.value / (perPct || 1), 0).toFixed(1));
+                    total = [entries.some(entry => flat.test(entry.option)) ? chu : null, rest.length ? `데미지 +${sum}%p` : null]
+                        .filter(Boolean).join(' + ') || '-';
+                }
                 cards.push({ key: 'add', title: '추가옵션', color: this.categoryColor('추가옵션'), dot: '#34d399', total, lines, wide: !exceptional });
             }
             if (exceptional) {

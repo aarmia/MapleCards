@@ -84,12 +84,7 @@
                         <ul class="space-y-1.5" :class="card.wide ? 'lg:grid lg:grid-cols-2 lg:gap-1.5 lg:space-y-0' : ''">
                             <template x-for="line in card.lines" :key="line.key">
                                 <li class="rounded-lg bg-neutral-800/80 border border-neutral-600 px-3 py-2 flex items-center gap-2.5">
-                                    <!-- 추가옵션은 점 대신 불꽃 단계. 단계를 확정할 수 없으면 '?' -->
-                                    <span x-show="card.key === 'add'" class="flex-none w-4 text-center text-xs font-black tabular-nums"
-                                          :class="line.tier ? 'text-emerald-300' : 'text-neutral-500'"
-                                          :title="line.tier ? (line.guess ? '같은 합계를 만드는 불꽃 조합이 여러 개라 그중 하나를 표시합니다' : '') : '불꽃 줄을 확정할 수 없거나 단계 기준이 없는 옵션'"
-                                          x-text="line.tier ? line.tier : '?'"></span>
-                                    <span x-show="card.key !== 'add'" class="w-1.5 h-1.5 rounded-full flex-none" :style="{ backgroundColor: line.dot }"></span>
+                                    <span class="w-1.5 h-1.5 rounded-full flex-none" :style="{ backgroundColor: line.dot }"></span>
                                     <div class="min-w-0 flex-1">
                                         <p class="text-xs font-bold text-neutral-100 break-keep" x-text="line.text"></p>
                                         <p x-show="line.sub" class="text-[10px] text-neutral-400 truncate" x-text="line.sub"></p>
