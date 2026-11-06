@@ -100,6 +100,9 @@ document.addEventListener('alpine:init', () => {
         specUpExpanded: false,
         specUpPrices: {},
         specUpMaterials: {},  // 사용자가 바꾼 연마석 시세 (이름 → 억)
+        // 시세 입력 중에는 카드 순서를 고정하고 비용·효율만 바로 바꿉니다. 순서가 바뀌어 카드가 움직이면 입력칸 포커스가 풀리기 때문입니다.
+        specUpFrozen: null,
+        specUpFreezeToken: 0,
         // 장비창 배치 [슬롯, 열, 행]. 7열 격자: 1·2열 왼쪽 블록, 3~5열 캐릭터(1~4행)와 무기류(5행), 6·7열 오른쪽 블록.
         // 슬롯 이름은 넥슨 응답의 item_equipment_slot 과 같고, 칭호는 장비창에 보이지 않습니다.
         equipLayout: [
@@ -351,21 +354,53 @@ document.addEventListener('alpine:init', () => {
         },
 
         // 스펙업 추천: 100억당 최종뎀으로 정렬. 사용자 변경 시세도 같은 기준으로 반영합니다.
+        // 시세로 비용·효율을 다시 매깁니다. 스타포스는 노작 시세로 star → target_star 기대 비용, 시드링은 연마석 시세, 잠재·추옵은 서버가 준 고정 비용.
+        priceAction(action, unit = this.report?.spec_up?.unit || 1e10) {
+            let cost = action.cost;
+            if (action.axis === '스타포스') {
+                cost = this.starforceCost(action.level, Math.round(this.specUpPrice(action) * 1e8), action.star, action.target_star ?? action.star + 1);
+            }
+            if (action.material) cost = action.material.count * this.materialPrice(action) * 1e8 + action.material.meso;
+            return { ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0,
+                damage_efficiency: cost > 0 ? action.final_damage / (cost / unit) : 0 };
+        },
+
+        // 화면에 보이는 목록: 시세 입력 중이면 고정한 순서 그대로 비용만 다시 계산, 아니면 전체를 다시 정렬
+        specUpVisibleActions() {
+            return this.specUpFrozen ? this.specUpFrozen.map(action => this.priceAction(action)) : this.specUpActions();
+        },
+
+        freezeSpecUp(actions) {
+            this.specUpFreezeToken += 1;
+            if (!this.specUpFrozen) this.specUpFrozen = actions;
+        },
+
+        // 입력칸을 벗어나면 순서를 다시 정합니다. 같은 카드의 '기본 시세로' 버튼 클릭이 먼저 처리되도록 잠깐 기다립니다.
+        unfreezeSpecUp() {
+            const token = this.specUpFreezeToken;
+            setTimeout(() => { if (this.specUpFreezeToken === token) this.specUpFrozen = null; }, 200);
+        },
+
+        // 시세 입력값 검사: 숫자와 소수점 하나만 남깁니다 (입력칸에도 바로 반영). 반영할 수 있는 숫자인지는 priceValid 로 봅니다.
+        cleanPriceInput(event) {
+            const el = event.target;
+            let text = el.value.replace(/[^0-9.]/g, '');
+            const dot = text.indexOf('.');
+            if (dot >= 0) text = text.slice(0, dot + 1) + text.slice(dot + 1).replace(/\./g, '');
+            if (text !== el.value) el.value = text;
+            return text;
+        },
+
+        priceValid(text) {
+            return text !== '' && text !== '.' && Number.isFinite(Number(text));
+        },
+
         specUpActions(raw = false) {
             if (!this.report?.results) return [];
             const unit = this.report.spec_up?.unit || 1e10;
             const rows = [];
             for (const item of this.report.results) {
-                for (const action of item.spec_up || []) {
-                    let cost = action.cost;  // 잠재·추옵은 서버가 준 고정 비용
-                    if (action.axis === '스타포스') {
-                        cost = this.starforceCost(action.level, Math.round(this.specUpPrice({ ...action, item }) * 1e8),
-                            action.star, action.target_star ?? action.star + 1);
-                    }
-                    if (action.material) cost = action.material.count * this.materialPrice(action) * 1e8 + action.material.meso;
-                    rows.push({ ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0,
-                        damage_efficiency: cost > 0 ? action.final_damage / (cost / unit) : 0, item });
-                }
+                for (const action of item.spec_up || []) rows.push(this.priceAction({ ...action, item }, unit));
             }
             if (raw) return rows;
             // 같은 아이템의 스타포스는 낮은 성부터: 슬롯별 대기열의 맨 앞만 고를 수 있습니다.
@@ -481,6 +516,7 @@ document.addEventListener('alpine:init', () => {
             try { this.specUpMaterials = JSON.parse(localStorage.getItem('specup-materials') || '{}') || {}; } catch (e) { this.specUpMaterials = {}; }
             try { this.specUpPrices = JSON.parse(localStorage.getItem('specup-prices') || '{}') || {}; } catch (e) { this.specUpPrices = {}; }
             this.specUpExpanded = false;
+            this.specUpFrozen = null;
         },
 
         getFilteredItems() {
