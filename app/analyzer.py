@@ -555,10 +555,21 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
     return evaluate_list
 
 
+def counted_items(evaluate_list):
+    """총평에 넣는 장비: 특수부위·시드링은 포함하고 칭호와 점수를 매기지 않는 부위(뱃지)는 뺍니다."""
+    return [item for item in evaluate_list if item["part"] != "칭호" and item.get("scored", True)]
+
+
+def standard_total(items, char_class, main_stat):
+    """표준 환산 합계: 모든 캐릭터에 같은 기준 캐릭터(potential.toml [reference], 같은 레벨·스탯)의 계수로 환산한 장비 점수 합.
+    내 캐릭터 기준 합계는 캐릭터마다 '주스탯 1%' 의 크기가 달라 캐릭터끼리 비교할 수 없어서, 비교용으로 따로 계산합니다."""
+    rows = evaluate_equipment(items, char_class, POTENTIAL.reference.level, main_stat=main_stat)
+    return round(sum(item["total_score"] for item in counted_items(rows)), 1)
+
+
 def generate_overall_review(evaluate_list):
     # 총평: 장비 달성률 = 주스탯 %p 합 ÷ 만점 %p 합. 만점이 큰 부위(무기 등)일수록 크게 반영됩니다.
-    # 특수부위·시드링은 포함하고 칭호와 점수를 매기지 않는 부위(뱃지)는 뺍니다.
-    counted = [item for item in evaluate_list if item["part"] != "칭호" and item.get("scored", True)]
+    counted = counted_items(evaluate_list)
     total = sum(item["total_score"] for item in counted)
     best = sum(item["benchmark_total"] for item in counted)
     achievement = 100 * total / best if best > 0 else 0.0
@@ -566,7 +577,7 @@ def generate_overall_review(evaluate_list):
 
     # 랭크 컷은 app/data/grades.toml 의 overall 표. 달성률이 min 이상인 첫 항목, 없으면 마지막 항목을 씁니다.
     entry = next((candidate for candidate in GRADES.overall if achievement >= candidate["min"]), GRADES.overall[-1])
-    overall_review = {"rank": entry["rank"], "achievement": round(achievement, 1), "total": round(total, 1), "max": round(best, 1)}
+    overall_review = {"rank": entry["rank"], "achievement": round(achievement, 2), "total": round(total, 1), "max": round(best, 1)}
 
     return overall_review, all_sorted_results
 
@@ -707,6 +718,7 @@ def build_report(character_name, basic_info, item_data, stat_data, unsupported=N
     spec_up = attach_spec_up(evaluate_list, [*items, *extra_items], profile["context"], char_class, main_stat, char_level,
                              GUIDES.names.limited, damage_total, profile["weapon"])
     overall_review, all_sorted_results = generate_overall_review(evaluate_list)
+    overall_review["standard_total"] = standard_total([*items, *extra_items], char_class, main_stat)
 
     return {
         "character": character_name,

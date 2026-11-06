@@ -83,6 +83,7 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((body["character"], body["class"], body["level"], body["combat_power"]), ("테스트", "레테", 285, "123"))
         self.assertEqual(body["results"][0]["name"], "도전자의 상의")
         self.assertEqual(body["grades"]["card_highlight"][0], [90, "transcendent"])
+        self.assertIn("standard_total", body["overall"])  # 캐릭터끼리 비교하는 표준 환산 합계
         self.assertEqual(body["profile"]["context"]["basis"], "estimated")  # 추가 조회 실패 → 레벨로 추정
         self.assertEqual(api.max_active, 3)  # basic · item · stat 은 동시에 조회합니다.
         event = next(record for record in logs.records if record.getMessage() == "diagnosis")
