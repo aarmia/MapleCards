@@ -36,7 +36,10 @@ min_step = 1.0
 cube_cost_share = 0.5            # 잠재·에디 큐브 기댓값에 곱하는 비율 (관리자 입력: 기댓값의 절반)
 min_index_gain_pct = 0.5         # 메큘레이터 지수 대비 최소 증가 %
 grade_cap = { "보스 장신구 세트" = 4, "여명의 보스 세트" = 5 }   # 이 세트 아이템의 매물은 이 등급까지만 (같은 아이템·교체 대상 모두)
-eternal_bundle_sets = [4, 8]     # 아케인셰이드 → 에테르넬은 묶음만: 에테르넬이 이 세트 수에 닿는 최소 묶음과 바꿀 수 있는 전체 묶음
+eternal_bundle_sets = [4, 8]
+# 기계 심장은 3단계까지: 스타포스·잠재·에디는 공통 1~3등급 값, 주문서 1작 옵션과 비용(억)만 하트 전용
+heart_scroll = [{ all_stat = 3, attack = 9 }, { all_stat = 3, attack = 10 }, { all_stat = 3, attack = 11 }]
+heart_scroll_cost = [0, 1, 25]     # 아케인셰이드 → 에테르넬은 묶음만: 에테르넬이 이 세트 수에 닿는 최소 묶음과 바꿀 수 있는 전체 묶음
 
 [[listing.grades]]
 star = 17

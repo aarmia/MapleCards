@@ -426,6 +426,8 @@ def item_tier(name: str, slot: str) -> tuple[str, int, str]:
         return "armor", ARMOR_TIERS.index(family), group
     if group in ACCESSORY_TIERS:
         return "accessory", ACCESSORY_TIERS.index(group), group
+    if name == "마이스터링":  # 마이스터링은 광휘 반지(근원의 속삭임·황홀한 악몽)로 바로
+        return "accessory", ACCESSORY_TIERS.index(PITCHED), group
     if name in LOWER_HEARTS:
         return "heart", 0, ""
     if name == TOP_HEART:
@@ -711,7 +713,7 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
         legendary = _cost_row(SPEC_UP.cube[kind]["cost"], level)[-1] * EOK
         return grade_up_cost(kind, SPEC_UP.cube.grades[0], level) + (1 - chance) / chance * legendary
 
-    def piece_state(piece, grade):
+    def piece_state(piece, grade, number):
         """부품 하나의 등급 상태: (스타포스 옵션, 윗잠, 에디, 주문서 옵션, 추옵 급수, 서버 비용, 주문서 문구) 또는 None"""
         level, part, slot, slots = piece["level"], piece["part"], piece["slot"], piece["slots"]
         column = 0 if level >= 250 else 1
@@ -721,11 +723,15 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
         if star_option is None or pot_cost is None or eddy_cost is None:
             return None
         kind_of_slot = "armor" if slot in ARMOR_SLOTS else "accessory"
-        rule = grade[kind_of_slot]
+        rule, slot_cost = grade[kind_of_slot], grade["scroll_cost"][kind_of_slot]
+        if part == "기계 심장":  # 하트 전용 (spec_up.toml heart_scroll · heart_scroll_cost)
+            rule, slot_cost = config.heart_scroll[number - 1], config.heart_scroll_cost[number - 1]
         scroll = {attack_key: rule.get("attack", 0) * slots + (rule.get("first_attack", rule.get("attack", 0)) - rule.get("attack", 0) if slots else 0)}
         for key in mains:
             scroll[key] = rule.get("main", 0) * slots
-        cost = (pot_cost + eddy_cost) * config.cube_cost_share + slots * grade["scroll_cost"][kind_of_slot] * EOK
+        for key in ("str", "dex", "int", "luk"):
+            scroll[key] = scroll.get(key, 0) + rule.get("all_stat", 0) * slots
+        cost = (pot_cost + eddy_cost) * config.cube_cost_share + slots * slot_cost * EOK
         add = None
         if piece["has_add"]:
             add = round(grade["add"][column] * add_scale(level))
@@ -736,13 +742,15 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
             if chance <= 0:
                 return None
             cost += SPEC_UP.flame.cost * EOK / chance
-        return star_option, pot, eddy, scroll, add, cost, f"주문서 {slots}회 × {grade['scroll_cost'][kind_of_slot]:g}억"
+        return star_option, pot, eddy, scroll, add, cost, f"주문서 {slots}회 × {slot_cost:g}억"
 
     actions = []
     for number, grade in enumerate(config.grades, 1):
         if target.get("max_grade") and number > target["max_grade"]:
             break  # 보스 장신구 4등급 · 여명 5등급까지만
-        states = [piece_state(piece, grade) for piece in target["pieces"]]
+        if any(piece["part"] == "기계 심장" for piece in target["pieces"]) and number > len(config.heart_scroll):
+            break  # 기계 심장은 3단계까지
+        states = [piece_state(piece, grade, number) for piece in target["pieces"]]
         if any(state is None for state in states):
             continue
 

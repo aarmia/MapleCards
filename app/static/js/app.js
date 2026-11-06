@@ -402,12 +402,12 @@ document.addEventListener('alpine:init', () => {
             const bestListing = {};
             for (const a of rows) {
                 if (a.listing_fixed === undefined) continue;
-                const key = a.item.slot + a.axis + (a.slots ? a.slots.length : '');  // 같은 아이템 매물·상위 교체·묶음 크기를 따로
+                const key = a.item.slot + a.axis + (a.slots ? a.slots.length : '') + (a.price_item ? a.price_item.name : '');  // 매물·상위 교체(목표 아이템별)·묶음 크기를 따로
                 const kept = bestListing[key];
                 if (!kept || a.damage_efficiency > kept.damage_efficiency) bestListing[key] = a;
             }
             for (let i = rows.length - 1; i >= 0; i--) {
-                const key = rows[i].item.slot + rows[i].axis + (rows[i].slots ? rows[i].slots.length : '');
+                const key = rows[i].item.slot + rows[i].axis + (rows[i].slots ? rows[i].slots.length : '') + (rows[i].price_item ? rows[i].price_item.name : '');
                 if (rows[i].listing_fixed !== undefined && bestListing[key] !== rows[i]) rows.splice(i, 1);
             }
             // 같은 아이템의 스타포스는 낮은 성부터: 슬롯별 대기열의 맨 앞만 고를 수 있습니다.
@@ -426,6 +426,9 @@ document.addEventListener('alpine:init', () => {
                 pending.delete(action);
                 // 교체(매물·상위)를 추천했으면, 그 칸의 이후 추천은 더 높은 수준의 교체만 남깁니다 (지금 아이템 강화·낮은 매물 숨김)
                 if (action.listing_fixed !== undefined) {
+                    // 같은 아이템(예: 광휘 반지)은 한 칸에만: 다른 칸의 같은 목표 교체는 빼고 남은 후보로 추천합니다
+                    const target = !action.bundle && action.price_item ? action.price_item.name : null;
+                    if (target) for (const p of [...pending]) if (p.price_item && p.price_item.name === target && !p.bundle) pending.delete(p);
                     const covered = new Set(slotsOf(action));
                     for (const p of [...pending]) {
                         const higher = p.listing_fixed !== undefined && ((p.rank || 0) > (action.rank || 0)

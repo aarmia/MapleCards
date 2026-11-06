@@ -110,3 +110,17 @@ assert.ok(!ordered.includes('a:잠재'));          // 교체 뒤 지금 아이�
 assert.ok(ordered.includes('a:상위 교체'));      // 더 높은 수준의 교체는 남음
 assert.ok(ordered.includes('b:잠재'));           // 다른 칸은 그대로
 console.log('replacement hides lower recommendations for the slot: OK');
+
+// 7. 같은 목표 아이템(광휘 반지 등)은 한 칸에만: 먼저 추천한 칸이 가져가면 다른 칸은 남은 후보로
+app.report = {spec_up: {unit: 1e10}, results: [
+    {slot: 'r1', name: '마이스터링', part: '반지', level: 140, spec_up: [
+        {axis: '상위 교체', grade: 4, rank: 34, level: 250, star: 0, target_star: 22, listing_fixed: 1e9, gain: 90, final_damage: 9, price_item: {name: '근원의 속삭임', level: 250}},
+    ]},
+    {slot: 'r2', name: '가디언 엔젤 링', part: '반지', level: 160, spec_up: [
+        {axis: '상위 교체', grade: 4, rank: 34, level: 250, star: 0, target_star: 22, listing_fixed: 1e9, gain: 80, final_damage: 8, price_item: {name: '근원의 속삭임', level: 250}},
+        {axis: '상위 교체', grade: 4, rank: 34, level: 250, star: 0, target_star: 22, listing_fixed: 1e9, gain: 70, final_damage: 7, price_item: {name: '황홀한 악몽', level: 250}},
+    ]},
+]};
+const rings = app.specUpActions().map(a => a.item.slot + '→' + a.price_item.name);
+assert.deepEqual(JSON.parse(JSON.stringify(rings)), ['r1→근원의 속삭임', 'r2→황홀한 악몽']);
+console.log('one ring per target, the other slot gets the remaining one: OK');

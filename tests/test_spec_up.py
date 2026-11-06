@@ -211,6 +211,10 @@ class SpecUpTests(unittest.TestCase):
         _, heart = actions(item("기계 심장", "기계 심장", "플라즈마 하트", 130))
         self.assertTrue(heart)
         self.assertEqual({(a["axis"], a["price_item"]["name"]) for a in heart}, {("상위 교체", "컴플리트 언더컨트롤")})
+        self.assertTrue(all(a["grade"] <= 3 for a in heart))  # 기계 심장은 3단계까지 (하트 전용 주문서)
+        # 마이스터링은 광휘 반지 둘 중 하나로
+        _, meister = actions(item("반지2", "반지", "마이스터링", 140))
+        self.assertEqual({a["price_item"]["name"] for a in meister if a["axis"] == "상위 교체"}, {"근원의 속삭임", "황홀한 악몽"})
         # 뱃지 → 창세의 뱃지 (뱃지 옵션 + 칠흑 세트 +1), 비용은 뱃지 시세
         from app.spec_up import badge_action
         badge = {"item_equipment_part": "뱃지", "item_equipment_slot": "뱃지", "item_name": "크리스탈 웬투스 뱃지",
