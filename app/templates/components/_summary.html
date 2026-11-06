@@ -45,10 +45,9 @@
                         </div>
                     </div>
                     <div class="flex flex-col md:items-end">
-                        <!-- 표준 환산 합계: 같은 기준 캐릭터의 계수로 환산해 캐릭터끼리 비교할 수 있는 값. 내 캐릭터 기준 합계는 아래 작은 글씨 -->
+                        <!-- 표준 환산 합계: 같은 기준 캐릭터의 계수로 환산해 캐릭터끼리 비교할 수 있는 값 (내 캐릭터 기준 합계 overall.total 은 표시하지 않음) -->
                         <span class="text-[10px] font-black text-blue-400 tracking-widest block mb-1" x-text="'표준 환산 합계 · ' + (report?.spec_up?.stat_label || '주스탯')"></span>
                         <span class="text-xl md:text-4xl font-black text-blue-600 tracking-tighter break-all" x-text="report?.overall ? Number(report.overall.standard_total).toLocaleString() + '%p' : 0"></span>
-                        <span x-show="report?.overall" class="text-[11px] font-bold text-slate-500 mt-1" x-text="'내 캐릭터 기준 ' + Number(report?.overall?.total || 0).toLocaleString() + '%p'"></span>
                     </div>
                 </div>
             </div>

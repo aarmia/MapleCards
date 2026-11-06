@@ -137,15 +137,16 @@
                     <span class="text-[10px] font-bold text-neutral-300" x-show="selectedItem?.benchmark_total"
                           x-text="'만점 ' + selectedItem?.benchmark_total + '%p · 달성 ' + selectedItem?.score_ratio + '%'"></span>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-                    <template x-for="(entry, index) in selectedItem?.scoring_basis?.breakdown || []" :key="entry.key">
-                        <div class="relative rounded-xl bg-neutral-800/80 border border-neutral-600 px-2.5 py-2 min-w-0">
-                            <span x-show="index > 0" class="hidden md:flex absolute -left-2.5 top-1/2 -translate-y-1/2 z-10 w-4 h-4 items-center justify-center rounded-full bg-neutral-600 border border-neutral-500 text-blue-300 text-[10px]">→</span>
+                <!-- 칸 수가 많아 두 줄이 되면 줄마다 칸이 고르게 늘어나도록 flex-wrap (화살표는 줄바꿈에서 어색해 쓰지 않음) -->
+                <div class="flex flex-wrap gap-2">
+                    <template x-for="entry in selectedItem?.scoring_basis?.breakdown || []" :key="entry.key">
+                        <div class="flex-1 basis-[calc(50%_-_0.25rem)] md:basis-[calc(25%_-_0.375rem)] rounded-xl bg-neutral-800/80 border border-neutral-600 px-2.5 py-2 min-w-0">
                             <p class="text-[10px] font-black text-blue-300 mb-0.5" x-text="entry.label"></p>
-                            <p class="text-base font-black text-emerald-400" x-text="'+' + entry.value + '%p'"></p>
-                            <p class="text-[10px] text-white/90 font-semibold mt-1"
+                            <p class="text-base font-black text-emerald-400 tabular-nums" x-text="'+' + entry.value + '%p'"></p>
+                            <!-- 기본 옵션은 만점이 현재 값과 같아 표시하지 않습니다 -->
+                            <p class="text-[10px] text-white/90 font-semibold mt-1 min-h-[1rem]"
                                x-text="[entry.key === 'star' ? entry.raw + '★' : entry.key === 'add' && entry.raw != null ? entry.raw + '급' : entry.key === 'exceptional' || entry.key === 'scroll' ? entry.raw + '회' : null,
-                                        entry.max ? '만점 ' + entry.max + '%p' : '만점 밖 가산'].filter(Boolean).join(' · ')"></p>
+                                        entry.key === 'base' ? null : entry.max ? '만점 ' + entry.max + '%p' : '만점 밖 가산'].filter(Boolean).join(' · ')"></p>
                         </div>
                     </template>
                 </div>
