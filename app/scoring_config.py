@@ -304,7 +304,8 @@ def load_spec_up(path: Path = DATA_DIR / "spec_up.toml") -> Section:
         "flame": {"cost": NUMBER, "first_step": NUMBER, "step": NUMBER, "tiers": list, "tier_odds": list, "boss_bonus": NUMBER,
                   "lines": NUMBER, "options": list},
         "seed_ring": {"restraint": dict, "continuous": dict, "upgrade": dict, "materials": dict, "burst_share": dict},
-        "listing": {"grades": list, "cube_cost_share": NUMBER, "min_index_gain_pct": NUMBER},
+        "listing": {"grades": list, "cube_cost_share": NUMBER, "min_index_gain_pct": NUMBER, "grade_cap": dict,
+                    "eternal_bundle_sets": list},
         "soul": {"min_level": NUMBER, "keyword": str, "reset_cost": list, "grade_up": list, "pity": list, "miracle": NUMBER,
                  "amplify": dict, "materials": dict},
     }, path.name)

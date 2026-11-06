@@ -94,3 +94,19 @@ const expectedCost = 1e7 + app.starforceCost(200, 1e7, 0, listings[0].target_sta
 assert.ok(Math.abs(listings[0].cost - expectedCost) < 1e-3);
 assert.equal(app.specUpActions(true).length, 2);
 console.log('listing cost and best grade per item: OK');
+
+// 6. 교체를 추천한 칸은 그 뒤로 더 높은 수준(rank)의 교체만 남고, 지금 아이템 강화·낮은 매물은 숨깁니다
+app.report = {spec_up: {unit: 1e10}, results: [
+    {slot: 'a', name: '처음 보는 반지', part: '반지', level: 200, spec_up: [
+        {axis: '매물 교체', grade: 4, rank: 14, level: 200, star: 0, target_star: 22, listing_fixed: 1e9, gain: 50, final_damage: 5},
+        {axis: '상위 교체', grade: 2, rank: 22, level: 200, star: 0, target_star: 18, listing_fixed: 9e10, gain: 60, final_damage: 6},
+        {axis: '잠재', gain: 1, final_damage: 0.1, cost: 1e10},
+    ]},
+    {slot: 'b', name: 'B', spec_up: [{axis: '잠재', gain: 1, final_damage: 0.05, cost: 1e10}]},
+]};
+const ordered = app.specUpActions().map(a => a.item.slot + ':' + a.axis);
+assert.equal(ordered[0], 'a:매물 교체');
+assert.ok(!ordered.includes('a:잠재'));          // 교체 뒤 지금 아이템 강화는 숨김
+assert.ok(ordered.includes('a:상위 교체'));      // 더 높은 수준의 교체는 남음
+assert.ok(ordered.includes('b:잠재'));           // 다른 칸은 그대로
+console.log('replacement hides lower recommendations for the slot: OK');

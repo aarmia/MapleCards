@@ -402,25 +402,37 @@ document.addEventListener('alpine:init', () => {
             const bestListing = {};
             for (const a of rows) {
                 if (a.listing_fixed === undefined) continue;
-                const key = a.item.slot + a.axis;  // 같은 아이템 매물·상위 교체를 따로
+                const key = a.item.slot + a.axis + (a.slots ? a.slots.length : '');  // 같은 아이템 매물·상위 교체·묶음 크기를 따로
                 const kept = bestListing[key];
                 if (!kept || a.damage_efficiency > kept.damage_efficiency) bestListing[key] = a;
             }
             for (let i = rows.length - 1; i >= 0; i--) {
-                if (rows[i].listing_fixed !== undefined && bestListing[rows[i].item.slot + rows[i].axis] !== rows[i]) rows.splice(i, 1);
+                const key = rows[i].item.slot + rows[i].axis + (rows[i].slots ? rows[i].slots.length : '');
+                if (rows[i].listing_fixed !== undefined && bestListing[key] !== rows[i]) rows.splice(i, 1);
             }
             // 같은 아이템의 스타포스는 낮은 성부터: 슬롯별 대기열의 맨 앞만 고를 수 있습니다.
             const queues = {};
             for (const a of rows) if (a.axis === '스타포스') (queues[a.item.slot] ||= []).push(a);
             for (const queue of Object.values(queues)) queue.sort((a, b) => a.star - b.star);
             const pending = new Set(rows), result = [];
+            const slotsOf = a => a.slots || [a.item.slot];
             while (pending.size) {
                 let action = null;
                 for (const a of pending) {
                     if (a.axis === '스타포스' && queues[a.item.slot][0] !== a) continue;
                     if (!action || a.damage_efficiency > action.damage_efficiency) action = a;
                 }
+                if (!action) break;
                 pending.delete(action);
+                // 교체(매물·상위)를 추천했으면, 그 칸의 이후 추천은 더 높은 수준의 교체만 남깁니다 (지금 아이템 강화·낮은 매물 숨김)
+                if (action.listing_fixed !== undefined) {
+                    const covered = new Set(slotsOf(action));
+                    for (const p of [...pending]) {
+                        const higher = p.listing_fixed !== undefined && ((p.rank || 0) > (action.rank || 0)
+                            || ((p.rank || 0) === (action.rank || 0) && slotsOf(p).length > slotsOf(action).length));  // 더 큰 묶음
+                        if (slotsOf(p).some(slot => covered.has(slot)) && !higher) pending.delete(p);
+                    }
+                }
                 if (action.axis === '스타포스') queues[action.item.slot].shift();
                 const previous = result[result.length - 1];
                 if (previous && action.axis === '스타포스' && previous.axis === '스타포스'

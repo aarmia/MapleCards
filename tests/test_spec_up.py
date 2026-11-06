@@ -174,29 +174,51 @@ class SpecUpTests(unittest.TestCase):
         self.assertTrue(all(a["index_gain"] > 0 for a in listing_actions(row, item, context, "나이트로드", "luk", 285, {}, small)))
         self.assertEqual(listing_actions(row, item, context, "나이트로드", "luk", 285, {}, huge), [])
 
-    def test_upgrade_finds_the_upper_family_and_set_change(self):
+    def test_upgrade_paths_bundles_caps_and_badge(self):
         from app.analyzer import evaluate_equipment
+        from app.spec_up import bundle_actions
         from app.weapon import WeaponContext
-        shoulder = {"item_equipment_part": "어깨장식", "item_equipment_slot": "어깨장식", "item_name": "아케인셰이드 메이지숄더",
-                    "starforce": "17", "item_base_option": {"base_equipment_level": 200, "int": "35", "luk": "35", "magic_power": "20"},
-                    "item_add_option": {}, "item_etc_option": {}, "item_starforce_option": {}, "scroll_upgrade": "2"}
-        context = reference_context("아크메이지(불,독)", "int")
-        row = evaluate_equipment([shoulder], "아크메이지(불,독)", 285, profile={"context": context})[0]
-        actions = listing_actions(row, shoulder, context, "아크메이지(불,독)", "int", 285, {}, weapon=WeaponContext(context), items=[shoulder])
-        upgrades = [a for a in actions if a["axis"] == "상위 교체"]
-        self.assertTrue(upgrades)
-        self.assertTrue(all(a["price_item"]["name"] == "에테르넬 메이지숄더" for a in upgrades))  # 같은 직업군·같은 칸의 상위 계열
-        self.assertIn("아케인셰이드 세트(마법사) 1→0", upgrades[0]["detail"])  # 세트 변화
-        self.assertIn("에테르넬 세트(마법사) 0→1", upgrades[0]["detail"])
-        # 한벌옷(아케인) → 에테르넬 상의 + 하의 두 부위 묶음, 세트는 아케인 −1 · 에테르넬 +2
-        suit = {**shoulder, "item_equipment_part": "한벌옷", "item_equipment_slot": "상의", "item_name": "아케인셰이드 메이지슈트"}
-        row = evaluate_equipment([suit], "아크메이지(불,독)", 285, profile={"context": context})[0]
-        suits = [a for a in listing_actions(row, suit, context, "아크메이지(불,독)", "int", 285, {}, weapon=WeaponContext(context), items=[suit])
-                 if a["axis"] == "상위 교체"]
-        self.assertTrue(suits)
-        self.assertTrue(all(a["pieces"] == 2 and "에테르넬 메이지로브 + 에테르넬 메이지팬츠" in a["label"] for a in suits))
-        self.assertIn("에테르넬 세트(마법사) 0→2", suits[0]["detail"])
+        job, context = "아크메이지(불,독)", reference_context("아크메이지(불,독)", "int")
+        weapon = WeaponContext(context)
 
+        def item(slot, part, name, level=200, **extra):
+            return {"item_equipment_part": part, "item_equipment_slot": slot, "item_name": name, "starforce": "17",
+                    "item_base_option": {"base_equipment_level": level}, "item_add_option": {}, "item_etc_option": {},
+                    "item_starforce_option": {}, "scroll_upgrade": "2", **extra}
+
+        def actions(it, items=None):
+            row = evaluate_equipment([it], job, 285, profile={"context": context})[0]
+            return row, listing_actions(row, it, context, job, "int", 285, {}, weapon=weapon, items=items or [it])
+
+        # 앱솔랩스는 상위 계열을 한 칸씩 (아케인셰이드·에테르넬 모두)
+        _, absolab = actions(item("어깨장식", "어깨장식", "앱솔랩스 메이지숄더", 160))
+        names = {a["price_item"]["name"] for a in absolab if a["axis"] == "상위 교체"}
+        self.assertEqual(names, {"아케인셰이드 메이지숄더", "에테르넬 메이지숄더"})
+        # 아케인셰이드 → 에테르넬은 한 칸 교체 없이 묶음만, 한벌옷은 에테르넬 상의 + 하의
+        shoulder, suit = item("어깨장식", "어깨장식", "아케인셰이드 메이지숄더"), item("상의", "한벌옷", "아케인셰이드 메이지슈트")
+        row, arcane = actions(shoulder)
+        self.assertFalse([a for a in arcane if a["axis"] == "상위 교체"])
+        rows = evaluate_equipment([shoulder, suit], job, 285, profile={"context": context})
+        bundles = [action for _, action in bundle_actions(rows, [shoulder, suit], context, job, "int", 285, {}, None, weapon)]
+        self.assertTrue(bundles)
+        self.assertTrue(all(a["bundle"] and a["slots"] == ["상의", "어깨장식"] and a["pieces"] == 3 for a in bundles))
+        self.assertIn("에테르넬 세트(마법사) 0→3", bundles[0]["detail"])
+        # 장신구: 여명 → 칠흑·광휘 (같은 부위), 여명 같은 아이템 매물은 5등급까지
+        _, ring = actions(item("반지1", "반지", "여명의 가디언 엔젤 링", 160))
+        self.assertEqual({a["price_item"]["name"] for a in ring if a["axis"] == "상위 교체"}, {"거대한 공포", "근원의 속삭임", "황홀한 악몽"})
+        self.assertTrue(all(a["grade"] <= 5 for a in ring if a["axis"] == "매물 교체"))
+        # 플라즈마 하트는 같은 아이템 매물 없이 컴플리트 언더컨트롤로만
+        _, heart = actions(item("기계 심장", "기계 심장", "플라즈마 하트", 130))
+        self.assertTrue(heart)
+        self.assertEqual({(a["axis"], a["price_item"]["name"]) for a in heart}, {("상위 교체", "컴플리트 언더컨트롤")})
+        # 뱃지 → 창세의 뱃지 (뱃지 옵션 + 칠흑 세트 +1), 비용은 뱃지 시세
+        from app.spec_up import badge_action
+        badge = {"item_equipment_part": "뱃지", "item_equipment_slot": "뱃지", "item_name": "크리스탈 웬투스 뱃지",
+                 "item_total_option": {"int": "10", "magic_power": "5"}, "item_base_option": {"base_equipment_level": 130}}
+        badge_row = evaluate_equipment([badge], job, 285, profile={"context": context, "weapon": weapon})[0]
+        action = badge_action(badge_row, badge, [badge], context, weapon, 285)
+        self.assertEqual((action["price_item"]["name"], action["listing_fixed"]), ("창세의 뱃지", 0.0))
+        self.assertIn("칠흑의 보스 세트 0→1", action["detail"])
 
 if __name__ == "__main__":
     unittest.main()

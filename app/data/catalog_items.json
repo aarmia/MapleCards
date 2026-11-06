@@ -391,6 +391,23 @@
   "tradable": true,
   "source": "api"
  },
+ "굶주리는 핏빛 원혼": {
+  "part": "눈장식",
+  "slot": "눈장식",
+  "level": 250,
+  "slots": 5,
+  "base": {
+   "str": 20,
+   "dex": 20,
+   "int": 20,
+   "luk": 20,
+   "attack_power": 5,
+   "magic_power": 5,
+   "armor": 450
+  },
+  "tradable": true,
+  "source": "api"
+ },
  "그리드 펜던트": {
   "part": "펜던트",
   "slot": "펜던트",
@@ -418,6 +435,37 @@
    "luk": 10,
    "max_hp": 900,
    "armor": 300
+  },
+  "tradable": true,
+  "source": "api"
+ },
+ "근원의 속삭임": {
+  "part": "반지",
+  "slot": "반지4",
+  "level": 250,
+  "slots": 4,
+  "base": {
+   "str": 10,
+   "dex": 10,
+   "int": 10,
+   "luk": 10,
+   "max_hp": 500,
+   "max_mp": 500,
+   "attack_power": 5,
+   "magic_power": 5
+  },
+  "tradable": true,
+  "source": "api"
+ },
+ "글로리 매직윙": {
+  "part": "매직윙",
+  "slot": "보조무기",
+  "level": 100,
+  "slots": 0,
+  "base": {
+   "int": 10,
+   "luk": 10,
+   "magic_power": 3
   },
   "tradable": true,
   "source": "api"
@@ -523,11 +571,26 @@
   "tradable": true,
   "source": "api"
  },
+ "데스티니 가즈": {
+  "part": "아대",
+  "slot": "무기",
+  "level": 250,
+  "slots": 8,
+  "base": {
+   "dex": 190,
+   "luk": 190,
+   "attack_power": 189,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "source": "api"
+ },
  "데스티니 대거": {
   "part": "단검",
   "slot": "무기",
   "level": 250,
-  "slots": 8,
+  "slots": 9,
   "base": {
    "dex": 190,
    "luk": 190,
@@ -585,6 +648,37 @@
   "tradable": true,
   "source": "api"
  },
+ "데스티니 블래스트캐논": {
+  "part": "핸드캐논",
+  "slot": "무기",
+  "level": 250,
+  "slots": 9,
+  "base": {
+   "str": 190,
+   "dex": 190,
+   "attack_power": 382,
+   "armor": 290,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "source": "api"
+ },
+ "데스티니 소울슈터": {
+  "part": "소울슈터",
+  "slot": "무기",
+  "level": 250,
+  "slots": 9,
+  "base": {
+   "str": 190,
+   "dex": 190,
+   "attack_power": 280,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "source": "api"
+ },
  "데스티니 스태프": {
   "part": "스태프",
   "slot": "무기",
@@ -632,6 +726,36 @@
   "tradable": true,
   "source": "api"
  },
+ "데스티니 차크람": {
+  "part": "차크람",
+  "slot": "무기",
+  "level": 250,
+  "slots": 9,
+  "base": {
+   "dex": 190,
+   "luk": 190,
+   "attack_power": 349,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "source": "api"
+ },
+ "데스티니 초극검": {
+  "part": "장검",
+  "slot": "무기",
+  "level": 250,
+  "slots": 8,
+  "base": {
+   "str": 190,
+   "dex": 190,
+   "attack_power": 373,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "source": "api"
+ },
  "데스티니 케인": {
   "part": "케인",
   "slot": "무기",
@@ -657,6 +781,21 @@
    "dex": 190,
    "attack_power": 358,
    "speed": 19,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "source": "api"
+ },
+ "데스티니 튜너": {
+  "part": "튜너",
+  "slot": "무기",
+  "level": 250,
+  "slots": 9,
+  "base": {
+   "str": 190,
+   "dex": 190,
+   "attack_power": 373,
    "boss_damage": 30,
    "ignore_monster_armor": 20
   },
@@ -1466,6 +1605,20 @@
   "tradable": true,
   "source": "api"
  },
+ "베어스 퍼플 펜던트": {
+  "part": "펜던트",
+  "slot": "펜던트2",
+  "level": 130,
+  "slots": 4,
+  "base": {
+   "str": 16,
+   "max_hp": 180,
+   "max_mp": 180,
+   "armor": 185
+  },
+  "tradable": true,
+  "source": "api"
+ },
  "벤젼스 링": {
   "part": "반지",
   "slot": "반지1",
@@ -1801,6 +1954,19 @@
   "tradable": true,
   "source": "api"
  },
+ "아스트라 림리스": {
+  "part": "화약통",
+  "slot": "보조무기",
+  "level": 200,
+  "slots": 0,
+  "base": {
+   "str": 20,
+   "dex": 20,
+   "attack_power": 7
+  },
+  "tradable": true,
+  "source": "api"
+ },
  "아스트라 매그넘": {
   "part": "매그넘",
   "slot": "보조무기",
@@ -1823,6 +1989,32 @@
    "int": 10,
    "luk": 10,
    "magic_power": 7
+  },
+  "tradable": true,
+  "source": "api"
+ },
+ "아스트라 베인 실드": {
+  "part": "방패",
+  "slot": "보조무기",
+  "level": 200,
+  "slots": 5,
+  "base": {
+   "dex": 20,
+   "luk": 20,
+   "attack_power": 7
+  },
+  "tradable": true,
+  "source": "api"
+ },
+ "아스트라 브레이슬릿": {
+  "part": "브레이슬릿",
+  "slot": "보조무기",
+  "level": 200,
+  "slots": 0,
+  "base": {
+   "str": 20,
+   "dex": 20,
+   "attack_power": 7
   },
   "tradable": true,
   "source": "api"
@@ -1850,6 +2042,19 @@
    "int": 20,
    "luk": 20,
    "magic_power": 7
+  },
+  "tradable": true,
+  "source": "api"
+ },
+ "아스트라 소울링": {
+  "part": "소울링",
+  "slot": "보조무기",
+  "level": 200,
+  "slots": 0,
+  "base": {
+   "str": 20,
+   "dex": 20,
+   "attack_power": 7
   },
   "tradable": true,
   "source": "api"
@@ -1901,6 +2106,19 @@
   "base": {
    "str": 20,
    "dex": 20,
+   "attack_power": 7
+  },
+  "tradable": true,
+  "source": "api"
+ },
+ "아스트라 옵시디언": {
+  "part": "보석",
+  "slot": "보조무기",
+  "level": 200,
+  "slots": 0,
+  "base": {
+   "dex": 20,
+   "luk": 20,
    "attack_power": 7
   },
   "tradable": true,
@@ -1994,6 +2212,19 @@
    "dex": 20,
    "max_hp": 1000,
    "max_mp": 110,
+   "attack_power": 7
+  },
+  "tradable": true,
+  "source": "api"
+ },
+ "아스트라 헥스시커": {
+  "part": "헥스시커",
+  "slot": "보조무기",
+  "level": 200,
+  "slots": 0,
+  "base": {
+   "dex": 20,
+   "luk": 20,
    "attack_power": 7
   },
   "tradable": true,
@@ -3486,6 +3717,23 @@
   "tradable": true,
   "source": "api"
  },
+ "오만의 원죄": {
+  "part": "얼굴장식",
+  "slot": "얼굴장식",
+  "level": 250,
+  "slots": 7,
+  "base": {
+   "str": 15,
+   "dex": 15,
+   "int": 15,
+   "luk": 15,
+   "attack_power": 15,
+   "magic_power": 15,
+   "armor": 300
+  },
+  "tradable": true,
+  "source": "api"
+ },
  "오션 글로우 이어링": {
   "part": "귀고리",
   "slot": "귀고리",
@@ -4129,6 +4377,24 @@
   "tradable": true,
   "source": "api"
  },
+ "죽음의 맹세": {
+  "part": "펜던트",
+  "slot": "펜던트2",
+  "level": 250,
+  "slots": 7,
+  "base": {
+   "str": 15,
+   "dex": 15,
+   "int": 15,
+   "luk": 15,
+   "attack_power": 5,
+   "magic_power": 5,
+   "armor": 300,
+   "max_hp_rate": 5
+  },
+  "tradable": true,
+  "source": "api"
+ },
  "지옥의 불꽃": {
   "part": "귀고리",
   "slot": "귀고리",
@@ -4495,6 +4761,22 @@
   "tradable": true,
   "source": "api"
  },
+ "템페스트 링": {
+  "part": "반지",
+  "slot": "반지2",
+  "level": 100,
+  "slots": 2,
+  "base": {
+   "str": 6,
+   "dex": 6,
+   "int": 6,
+   "luk": 6,
+   "attack_power": 2,
+   "magic_power": 2
+  },
+  "tradable": true,
+  "source": "api"
+ },
  "트릭스터 던위치팬츠": {
   "part": "하의",
   "slot": "하의",
@@ -4568,6 +4850,17 @@
    "attack_power": 5,
    "magic_power": 5,
    "armor": 100
+  },
+  "tradable": true,
+  "source": "api"
+ },
+ "튼튼한 기계 장갑": {
+  "part": "장갑",
+  "slot": "장갑",
+  "level": 90,
+  "slots": 6,
+  "base": {
+   "armor": 30
   },
   "tradable": true,
   "source": "api"

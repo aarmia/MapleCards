@@ -4,7 +4,8 @@
 캐릭터 이름은 저장하지 않고 아이템·세트 수치만 app/data/catalog_items.json · catalog_sets.json 에 씁니다.
 기존 파일이 있으면 합칩니다(관리자가 손으로 넣은 항목은 지우지 않음).
 
-사용: python scripts/collect_catalog.py [--pages 1,50,200,600,1200] [--per-page 12]
+사용: python scripts/collect_catalog.py [--pages 1,50,200,600,1200] [--per-page 12] [--names 이름1,이름2]
+--names 로 특정 캐릭터를 더할 수 있습니다(이름은 저장하지 않음).
 API 호출 수 ≈ 랭킹 페이지 수 + 캐릭터 수 × 3 (ocid · 장비 · 세트 효과).
 """
 import argparse
@@ -46,17 +47,20 @@ def item_row(item: dict) -> dict:
             "tradable": item.get("cuttable_count") not in (None, "0", 0)}
 
 
-async def main(pages: list[int], per_page: int) -> None:
+async def main(pages: list[int], per_page: int, names: list[str]) -> None:
     api = NexonAPIHandler()
     date = (datetime.now(KST) - timedelta(days=1)).strftime("%Y-%m-%d")
     items = json.loads(ITEMS.read_text(encoding="utf-8")) if ITEMS.exists() else {}
     sets = json.loads(SETS.read_text(encoding="utf-8")) if SETS.exists() else {}
     calls = characters = 0
+    batches = [("names", [{"character_name": name} for name in names])] if names else []
     for page in pages:
         ranking = (await api._request("/ranking/overall", {"date": date, "page": str(page)})).get("ranking", [])
         calls += 1
         step = max(1, len(ranking) // per_page)
-        for entry in ranking[::step][:per_page]:
+        batches.append((f"page {page}", ranking[::step][:per_page]))
+    for label, batch in batches:
+        for entry in batch:
             try:
                 ocid = await api.get_ocid(entry["character_name"])
                 equipment = await api.get_character_item(ocid)
@@ -83,7 +87,7 @@ async def main(pages: list[int], per_page: int) -> None:
                 name = entry_set.get("set_name")
                 if name and len(full) > len((sets.get(name) or {}).get("options", [])) and (sets.get(name) or {}).get("source") != "manual":
                     sets[name] = {"options": [[int(row["set_count"]), row["set_option"]] for row in full], "source": "api"}
-        print(f"page {page}: 누적 캐릭터 {characters} · 아이템 {len(items)} · 세트 {len(sets)}")
+        print(f"{label}: 누적 캐릭터 {characters} · 아이템 {len(items)} · 세트 {len(sets)}")
     ITEMS.write_text(json.dumps(dict(sorted(items.items())), ensure_ascii=False, indent=1), encoding="utf-8")
     SETS.write_text(json.dumps(dict(sorted(sets.items())), ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"API 호출 약 {calls}회 · 캐릭터 {characters} · 아이템 {len(items)} · 세트 {len(sets)}")
@@ -93,5 +97,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pages", default="1,50,200,600,1200")
     parser.add_argument("--per-page", type=int, default=12)
+    parser.add_argument("--names", default="")
     args = parser.parse_args()
-    asyncio.run(main([int(p) for p in args.pages.split(",")], args.per_page))
+    asyncio.run(main([int(p) for p in args.pages.split(",") if p], args.per_page, [n for n in args.names.split(",") if n]))
