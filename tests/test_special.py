@@ -34,13 +34,14 @@ class SpecialPartTests(unittest.TestCase):
         self.assertEqual(medal_result["score_ratio"], 100.0)
         self.assertNotIn("보스 몬스터 데미지 +10%", [e["option"] for e in medal_result["scoring_basis"]["recognized_options"]])
 
-        # 시드링은 효과의 주스탯 %p (만렙 = 만점), 예비 특수 반지 자리도 같은 규칙. 효과 표(4~6레벨) 밖 레벨은 0
+        # 시드링은 효과의 주스탯 %p (만렙 = 만점), 예비 특수 반지 자리도 같은 규칙. 낮은 레벨일수록 작습니다
         ring = {"item_equipment_part": "반지", "item_equipment_slot": "반지1", "item_name": "리스트레인트 링", "special_ring_level": 6, "item_base_option": {}, "item_add_option": {}}
         spare = {**ring, "item_equipment_slot": "예비 특수 반지", "item_name": "컨티뉴어스 링", "special_ring_level": 3}
         ring_results = {r["slot"]: r for r in evaluate_equipment([ring, spare], "히어로", 285)}
         self.assertEqual((ring_results["반지1"]["score_ratio"], ring_results["반지1"]["part"]), (100.0, "특수 반지"))
         self.assertGreater(ring_results["반지1"]["total_score"], 0)
-        self.assertEqual(ring_results["예비 특수 반지"]["total_score"], 0)
+        self.assertGreater(ring_results["예비 특수 반지"]["total_score"], 0)
+        self.assertLess(ring_results["예비 특수 반지"]["score_ratio"], 100)  # 컨티 3레벨: 보공 27%·공 8% (6레벨 54%·14%)
 
     def test_exceptional_upgrades_add_their_stats_beyond_the_max(self):
         belt = {

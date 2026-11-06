@@ -357,6 +357,13 @@ def burst_share(class_name: str) -> tuple[float, float]:
     return s15 / 100, s20 / 100
 
 
+def window_share(seconds: float, class_name: str) -> float:
+    """리레 지속 seconds 초 구간의 딜 비중. 15초·20초는 직업표, 15초 미만(1~3레벨 9·11·13초)은 15초 값 × 초 ÷ 15.
+    shortcut: 짧은 구간도 극딜이 앞쪽에 몰리면 실제 비중은 이보다 큽니다(비례 축소는 하한에 가까운 근사)."""
+    s15, s20 = burst_share(class_name)
+    return s20 if seconds > 15 else s15 * min(seconds, 15) / 15
+
+
 def seed_ring_action(name: str, level: int, class_name: str, context: StatContext, damage_total: float,
                      continuous_level: int) -> dict | None:
     """시드링 다음 레벨: (리레) 구간 딜 비중 · (컨티) 가동률 × 상대 증가 = 최종 데미지(%) → 주스탯% (final_damage_per_pct 의 역).
@@ -366,7 +373,6 @@ def seed_ring_action(name: str, level: int, class_name: str, context: StatContex
     per_pct = final_damage_per_pct(context)
     if step is None or per_pct <= 0:
         return None
-    s15, s20 = burst_share(class_name)
     conti = ring.continuous.get(str(continuous_level), [0, 0])
     attack = context.attack_multiplier_effective * 100  # 공/마 % 배율 (100 = 기본)
     if RESTRAINT in name:
@@ -377,7 +383,7 @@ def seed_ring_action(name: str, level: int, class_name: str, context: StatContex
 
         def total(effect):  # 리레 없는 딜 1 대비 전체 딜: 1 + 구간 비중 × 공/마 ÷ 공/마 배율
             seconds, attack_pct = effect
-            return 1 + (s15 if seconds <= 15 else s20) * attack_pct / base
+            return 1 + window_share(seconds, class_name) * attack_pct / base
 
         # 컨티와 같은 기준: 지금 레벨의 전체 딜 대비 다음 레벨의 전체 딜 증가
         final_damage = 100 * (total(nxt) / total(now) - 1)
@@ -501,10 +507,10 @@ def seed_ring_value(name: str, level: int, class_name: str, context: StatContext
     if per_pct <= 0 or attack <= 0:
         return None
     if RESTRAINT in name:
-        table, s15, s20 = ring.restraint, *burst_share(class_name)
+        table = ring.restraint
 
         def damage(effect):
-            return 100 * (s15 if effect[0] <= 15 else s20) * effect[1] / attack
+            return 100 * window_share(effect[0], class_name) * effect[1] / attack
     elif CONTINUOUS in name:
         table, boss = ring.continuous, 100 + damage_total + POTENTIAL.buff.damage_pct + POTENTIAL.buff.boss_damage_pct
 
