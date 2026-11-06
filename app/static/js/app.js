@@ -1,3 +1,63 @@
+// 스타포스 기대 비용: app/starforce_cost.py 와 같은 계산입니다. 설정은 서버가 페이지에 넣은 window.MECULATOR_STARFORCE.
+// 사용자가 노작 시세를 바꾸면 서버 요청 없이 여기서 바로 다시 계산합니다. tests/spec_up_ui.cjs 가 Python 결과와 대조합니다.
+const STARFORCE_MEMO = new Map();
+const sfRound = (x) => Math.floor(x + 0.5);
+
+function sfStep(cfg, star, level, prevent) {
+    let [success, , destroy] = cfg.odds[star];
+    if (star <= cfg.event.destroy_max_star) destroy *= cfg.event.destroy_multiplier;
+    if (prevent) destroy = 0;
+    const base = sfRound((1000 + level ** 3 * (star + 1) ** 2.7 / cfg.cost_denominator[star]) / 100) * 100;
+    return [success, destroy, sfRound(base * cfg.event.cost_multiplier + (prevent ? 2 * base : 0))];
+}
+
+function sfRestore(cfg, star, level, basePrice) {
+    const meso = (cfg.restore.meso[level] || {})[star];
+    return meso === undefined ? null : basePrice * cfg.restore.items[star] + meso * cfg.event.restore_multiplier;
+}
+
+// 성마다 star → star + 1 기대 메소. 15~17성은 파괴 방지·복구·그냥 중 최소, 18~22성은 복구가 더 싸면 복구 (starforce_cost.optimal_plan).
+function sfStepCosts(cfg, level, basePrice) {
+    const key = level + ':' + basePrice;
+    if (STARFORCE_MEMO.has(key)) return STARFORCE_MEMO.get(key);
+    const prevent = new Set(), restore = new Set();
+    let cumulative = 0;
+    for (let star = 12; star < 23; star++) {
+        const [s, d, c] = sfStep(cfg, star, level, false);
+        const options = [[(d * (basePrice + cumulative) + c) / s, 2]];
+        const restoreCost = star >= 15 ? sfRestore(cfg, star, level, basePrice) : null;
+        if (restoreCost !== null) options.push([(d * restoreCost + c) / s, 1]);
+        if (cfg.prevention.stars.includes(star)) {
+            const [ps, pd, pc] = sfStep(cfg, star, level, true);
+            options.push([(pd * (basePrice + cumulative) + pc) / ps, 0]);
+        }
+        options.sort((a, b) => a[0] - b[0] || a[1] - b[1]);  // 같으면 파괴 방지 → 복구 → 그냥
+        if (options[0][1] === 0) prevent.add(star); else if (options[0][1] === 1) restore.add(star);
+        cumulative += options[0][0];
+    }
+    const costs = {};
+    let total = 0, restored22 = null, since22 = 0;
+    for (let star = 12; star < 30; star++) {
+        const [s, d, c] = sfStep(cfg, star, level, prevent.has(star));
+        const restoreCost = restore.has(star) ? sfRestore(cfg, star, level, basePrice) : null;
+        let expected;
+        if (restoreCost !== null) {
+            expected = (d * restoreCost + c) / s;
+            if (star === 22) { restored22 = restoreCost; since22 = 0; }
+        } else if (restored22 !== null) {
+            expected = (d * (restored22 + since22) + c) / s;
+        } else {
+            expected = (d * (basePrice + total) + c) / s;
+        }
+        costs[star] = expected;
+        total += expected;
+        since22 += expected;
+    }
+    if (STARFORCE_MEMO.size > 256) STARFORCE_MEMO.clear();
+    STARFORCE_MEMO.set(key, costs);
+    return costs;
+}
+
 // 티어 이름 → 화면 스타일. 각 티어의 점수 기준은 서버의 app/data/grades.toml 이 정합니다.
 const STAT_BAR_CLASS = { ultimate: 'bg-ultimate', legendary: 'bg-emerald-500', unique: 'bg-yellow-400', epic: 'bg-purple-500', rare: 'bg-sky-400', poor: 'bg-red-500' };
 const CARD_CLASS = {
@@ -37,7 +97,6 @@ document.addEventListener('alpine:init', () => {
         // 스펙업 추천: 사용자가 바꾼 노작 시세(아이템 이름 → 억)와 그 시세로 다시 계산한 스타포스 비용(슬롯 → 메소)
         specUpExpanded: false,
         specUpPrices: {},
-        specUpCosts: {},
         specUpMaterials: {},  // 사용자가 바꾼 연마석 시세 (이름 → 억)
         // 장비창 배치 [슬롯, 열, 행]. 7열 격자: 1·2열 왼쪽 블록, 3~5열 캐릭터(1~4행)와 무기류(5행), 6·7열 오른쪽 블록.
         // 슬롯 이름은 넥슨 응답의 item_equipment_slot 과 같고, 칭호는 장비창에 보이지 않습니다.
@@ -296,7 +355,11 @@ document.addEventListener('alpine:init', () => {
             const rows = [];
             for (const item of this.report.results) {
                 for (const action of item.spec_up || []) {
-                    let cost = action.axis === '스타포스' ? (this.specUpCosts[this.specUpCostKey({ ...action, item })] ?? action.cost) : action.cost;
+                    let cost = action.cost;
+                    if (action.axis === '스타포스' && this.specUpPriceCustom({ item })) {
+                        cost = this.starforceCost(action.level, Math.round(this.specUpPrice({ ...action, item }) * 1e8),
+                            action.star, action.target_star ?? action.star + 1) ?? cost;
+                    }
                     if (action.material) cost = action.material.count * this.materialPrice(action) * 1e8 + action.material.meso;
                     rows.push({ ...action, cost, efficiency: cost > 0 ? action.gain / (cost / unit) : 0,
                         damage_efficiency: cost > 0 ? action.final_damage / (cost / unit) : 0, item });
@@ -342,20 +405,25 @@ document.addEventListener('alpine:init', () => {
             return saved ?? Math.round(action.base_price / 1e6) / 100;
         },
 
-        specUpCostKey(action) {
-            return action.item.slot + ':' + (action.target_star ?? action.star + 1);
+        // start 성에서 end 성까지 기대 메소 (12성 미만은 0). 설정이 없으면 null 이고 서버가 준 비용을 그대로 씁니다.
+        starforceCost(level, basePrice, start, end) {
+            const cfg = window.MECULATOR_STARFORCE;
+            if (!cfg) return null;
+            const costs = sfStepCosts(cfg, level, basePrice);
+            let sum = 0;
+            for (let star = Math.max(start, 12); star < Math.min(end, 30); star++) sum += costs[star];
+            return sum;
         },
 
         specUpPriceCustom(action) {
             return this.specUpPrices[action.item.name] !== undefined;
         },
 
-        async setSpecUpPrice(action, value) {
+        setSpecUpPrice(action, value) {
             const eok = Number(value);
             if (value === '' || !Number.isFinite(eok) || eok < 0) return;
             this.specUpPrices = { ...this.specUpPrices, [action.item.name]: eok };
             try { localStorage.setItem('specup-prices', JSON.stringify(this.specUpPrices)); } catch (e) { /* 저장 불가(사생활 보호 모드 등) */ }
-            await this.refreshSpecUpCosts(this.specUpActions(true).filter(a => a.axis === '스타포스' && a.item.name === action.item.name));
         },
 
         resetSpecUpPrice(action) {
@@ -363,31 +431,6 @@ document.addEventListener('alpine:init', () => {
             delete prices[action.item.name];
             this.specUpPrices = prices;
             try { localStorage.setItem('specup-prices', JSON.stringify(prices)); } catch (e) { /* 무시 */ }
-            const costs = { ...this.specUpCosts };
-            this.specUpActions(true).filter(a => a.axis === '스타포스' && a.item.name === action.item.name)
-                .forEach(a => { delete costs[this.specUpCostKey(a)]; });
-            this.specUpCosts = costs;
-        },
-
-        // 바꾼 노작 시세로 스타포스 기대 비용만 서버에서 다시 계산합니다 (넥슨 API 호출 없음).
-        async refreshSpecUpCosts(actions) {
-            if (!actions.length) return;
-            if (actions.length > 40) {
-                for (let i = 0; i < actions.length; i += 40) await this.refreshSpecUpCosts(actions.slice(i, i + 40));
-                return;
-            }
-            try {
-                const res = await fetch('/spec-up/starforce-cost', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: actions.map(a => ({ level: a.level, star: a.star, target_star: a.target_star, base_price: Math.round(this.specUpPrice(a) * 1e8) })) }),
-                });
-                if (!res.ok) return;
-                const { costs } = await res.json();
-                const next = { ...this.specUpCosts };
-                actions.forEach((a, i) => { if (costs[i] !== null && costs[i] !== undefined) next[this.specUpCostKey(a)] = costs[i]; });
-                this.specUpCosts = next;
-            } catch (e) { /* 실패하면 기본 시세 비용을 그대로 씁니다 */ }
         },
 
         // 시드링 연마석 시세(억): 사용자가 바꾼 값, 없으면 기본 시세. 같은 연마석을 쓰는 모든 반지에 함께 적용됩니다.
@@ -416,11 +459,8 @@ document.addEventListener('alpine:init', () => {
 
         applySavedSpecUpPrices() {
             try { this.specUpMaterials = JSON.parse(localStorage.getItem('specup-materials') || '{}') || {}; } catch (e) { this.specUpMaterials = {}; }
-            this.specUpCosts = {};
-            this.specUpExpanded = false;
             try { this.specUpPrices = JSON.parse(localStorage.getItem('specup-prices') || '{}') || {}; } catch (e) { this.specUpPrices = {}; }
-            const saved = this.specUpActions(true).filter(a => a.axis === '스타포스' && this.specUpPriceCustom(a));
-            this.refreshSpecUpCosts(saved);
+            this.specUpExpanded = false;
         },
 
         getFilteredItems() {

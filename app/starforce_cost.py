@@ -95,6 +95,11 @@ def expected_cost(level: int, base_price: float, start: int, end: int) -> float:
     return sum(costs[star] for star in range(max(start, FIRST_STAR), min(end, LAST_STAR)))
 
 
+def client_config() -> dict:
+    """화면(app.js starforceCost)이 같은 계산을 하도록 페이지에 넣는 설정. 노작 시세 기본값은 추천마다 따로 내려갑니다."""
+    return {key: STARFORCE_COST.raw[key] for key in ("event", "odds", "cost_denominator", "prevention", "restore")}
+
+
 def base_price(name: str, level: int, part: str = "", slot: str = "") -> tuple[float, bool]:
     """노작 시세 기본값(메소)과 등록 여부. 등록되지 않은 아이템은 레벨별 기본값입니다.
     parts 는 부위(모자 등) 또는 장착 칸(무기·보조무기)과 비교합니다. 무기류는 부위가 무기 종류(단검 등)라서입니다."""

@@ -98,29 +98,7 @@ class MainEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('window.MECULATOR_GRADES = {"item_grade": [[90, "SSS+"]', response.text)
         self.assertIn("gradeCutText('SSS+')", response.text)
-
-    async def test_spec_up_cost_recalculates_with_user_price_without_nexon_calls(self):
-        api = FakeNexonAPI()
-        with patch("app.main.nexon_api", api):
-            async with client() as c:
-                response = await c.post("/spec-up/starforce-cost", json={"items": [
-                    {"level": 140, "star": 21, "base_price": 1e8}, {"level": 140, "star": 5, "base_price": 1e8}]})
-                rejected = await c.post("/spec-up/starforce-cost", json={"items": [{"level": 140, "star": 22, "base_price": -1}]})
-                targets = await c.post("/spec-up/starforce-cost", json={"items": [
-                    {"level": 200, "star": 22, "target_star": 25, "base_price": 1e8},
-                    {"level": 200, "star": 22, "base_price": 1e8}]})
-                backwards = await c.post("/spec-up/starforce-cost", json={"items": [
-                    {"level": 200, "star": 22, "target_star": 21, "base_price": 1e8}]})
-        self.assertEqual(response.status_code, 200)
-        costs = response.json()["costs"]
-        self.assertAlmostEqual(costs[0] / 1e8, 59.08 - 34.84, delta=0.01)  # starforce.gg 140제·노작 1억: 12→22 − 12→21
-        self.assertIsNone(costs[1])  # 12성 미만은 계산하지 않음
-        self.assertEqual(rejected.status_code, 422)
-        from app.starforce_cost import expected_cost
-        self.assertEqual(targets.status_code, 200)
-        self.assertEqual(targets.json()["costs"], [round(expected_cost(200, 1e8, 22, 25)), round(expected_cost(200, 1e8, 22, 23))])
-        self.assertEqual(backwards.status_code, 422)
-        self.assertEqual(api.max_active, 0)
+        self.assertIn('window.MECULATOR_STARFORCE = {"event"', response.text)  # 노작 시세 변경은 화면에서 바로 계산
 
     async def test_nexon_error_becomes_json_with_code_and_retry_after(self):
         error = NexonAPIError("메이플스토리 점검 중입니다.", status_code=503, code="OPENAPI00010", retry_after=600)
