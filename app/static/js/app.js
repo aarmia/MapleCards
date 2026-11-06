@@ -674,7 +674,7 @@ document.addEventListener('alpine:init', () => {
                     const rest = entries.filter(entry => !flat.test(entry.option));
                     lines = entries.map(entry => ({ text: entry.option, value: flat.test(entry.option) ? chu : `+${damage(entry)}%p` }));
                     const sum = Number(rest.reduce((s, entry) => s + entry.value / (perPct || 1), 0).toFixed(1));
-                    total = [entries.some(entry => flat.test(entry.option)) ? chu : null, rest.length ? `데미지 +${sum}%p` : null]
+                    total = [entries.some(entry => flat.test(entry.option)) ? chu : null, rest.length ? `데미지${sum}%` : null]
                         .filter(Boolean).join(' + ') || '-';
                 }
                 cards.push({ key: 'add', title: '추가옵션', color: this.categoryColor('추가옵션'), dot: '#34d399', total, lines, wide: !exceptional });
