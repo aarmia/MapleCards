@@ -203,26 +203,48 @@ class SpecUpTests(unittest.TestCase):
         self.assertTrue(bundles)
         self.assertTrue(all(a["bundle"] and a["slots"] == ["상의", "어깨장식"] and a["pieces"] == 3 for a in bundles))
         self.assertIn("에테르넬 세트(마법사) 0→3", bundles[0]["detail"])
-        # 장신구: 여명 → 칠흑·광휘 (같은 부위), 여명 같은 아이템 매물은 5등급까지
-        _, ring = actions(item("반지1", "반지", "여명의 가디언 엔젤 링", 160))
-        self.assertEqual({a["price_item"]["name"] for a in ring if a["axis"] == "상위 교체"}, {"거대한 공포", "근원의 속삭임", "황홀한 악몽"})
+        # 장신구: 여명 → 칠흑 (같은 부위), 광휘는 칠흑 10세트를 완성한 뒤에만. 여명 같은 아이템 매물은 5등급까지
+        dawn = item("반지1", "반지", "여명의 가디언 엔젤 링", 160)
+        _, ring = actions(dawn)
+        self.assertEqual({a["price_item"]["name"] for a in ring if a["axis"] == "상위 교체"}, {"거대한 공포"})
         self.assertTrue(all(a["grade"] <= 5 for a in ring if a["axis"] == "매물 교체"))
+        pitched = [{"item_name": name, "item_equipment_slot": f"칸{i}"} for i, name in enumerate(
+            ["루즈 컨트롤 머신 마크", "마력이 깃든 안대", "커맨더 포스 이어링", "몽환의 벨트", "저주받은 황의 마도서",
+             "미트라의 분노 : 마법사", "컴플리트 언더컨트롤", "창세의 뱃지", "고통의 근원", "거대한 공포"])]
+        _, ring = actions(dawn, [dawn, *pitched[:9]])
+        self.assertFalse({"근원의 속삭임", "황홀한 악몽"} & {a["price_item"]["name"] for a in ring if a["axis"] == "상위 교체"})  # 칠흑 9세트
+        _, ring = actions(dawn, [dawn, *pitched])
+        self.assertEqual({a["price_item"]["name"] for a in ring if a["axis"] == "상위 교체"}, {"근원의 속삭임", "황홀한 악몽"})  # 10세트
+        # 거대한 공포는 최종 아이템: 같은 아이템의 상위 매물만
+        horror = item("반지2", "반지", "거대한 공포", 200)
+        _, final = actions(horror, [horror, *pitched[:9]])
+        self.assertTrue(final and all(a["axis"] == "매물 교체" for a in final))
         # 플라즈마 하트는 같은 아이템 매물 없이 컴플리트 언더컨트롤로만
         _, heart = actions(item("기계 심장", "기계 심장", "플라즈마 하트", 130))
         self.assertTrue(heart)
         self.assertEqual({(a["axis"], a["price_item"]["name"]) for a in heart}, {("상위 교체", "컴플리트 언더컨트롤")})
         self.assertTrue(all(a["grade"] <= 3 for a in heart))  # 기계 심장은 3단계까지 (하트 전용 주문서)
-        # 마이스터링은 광휘 반지 둘 중 하나로
-        _, meister = actions(item("반지2", "반지", "마이스터링", 140))
+        # 마이스터링은 광휘 반지 둘 중 하나로 (칠흑 10세트 뒤)
+        meister_ring = item("반지2", "반지", "마이스터링", 140)
+        _, meister = actions(meister_ring, [meister_ring, *pitched])
         self.assertEqual({a["price_item"]["name"] for a in meister if a["axis"] == "상위 교체"}, {"근원의 속삭임", "황홀한 악몽"})
         # 뱃지 → 창세의 뱃지 (뱃지 옵션 + 칠흑 세트 +1), 비용은 뱃지 시세
-        from app.spec_up import badge_action
+        from app.spec_up import special_replace_action
         badge = {"item_equipment_part": "뱃지", "item_equipment_slot": "뱃지", "item_name": "크리스탈 웬투스 뱃지",
                  "item_total_option": {"int": "10", "magic_power": "5"}, "item_base_option": {"base_equipment_level": 130}}
         badge_row = evaluate_equipment([badge], job, 285, profile={"context": context, "weapon": weapon})[0]
-        action = badge_action(badge_row, badge, [badge], context, weapon, 285)
+        action = special_replace_action(badge_row, badge, [badge], context, weapon, 285, job, "int")
         self.assertEqual((action["price_item"]["name"], action["listing_fixed"]), ("창세의 뱃지", 0.0))
         self.assertIn("칠흑의 보스 세트 0→1", action["detail"])
+        # 훈장 → 불멸의 유산 (기본 옵션 + 추옵 205급, 1단계), 칠흑 10세트 뒤에만
+        medal = {"item_equipment_part": "훈장", "item_equipment_slot": "훈장", "item_name": "THE RED",
+                 "item_add_option": {}, "item_base_option": {"base_equipment_level": 0, "int": "5"}}
+        medal_row = evaluate_equipment([medal], job, 285, profile={"context": context, "weapon": weapon})[0]
+        self.assertIsNone(special_replace_action(medal_row, medal, [medal], context, weapon, 285, job, "int"))
+        action = special_replace_action(medal_row, medal, [medal, *pitched], context, weapon, 285, job, "int")
+        self.assertEqual(action["price_item"]["name"], "불멸의 유산")
+        self.assertIn("추옵 205급", action["detail"])
+        self.assertIn("광휘의 보스 세트 0→1", action["detail"])
 
 if __name__ == "__main__":
     unittest.main()

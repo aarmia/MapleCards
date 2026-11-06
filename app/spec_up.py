@@ -438,22 +438,52 @@ def item_tier(name: str, slot: str) -> tuple[str, int, str]:
 UPGRADE_AXIS = "상위 교체"
 
 
-def badge_action(row: dict, item: dict, items: list, context: StatContext, weapon: WeaponContext | None, char_level: int) -> dict | None:
-    """창세의 뱃지로 교체: 뱃지 고정 옵션(부위 최상 = 창세의 뱃지) + 칠흑 세트 +1 의 %p. 비용은 뱃지 시세(화면에서 입력)."""
-    if weapon is None or row.get("part") != "뱃지" or (item.get("item_name") or "") == GENESIS_BADGE:
+IMMORTAL_MEDAL = "불멸의 유산"
+
+
+def to_replace(text: str) -> str:
+    """'…(으)로 교체': 마지막 글자에 받침이 있으면 '으로'(ㄹ 받침 제외), 없거나 숫자·기호면 '로'"""
+    last = text[-1:]
+    code = ord(last) - 0xAC00 if last else -1
+    final = code % 28 if 0 <= code < 11172 else 0
+    return text + ("으로 교체" if final not in (0, 8) else "로 교체")
+
+
+def pitched_count(items: list) -> int:
+    """착용한 칠흑 세트 수 (광휘 추천 조건)"""
+    from app.set_projection import count_sets
+    return count_sets(items, tuple(CATALOG_SETS))[PITCHED]
+
+
+def special_replace_action(row: dict, item: dict, items: list, context: StatContext, weapon: WeaponContext | None, char_level: int,
+                           class_name: str, main_stat: str) -> dict | None:
+    """특수 부위 최상 아이템으로 교체 (비용 = 그 아이템 시세, 화면에서 입력):
+    뱃지 → 창세의 뱃지 (뱃지 옵션 = 부위 최상 + 칠흑 세트 +1),
+    훈장 → 불멸의 유산 (기본 옵션 + 추옵 medal_add 급, 1단계 하나 + 광휘 세트 +1, 칠흑 10세트 완성 뒤에만)."""
+    part, name = row.get("part"), item.get("item_name") or ""
+    if weapon is None or final_damage_per_pct(context) <= 0:
         return None
-    per_pct = final_damage_per_pct(context)
-    after = [{**other, "item_name": GENESIS_BADGE} if other is item else other for other in items]
+    if part == "뱃지" and name != GENESIS_BADGE:
+        target, level, target_value = GENESIS_BADGE, 200, row.get("benchmark_total") or 0
+        note = "뱃지 옵션"
+    elif part == "훈장" and name != IMMORTAL_MEDAL and IMMORTAL_MEDAL in CATALOG_ITEMS             and pitched_count(items) >= SPEC_UP.listing.radiant_needs_pitched:
+        entry, flame = CATALOG_ITEMS[IMMORTAL_MEDAL], SPEC_UP.listing.medal_add
+        target, level = IMMORTAL_MEDAL, entry["level"]
+        target_value = fixed_option_pct(entry.get("base") or {}, weapon, class_name, main_stat, char_level, False) + flame * context.pct_per_flat
+        note = f"기본 옵션 + 추옵 {flame:g}급"
+    else:
+        return None
+    after = [{**other, "item_name": target} if other is item else other for other in items]
     delta, changes = set_change(items, after)
     set_value = set_fields_pct(delta, context, weapon, char_level) if delta else 0.0
-    gain = (row.get("benchmark_total") or 0) - (row.get("total_score") or 0) + set_value
-    if gain <= 0.05 or per_pct <= 0:
+    gain = target_value - (row.get("total_score") or 0) + set_value
+    if gain <= 0.05:
         return None
-    set_text = ", ".join(f"{name} {old}→{new}" for name, (old, new) in sorted(changes.items()))
-    return {"axis": UPGRADE_AXIS, "label": f"{GENESIS_BADGE}로 교체", "final_damage": gain * per_pct, "gain": gain, "model": "listing_linear",
-            "level": 200, "pieces": 1, "star": 0, "target_star": 0, "listing_fixed": 0.0, "rank": 30,
-            "price_item": {"name": GENESIS_BADGE, "part": "뱃지", "slot": row.get("slot"), "level": 200},
-            "detail": f"뱃지 옵션 + 세트 {set_text} ({set_value:+.1f}%p) · 비용 = 뱃지 시세 (교환 불가라 직접 입력)"}
+    set_text = ", ".join(f"{set_name} {old}→{new}" for set_name, (old, new) in sorted(changes.items()))
+    return {"axis": UPGRADE_AXIS, "label": to_replace(target), "final_damage": gain * final_damage_per_pct(context), "gain": gain,
+            "model": "listing_linear", "level": level, "pieces": 1, "star": 0, "target_star": 0, "listing_fixed": 0.0, "rank": 30,
+            "price_item": {"name": target, "part": part, "slot": row.get("slot"), "level": level},
+            "detail": f"{note} + 세트 {set_text} ({set_value:+.1f}%p) · 비용 = {target} 시세 (교환 불가라 직접 입력)"}
 ARMOR_TIERS = ("루타비스", "앱솔랩스", "아케인셰이드", "에테르넬")   # 방어구 계열 순서 (상위 교체 후보는 지금보다 뒤 계열)
 
 
@@ -603,10 +633,14 @@ def _accessory_targets(item, part, slot, path, tier, items, context, weapon, sta
     from app.set_projection import _name
     equipped = {_name(other.get("item_name") or "") for other in items}
     std_weapon = (standard or {}).get("weapon")
+    if _name(item.get("item_name") or "") in SPEC_UP.listing.final_items:
+        return []  # 최종 아이템 (거대한 공포): 같은 아이템의 상위 매물만
     if path == "heart":
         candidates = [(TOP_HEART, 1)] if tier == 0 and TOP_HEART in CATALOG_ITEMS else []
     else:
+        radiant_open = pitched_count(items) >= SPEC_UP.listing.radiant_needs_pitched
         candidates = [(name, index) for index, set_name in enumerate(ACCESSORY_TIERS) if index > tier
+                      and (set_name != RADIANT or radiant_open)  # 광휘는 칠흑 10세트를 완성한 뒤에만
                       for name in sorted(MEMBERS[set_name])
                       if name in CATALOG_ITEMS and CATALOG_ITEMS[name].get("part") == part and name not in equipped]
     targets = []
@@ -777,7 +811,7 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
             notes.append(f"세트 {target['set_text']} ({target['set']['own']:+.1f}%p)")
         if index_gain is not None:
             notes.append(f"메큘레이터 지수 +{index_gain:.1f}P")
-        action = {"axis": target["axis"], "label": spec + ("으로 교체" if spec.endswith("급") else "로 교체"), "grade": number,
+        action = {"axis": target["axis"], "label": to_replace(spec), "grade": number,
                   "final_damage": gain * final_damage_per_pct(context), "gain": gain, "model": "listing_linear",
                   "level": target["pieces"][0]["level"], "pieces": len(states),
                   "star": 0, "target_star": grade["star"], "listing_fixed": sum(state[5] for state in states),
@@ -976,8 +1010,8 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
             row["spec_up"] = [finish(action)] if action else []
             count += len(row["spec_up"])
             continue
-        if item and row.get("part") == "뱃지":
-            action = badge_action(row, item, items, context, weapon, char_level)
+        if item and row.get("part") in ("뱃지", "훈장"):
+            action = special_replace_action(row, item, items, context, weapon, char_level, class_name, main_stat)
             row["spec_up"] = [finish(action)] if action else []
             count += len(row["spec_up"])
             continue
