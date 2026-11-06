@@ -5,12 +5,12 @@ contain raw flat stats and percentage points, never equivalent-main-stat scores.
 """
 import math
 import re
-from functools import lru_cache
 
 from app.scoring_config import POTENTIAL
 
 
-def boss_index(context, damage=0, boss=0, remaining_defense=0, defense=380):
+def boss_index(context, damage=0, boss=0, remaining_defense=0, defense=None):
+    defense = POTENTIAL.weapon.boss_defense if defense is None else defense  # 방무 환산 기준 보스 방어율 (설정 하나)
     rate = min(100, max(0, context.crit_rate or 0)) / 100
     critical = 1 + rate * (POTENTIAL.crit_base - 1 + context.crit_damage_effective / 100)
     dmg = 1 + (damage + boss + POTENTIAL.buff.damage_pct + POTENTIAL.buff.boss_damage_pct) / 100
@@ -44,12 +44,6 @@ def line_options(lines, level):
             value = float(value)
         result[key] = result.get(key, 0) + value
     return result
-
-
-@lru_cache(maxsize=65536)
-def cached_line_options(texts: tuple, level: int) -> dict:
-    """line_options 를 줄 구성·레벨별로 기억합니다 (요청 사이 재사용). 돌려준 dict 는 읽기만 하세요."""
-    return line_options(texts, level)
 
 
 def flame_options(options):

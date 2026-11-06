@@ -303,12 +303,19 @@ document.addEventListener('alpine:init', () => {
                 }
             }
             if (raw) return rows;
-            const pending = [...rows], result = [];
-            while (pending.length) {
-                const eligible = pending.filter(a => a.axis !== '스타포스' || !pending.some(b =>
-                    b.axis === '스타포스' && b.item.slot === a.item.slot && b.star < a.star));
-                const action = eligible.reduce((a, b) => b.damage_efficiency > a.damage_efficiency ? b : a);
-                pending.splice(pending.indexOf(action), 1);
+            // 같은 아이템의 스타포스는 낮은 성부터: 슬롯별 대기열의 맨 앞만 고를 수 있습니다.
+            const queues = {};
+            for (const a of rows) if (a.axis === '스타포스') (queues[a.item.slot] ||= []).push(a);
+            for (const queue of Object.values(queues)) queue.sort((a, b) => a.star - b.star);
+            const pending = new Set(rows), result = [];
+            while (pending.size) {
+                let action = null;
+                for (const a of pending) {
+                    if (a.axis === '스타포스' && queues[a.item.slot][0] !== a) continue;
+                    if (!action || a.damage_efficiency > action.damage_efficiency) action = a;
+                }
+                pending.delete(action);
+                if (action.axis === '스타포스') queues[action.item.slot].shift();
                 const previous = result[result.length - 1];
                 if (previous && action.axis === '스타포스' && previous.axis === '스타포스'
                     && previous.item.slot === action.item.slot && previous.target_star === action.star) {
@@ -323,11 +330,6 @@ document.addEventListener('alpine:init', () => {
                 } else result.push({ ...action });
             }
             return result;
-        },
-
-        visibleSpecUp() {
-            const all = this.specUpActions();
-            return this.specUpExpanded ? all : all.slice(0, this.report?.spec_up?.limit || 5);
         },
 
         formatEfficiency(value) {

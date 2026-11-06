@@ -1,5 +1,6 @@
 <!-- 스펙업 추천: 강화 행동을 기대 비용 100억 메소당 주스탯% 높은 순으로 (app/spec_up.py, app.js specUpActions) -->
-<div class="space-y-3">
+<!-- 추천 목록은 리포트·시세가 바뀔 때만 한 번 계산해 specActions 에 둡니다 (화면을 그릴 때마다 다시 계산하지 않음) -->
+<div class="space-y-3" x-data="{ specActions: [] }" x-effect="specActions = specUpActions()">
     <div class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 shadow-sm">
         <h3 class="font-black text-slate-800">스펙업 추천</h3>
         <p class="mt-1 text-[12px] text-slate-500 leading-relaxed break-keep">
@@ -22,9 +23,9 @@
         </details>
     </div>
 
-    <p x-show="!specUpActions().length" class="text-sm text-slate-500 bg-white rounded-2xl border border-slate-200 p-4">추천할 강화가 없습니다. 무기류·일반 특수 장비는 미지원이며, 시드링은 리레·컨티 4→5·5→6레벨만 지원합니다.</p>
+    <p x-show="!specActions.length" class="text-sm text-slate-500 bg-white rounded-2xl border border-slate-200 p-4">추천할 강화가 없습니다. 무기류·일반 특수 장비는 미지원이며, 시드링은 리레·컨티 4→5·5→6레벨만 지원합니다.</p>
 
-    <template x-for="(action, index) in visibleSpecUp()" :key="action.item.slot + action.axis + (action.variant || '') + (action.target_star || '')">
+    <template x-for="(action, index) in (specUpExpanded ? specActions : specActions.slice(0, report?.spec_up?.limit || 5))" :key="action.item.slot + action.axis + (action.variant || '') + (action.target_star || '')">
         <div class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 shadow-sm animate-fade-in">
             <div class="flex items-start gap-3">
                 <div @click="openItemDetail(action.item)" class="relative p-1.5 rounded-2xl cursor-pointer hover:scale-110 transition-transform active:scale-95 shrink-0"
@@ -131,7 +132,7 @@
         </div>
     </template>
 
-    <button type="button" x-show="specUpActions().length > (report?.spec_up?.limit || 5)" @click="specUpExpanded = !specUpExpanded"
+    <button type="button" x-show="specActions.length > (report?.spec_up?.limit || 5)" @click="specUpExpanded = !specUpExpanded"
             class="w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
-            x-text="specUpExpanded ? '접기' : '전체 ' + specUpActions().length + '개 보기'"></button>
+            x-text="specUpExpanded ? '접기' : '전체 ' + specActions.length + '개 보기'"></button>
 </div>

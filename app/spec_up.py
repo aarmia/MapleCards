@@ -16,7 +16,7 @@ import json
 import math
 
 from app.calculator import calculate_item_score, starforce_option
-from app.damage_index import ReplacementModel, cached_line_options, flame_options, line_options
+from app.damage_index import ReplacementModel, flame_options, line_options
 from app.flame_damage import distribution as flame_moments
 from app.flame_damage import rewards as flame_rewards
 from app.potential import StatContext, analyze_lines, convert_line
@@ -201,6 +201,7 @@ def potential_actions(item: dict, kind: str, part: str, level: int, context: Sta
     names = ("main", "cooldown") if kind == "additional" and part == "모자" else ("all",)
     actions = []
     # 같은 진단 안에서는 계산 모델과 결과 구성별 옵션 해석을 재사용합니다 (부위·레벨이 같으면 결과 구성도 같음).
+    # 요청 사이 캐시는 두지 않습니다: 워커당 수십 MB 를 쓰는 데 비해 이득이 작았습니다.
     model_key = ("model", id(context))
     if model_key not in memo:
         try:
@@ -210,7 +211,7 @@ def potential_actions(item: dict, kind: str, part: str, level: int, context: Sta
     model = memo[model_key]
     parsed_key = ("parsed", *key, char_level)
     if model and parsed_key not in memo:
-        memo[parsed_key] = [cached_line_options(texts, char_level) for texts, _, _, _ in outcomes]
+        memo[parsed_key] = [line_options(texts, char_level) for texts, _, _, _ in outcomes]
     before = line_options(lines, char_level)
     outcome_gains = {texts: model.gain(before, after)
                      for (texts, _, _, _), after in zip(outcomes, memo[parsed_key])} if model else {}
