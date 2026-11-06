@@ -1,15 +1,21 @@
 <!-- 스펙업 추천: 강화 행동을 기대 비용 100억 메소당 주스탯% 높은 순으로 (app/spec_up.py, app.js specUpActions) -->
 <!-- 추천 목록은 리포트·시세가 바뀔 때만 한 번 계산해 specActions 에 둡니다 (화면을 그릴 때마다 다시 계산하지 않음) -->
 <div class="space-y-3" x-data="{ specActions: [] }" x-effect="specActions = specUpVisibleActions()">
-    <div class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 shadow-sm">
+    <div x-data="{ introMore: false }" class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 shadow-sm">
         <h3 class="font-black text-slate-800">스펙업 추천</h3>
         <p class="mt-1 text-[12px] text-slate-500 leading-relaxed break-keep">
-            스타포스·잠재능력·에디셔널·추가옵션·시드링·소울 증폭 강화마다 <span class="font-bold text-slate-700">기대 비용 100억 메소당 최종뎀 증가율</span>을 추정해 높은 순으로 보여줍니다. 주스탯% 환산 증가량도 함께 표시합니다.
+            스타포스·잠재능력·에디셔널·추가옵션·시드링·소울 증폭 강화마다 <span class="font-bold text-slate-700">기대 비용 100억 메소당 최종뎀 증가율</span>을 추정해 높은 순으로 보여줍니다.
+            <!-- 모바일은 첫 문장만 두고 나머지는 '자세히'로 펼칩니다 -->
+            <button type="button" @click="introMore = !introMore" :aria-expanded="introMore"
+                    class="md:hidden font-bold text-slate-600 underline underline-offset-2" x-text="introMore ? '접기' : '자세히'"></button>
+            <span :class="introMore ? '' : 'hidden md:inline'">
+            주스탯% 환산 증가량도 함께 표시합니다.
             스타포스는 샤타 이벤트(15~16 미포함) 기준이고, 노작 시세는 직접 바꿀 수 있습니다.
             스타포스는 앞서 추천한 목표를 달성했다고 가정해 다음 단계의 효율을 비교합니다. 같은 아이템의 연속 추천은 마지막 목표까지 합쳐 표시합니다.
             잠재·추가옵션은 넥슨 공식 확률의 기대값이라 실제 비용은 운에 따라 크게 달라질 수 있습니다.
+            </span>
         </p>
-        <p class="mt-3 text-xs font-bold text-amber-800 bg-amber-50 rounded-lg p-3 leading-relaxed">
+        <p class="mt-3 text-xs font-bold text-amber-800 bg-amber-50 rounded-lg p-3 leading-relaxed break-keep">
             최종뎀은 고정 프리셋의 강화 전후 비교에 따른 추정치이며 실제 DPS·전투력 상승을 보장하지 않습니다.
             기대 비용은 평균값입니다.
         </p>
@@ -27,7 +33,7 @@
 
     <template x-for="(action, index) in specActions.slice(0, specUpExpanded ? (report?.spec_up?.max || 50) : (report?.spec_up?.limit || 5))" :key="action.item.slot + action.axis + (action.variant || '') + (action.target_star || '') + (action.after_chain || '')">
         <div class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 shadow-sm animate-fade-in">
-            <div class="flex items-start gap-3">
+            <div class="flex flex-wrap md:flex-nowrap items-start gap-3">
                 <div x-show="!(action.swaps?.length > 1)" @click="openItemDetail(action.item)" class="relative p-1.5 rounded-2xl cursor-pointer hover:scale-110 transition-transform active:scale-95 shrink-0"
                      :class="getBorderColor(action.item.score_ratio)">
                     <!-- 다른 아이템으로 바꾸는 추천은 그 아이템 아이콘과 매물 성(교체 뒤 스타포스는 시작 성) -->
@@ -64,13 +70,15 @@
                     <p x-show="action.combo" class="mt-0.5 text-[11px] font-bold text-slate-500 break-keep"
                        x-text="'대표 구성: ' + action.combo + ' (성공의 ' + Math.round((action.combo_share || 0) * 100) + '%)'"></p>
                 </div>
-                <div class="text-right shrink-0">
-                    <p class="text-[10px] md:text-[11px] font-black text-slate-500 tabular-nums whitespace-nowrap"
+                <!-- 효율: 데스크톱은 오른쪽 열, 모바일은 이름 아래 한 줄 (최종뎀 · 지수 · 100억당) -->
+                <div class="basis-full md:basis-auto shrink-0 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-lg bg-emerald-50/60 px-2.5 py-1.5
+                            md:block md:text-right md:bg-transparent md:p-0">
+                    <p class="order-2 md:order-none text-[11px] md:text-[11px] font-black text-slate-500 tabular-nums whitespace-nowrap ml-auto md:ml-0"
                        x-text="(report?.spec_up?.stat_label || '주스탯') + ' +' + formatEfficiency(action.efficiency) + '% / 100억'"></p>
-                    <p class="text-base md:text-2xl font-black text-emerald-600 tabular-nums leading-tight whitespace-nowrap"
+                    <p class="order-first md:order-none text-lg md:text-2xl font-black text-emerald-600 tabular-nums leading-tight whitespace-nowrap"
                        x-text="'최종뎀 +' + (action.final_damage ?? 0).toFixed(2) + '%'"></p>
                     <!-- 메큘레이터 지수 증가 (매물·상위 교체는 계산값, 나머지는 같은 축 비율로 추정) -->
-                    <p x-show="action.index_gain != null" class="mt-0.5 text-[13px] font-black text-blue-600 tabular-nums whitespace-nowrap"
+                    <p x-show="action.index_gain != null" class="order-1 md:order-none md:mt-0.5 text-[13px] font-black text-blue-600 tabular-nums whitespace-nowrap"
                        x-text="'+' + action.index_gain + 'P'"></p>
                 </div>
             </div>
@@ -110,7 +118,7 @@
                                 </svg>
                             </button>
                         </div>
-                        <div class="grid grid-cols-[auto_1fr_1fr_auto] gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
+                        <div class="grid grid-cols-[auto_1fr_1fr_auto] gap-x-2 md:gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
                             <span class="font-bold text-slate-400">목표</span><span class="font-bold text-slate-400 text-right">확률</span>
                             <span class="font-bold text-slate-400 text-right">기대 비용</span><span class="font-bold text-slate-400 text-right">최종뎀/100억</span>
                             <template x-for="step in (stepsExpanded ? action.steps : action.steps.slice(0, 1))" :key="step.plus">
