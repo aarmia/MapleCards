@@ -498,30 +498,6 @@ class AddOptionEntriesTests(unittest.TestCase):
         self.assertAlmostEqual(grades["공격력 +10"], round(10 * context.pct_per_attack / context.pct_per_flat, 2))
         self.assertAlmostEqual(sum(grades.values()), calculate_item_score(option, "섀도어", "luk", context), places=1)
 
-    def test_flame_stat_totals_are_split_back_into_tiered_lines(self):
-        from app.calculator import flame_lines, flame_stat_lines
-        gloves = {"luk": "168", "dex": "42", "int": "42", "all_stat": "6"}
-        self.assertEqual(flame_stat_lines(gloves, 250), [
-            {"stats": {"luk": 84}, "tier": 7}, {"stats": {"dex": 42, "luk": 42}, "tier": 6}, {"stats": {"int": 42, "luk": 42}, "tier": 6}])
-        lines = flame_lines(gloves, 250, "섀도어", main_stat="luk")
-        self.assertEqual([(line["option"], line["tier"]) for line in lines],
-                         [("LUK +84", 7), ("올스탯 +6%", 6), ("LUK +42 · DEX +42", 6), ("LUK +42 · INT +42", 6)])
-        self.assertAlmostEqual(sum(line["value"] for line in lines), calculate_item_score(gloves, "섀도어", main_stat="luk"))
-        # 140제 미만은 레벨 ÷ 20 + 1 · 레벨 ÷ 40 + 1 (120제: 단일 7, 이중 4/단계)
-        self.assertEqual(flame_stat_lines({"str": 12, "dex": 12}, 120), [{"stats": {"str": 12, "dex": 12}, "tier": 3}])
-        # 100제 STR 6 · DEX 6 은 이중 2단계와 단일 1단계 두 줄이 모두 가능해 판별하지 않습니다.
-        self.assertIsNone(flame_stat_lines({"str": 6, "dex": 6}, 100))
-
-    def test_flame_stat_lines_refuses_impossible_or_ambiguous_totals(self):
-        from app.calculator import flame_stat_lines
-        self.assertIsNone(flame_stat_lines({"luk": 5}, 250))                       # 12 의 배수 아님
-        self.assertIsNone(flame_stat_lines({"luk": 84, "speed": 1, "jump": 1, "armor": 1, "all_stat": 1}, 250))  # 남은 줄 0
-        self.assertIsNone(flame_stat_lines({"str": 7, "dex": 7, "int": 7, "luk": 7}, 250))  # 이중 두 줄 조합이 여러 개
-        guess = flame_stat_lines({"str": 7, "dex": 7, "int": 7, "luk": 7}, 250, allow_ambiguous=True)  # 화면용: 그중 하나
-        self.assertEqual(sum(sum(line["stats"].values()) for line in guess), 28)
-        self.assertTrue(all(line["guess"] for line in guess))
-        self.assertEqual(flame_stat_lines({}, 250), [])
-
 
 if __name__ == "__main__":
     unittest.main()

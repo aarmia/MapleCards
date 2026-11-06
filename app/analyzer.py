@@ -11,7 +11,6 @@ from app.calculator import (
     calculate_potential_score,
     final_stat_float,
     flame_best_add_option,
-    flame_lines,
     get_main_stat,
     get_potential_options,
     get_starforce_score,
@@ -213,28 +212,6 @@ def build_guide_context(scores, star_val, part_name, item_name, total_score, ite
     }
 
 
-def weapon_flame_tiers(item, recognized, level, attack_label, char_class, main_stat):
-    """무기 추옵의 모든 불꽃 줄과 단계. 값은 공% 환산값(recognized)이고, 점수에 안 쓰이는 줄은 값 없이 표시합니다.
-    공/마 단계는 무기별 1~5추 표·기본 공/마 대비 비율(weapon_attack_tier)로 판별합니다."""
-    attack_key = "magic_power" if attack_label == "마력" else "attack_power"
-    values = {}
-    for entry in recognized:
-        option = entry["option"]
-        if option.startswith("보스 몬스터 데미지"):
-            key = "boss_damage"
-        elif option.startswith("데미지"):
-            key = "damage"
-        elif option.startswith("올스탯"):
-            key = "all_stat"
-        elif option.startswith(attack_label + " "):
-            key = attack_key
-        else:
-            key = option.split(" ")[0].lower()
-        values[key] = entry["value"]
-    return flame_lines(item.get("item_add_option") or {}, level, char_class, main_stat=main_stat, values=values,
-                       attack_tier=lambda amount: weapon_attack_tier(item, attack_label, float(amount)))
-
-
 def exceptional_axis(item, part_name):
     """익셉셔널 강화 축: 대상 부위(potential.toml [exceptional].parts)면 (강화 횟수, 점수)를, 아니면 None 을 돌려줍니다."""
     config = POTENTIAL.exceptional
@@ -381,8 +358,6 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                     ] + [{"category": "고유 옵션", "option": option, "reason": "unsupported"} for option in analysis["unsupported"]],
                     "weights": notes,
                     "breakdown": special_breakdown,
-                    "add_lines": flame_lines(item.get("item_add_option") or {}, item_req_level, char_class, main_stat=main_stat,
-                                             context=context) if axis_key == "add" else None,
                     "benchmarks": {"special": benchmark},
                     "star_score": 0,
                 },
@@ -447,7 +422,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                         adv_star_score = 100 + sf_bench.over_star_log_weight * math.log(star - sf_bench.benchmark_star + 1)
 
         soul_analysis, soul_val, soul_score, benchmarks, add_recognized = None, 0.0, 0.0, None, []
-        add_lines = None  # 불꽃 줄별 단계·급수 (화면 표시용). 되돌릴 수 없으면 None
+        add_attack_tier = None  # 무기 추옵 공/마의 불꽃 단계 (화면 "N추(M단계)")
         axes = GUIDES.axes
         add_evaluated = not any(k in part or k in slot for k in axes.no_add_parts)
         star_evaluated = not any(k in part or k in slot for k in axes.no_star_parts)
@@ -457,7 +432,8 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
             if group == "weapon":
                 # 무기 추옵 = 공% 환산값 ÷ 레벨별 불꽃 최대 조합 × 100 × weights.add (방어구와 같은 척도)
                 add_raw_score, add_recognized = weapon_add_value(item.get("item_add_option"), weapon_context, char_level)
-                add_lines = weapon_flame_tiers(item, add_recognized, item_req_level, weapon_context.attack_label, char_class, main_stat)
+                attack_amount = float((item.get("item_add_option") or {}).get("magic_power" if weapon_context.attack_label == "마력" else "attack_power") or 0)
+                add_attack_tier = weapon_attack_tier(item, weapon_context.attack_label, attack_amount) if attack_amount else None
                 add_best = weapon_add_best(item, weapon_context, char_level)
                 add_score = (100 * add_raw_score / add_best * weights.add) if add_best > 0 else 0.0
                 soul_analysis = analyze_weapon_item(item, "soul", weapon_context, char_level)
@@ -494,7 +470,6 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                 add_option = item.get("item_add_option") or {}
                 add_raw_score = calculate_item_score(add_option, char_class, main_stat=main_stat, context=context)
                 add_recognized = add_option_entries(add_option, char_class, main_stat=main_stat, context=context)
-                add_lines = flame_lines(add_option, item_req_level, char_class, main_stat=main_stat, context=context)
                 add_best = calculate_item_score(flame_best_add_option(item_req_level, char_class, main_stat, context.sub_names, context),
                                                 char_class, main_stat=main_stat, context=context)
                 add_score = (100 * add_raw_score / add_best * weights.add) if add_best > 0 else 0.0
@@ -600,7 +575,7 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
                     "main_stat": main_stat_label,
                     "recognized_options": recognized_options,
                     "unrecognized_options": unrecognized_options,
-                    "add_lines": add_lines,
+                    "add_attack_tier": add_attack_tier,
                     "weights": weight_notes(item_req_level, star_from_stats)
                     + ([f"무기류 공격력% 단위 환산 · 보공 1% = 공 {weapon_context.boss_per_pct:.3g}%, 유효 스탯 1% = 공 {weapon_context.stat_pct_unit:.3g}%, 기준점은 캐릭터별 최상 조합"] if is_weapon else [])
                     + ([f"익셉셔널 강화 1회당 {POTENTIAL.exceptional.points_per_upgrade:g}점 (현재 {exceptional[0]}회)"] if exceptional and exceptional[0] > 0 else []),
