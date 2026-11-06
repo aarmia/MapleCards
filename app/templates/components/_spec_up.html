@@ -30,8 +30,10 @@
             <div class="flex items-start gap-3">
                 <div @click="openItemDetail(action.item)" class="relative p-1.5 rounded-2xl cursor-pointer hover:scale-110 transition-transform active:scale-95 shrink-0"
                      :class="getBorderColor(action.item.score_ratio)">
-                    <img :src="action.item.icon" class="w-11 h-11 object-contain drop-shadow-sm" :alt="action.item.name">
-                    <span x-show="action.item.star > 0" class="absolute -top-2 -right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm bg-slate-900 text-white" x-text="action.item.star + '★'"></span>
+                    <!-- 다른 아이템으로 바꾸는 추천은 그 아이템 아이콘과 매물 성(교체 뒤 스타포스는 시작 성) -->
+                    <img :src="action.icon || action.item.icon" class="w-11 h-11 object-contain drop-shadow-sm" :alt="action.price_item?.name || action.item.name">
+                    <span x-show="(action.icon ? (action.star || action.target_star) : action.item.star) > 0" class="absolute -top-2 -right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm bg-slate-900 text-white"
+                          x-text="(action.icon ? (action.star || action.target_star) : action.item.star) + '★'"></span>
                 </div>
                 <div class="flex-1 min-w-0">
                     <p class="text-[10px] font-black tracking-widest uppercase text-slate-400" x-text="'Priority ' + (index + 1) + ' · ' + action.item.part"></p>

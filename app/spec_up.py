@@ -1207,6 +1207,11 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
                         *radiant_chain_actions(rows, items, context, class_name, main_stat, char_level, cube_memo, standard, weapon)]:
         row["spec_up"].append(finish(action))
         count += 1
+    for row in rows:  # 다른 아이템으로 바꾸는 추천(교체·교체 뒤 스타포스)은 그 아이템 아이콘 (카탈로그에 있을 때)
+        for action in row["spec_up"]:
+            icon = (CATALOG_ITEMS.get((action.get("price_item") or {}).get("name")) or {}).get("icon")
+            if icon:
+                action["icon"] = icon
     if standard:
         own_total = sum(row.get("total_score") or 0 for row in rows)
         overall = standard["total"] / own_total if own_total > 0 else 1.0

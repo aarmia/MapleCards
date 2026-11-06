@@ -12,6 +12,24 @@
   "tradable": true,
   "source": "api"
  },
+ "HYPER BURNING MAX": {
+  "part": "훈장",
+  "slot": "훈장",
+  "level": 200,
+  "slots": 0,
+  "base": {
+   "str": 6,
+   "dex": 6,
+   "int": 6,
+   "luk": 6,
+   "attack_power": 6,
+   "magic_power": 6
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGIDOG",
+  "source": "api",
+  "icon": "/static/images/items/KEOGIDOG.png"
+ },
  "MVP 블랙 정령의 펜던트": {
   "part": "펜던트",
   "slot": "펜던트2",
@@ -19,7 +37,9 @@
   "slots": 0,
   "base": {},
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJDLJ",
+  "icon": "/static/images/items/KEOAJDLJ.png"
  },
  "SS급 마스터 쥬얼링": {
   "part": "반지",
@@ -37,7 +57,9 @@
    "magic_power": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIFNA",
+  "icon": "/static/images/items/KEODIFNA.png"
  },
  "T-boy의 모니터": {
   "part": "모자",
@@ -72,7 +94,9 @@
    "boss_damage": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGICPI",
+  "icon": "/static/images/items/KEOGICPI.png"
  },
  "THE RED": {
   "part": "훈장",
@@ -91,7 +115,29 @@
    "boss_damage": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGICPJ",
+  "icon": "/static/images/items/KEOGICPJ.png"
+ },
+ "☆메이프릴 아일랜드☆": {
+  "part": "훈장",
+  "slot": "훈장",
+  "level": 0,
+  "slots": 0,
+  "base": {
+   "str": 20,
+   "dex": 20,
+   "int": 20,
+   "luk": 20,
+   "max_hp": 1000,
+   "max_mp": 1000,
+   "attack_power": 7,
+   "magic_power": 7
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGIEOF",
+  "source": "api",
+  "icon": "/static/images/items/KEOGIEOF.png"
  },
  "♣메이플 모멘트리♣": {
   "part": "훈장",
@@ -109,7 +155,9 @@
    "magic_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGIFIH",
+  "icon": "/static/images/items/KEOGIFIH.png"
  },
  "가디언 엔젤 링": {
   "part": "반지",
@@ -127,7 +175,9 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIEPC",
+  "icon": "/static/images/items/KEODIEPC.png"
  },
  "가디언의 마이스터 임모탈 링": {
   "part": "반지",
@@ -142,7 +192,9 @@
    "armor": 150
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIHIC",
+  "icon": "/static/images/items/KEODIHIC.png"
  },
  "갈색 가죽 모자": {
   "part": "모자",
@@ -154,6 +206,19 @@
   },
   "tradable": true,
   "source": "api"
+ },
+ "갈색 낡은 고깔 모자": {
+  "part": "모자",
+  "slot": "모자",
+  "level": 10,
+  "slots": 8,
+  "base": {
+   "armor": 5
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCJHPG",
+  "source": "api",
+  "icon": "/static/images/items/KEPCJHPG.png"
  },
  "거대한 공포": {
   "part": "반지",
@@ -171,7 +236,9 @@
    "magic_power": 4
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIEOH",
+  "icon": "/static/images/items/KEODIEOH.png"
  },
  "결속의 반지": {
   "part": "반지",
@@ -189,7 +256,9 @@
    "magic_power": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODPEOD",
+  "icon": "/static/images/items/KEODPEOD.png"
  },
  "고귀한 이피아의 반지": {
   "part": "반지",
@@ -207,7 +276,9 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIFGD",
+  "icon": "/static/images/items/KEODIFGD.png"
  },
  "고통의 근원": {
   "part": "펜던트",
@@ -225,7 +296,9 @@
    "max_hp_rate": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJDNB",
+  "icon": "/static/images/items/KEOAJDNB.png"
  },
  "골드 나이트 엠블렘": {
   "part": "엠블렘",
@@ -241,7 +314,9 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLCLD",
+  "icon": "/static/images/items/KEOLLCLD.png"
  },
  "골드 데몬 엠블렘": {
   "part": "엠블렘",
@@ -274,7 +349,9 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLBOA",
+  "icon": "/static/images/items/KEOLLBOA.png"
  },
  "골드 메이플리프 엠블렘": {
   "part": "엠블렘",
@@ -290,7 +367,9 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLEOA",
+  "icon": "/static/images/items/KEOLLEOA.png"
  },
  "골드 서머너 엠블렘": {
   "part": "엠블렘",
@@ -306,7 +385,27 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLCJI",
+  "icon": "/static/images/items/KEOLLCJI.png"
+ },
+ "골드 시그너스 엠블렘": {
+  "part": "엠블렘",
+  "slot": "엠블렘",
+  "level": 100,
+  "slots": 0,
+  "base": {
+   "str": 10,
+   "dex": 10,
+   "int": 10,
+   "luk": 10,
+   "attack_power": 2,
+   "magic_power": 2
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLPOA",
+  "source": "api",
+  "icon": "/static/images/items/KEOLLPOA.png"
  },
  "골드 어비스 엠블렘": {
   "part": "엠블렘",
@@ -322,7 +421,9 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLCKB",
+  "icon": "/static/images/items/KEOLLCKB.png"
  },
  "골드 크리스탈 엠블렘": {
   "part": "엠블렘",
@@ -354,7 +455,27 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLKHOA",
+  "icon": "/static/images/items/KEOLKHOA.png"
+ },
+ "골드 히어로즈 엠블렘": {
+  "part": "엠블렘",
+  "slot": "엠블렘",
+  "level": 100,
+  "slots": 0,
+  "base": {
+   "str": 10,
+   "dex": 10,
+   "int": 10,
+   "luk": 10,
+   "attack_power": 2,
+   "magic_power": 2
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLCPG",
+  "source": "api",
+  "icon": "/static/images/items/KEOLLCPG.png"
  },
  "골드 히트맨 엠블렘": {
   "part": "엠블렘",
@@ -389,7 +510,9 @@
    "armor": 150
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOBJFJD",
+  "icon": "/static/images/items/KEOBJFJD.png"
  },
  "굶주리는 핏빛 원혼": {
   "part": "눈장식",
@@ -406,7 +529,9 @@
    "armor": 450
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPAJEHG",
+  "icon": "/static/images/items/KEPAJEHG.png"
  },
  "그리드 펜던트": {
   "part": "펜던트",
@@ -421,7 +546,9 @@
    "armor": 100
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJFPI",
+  "icon": "/static/images/items/KEOAJFPI.png"
  },
  "그린 소울링": {
   "part": "소울링",
@@ -437,7 +564,9 @@
    "armor": 300
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHJBOF",
+  "icon": "/static/images/items/KEMHJBOF.png"
  },
  "근원의 속삭임": {
   "part": "반지",
@@ -455,7 +584,9 @@
    "magic_power": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIEKA",
+  "icon": "/static/images/items/KEODIEKA.png"
  },
  "글로리 매직윙": {
   "part": "매직윙",
@@ -486,7 +617,9 @@
    "magic_power": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODPEPC",
+  "icon": "/static/images/items/KEODPEPC.png"
  },
  "글로리온 링 : 마스터": {
   "part": "반지",
@@ -522,7 +655,9 @@
    "magic_power": 25
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODPEPH",
+  "icon": "/static/images/items/KEODPEPH.png"
  },
  "글로리온 링 : 커맨더": {
   "part": "반지",
@@ -540,7 +675,9 @@
    "magic_power": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODPEPE",
+  "icon": "/static/images/items/KEODPEPE.png"
  },
  "금빛 검수 엠블렘": {
   "part": "엠블렘",
@@ -556,7 +693,24 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLCIE",
+  "icon": "/static/images/items/KEOLLCIE.png"
+ },
+ "노블 브레이슬릿": {
+  "part": "브레이슬릿",
+  "slot": "보조무기",
+  "level": 100,
+  "slots": 0,
+  "base": {
+   "str": 10,
+   "dex": 10,
+   "attack_power": 3
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHPHOC",
+  "source": "api",
+  "icon": "/static/images/items/KEMHPHOC.png"
  },
  "다크 크리시아슈즈": {
   "part": "신발",
@@ -584,7 +738,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELFJFGJ",
+  "icon": "/static/images/items/KELFJFGJ.png"
  },
  "데스티니 대거": {
   "part": "단검",
@@ -599,7 +755,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMBJEOC",
+  "icon": "/static/images/items/KEMBJEOC.png"
  },
  "데스티니 데스페라도": {
   "part": "데스페라도",
@@ -614,7 +772,44 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KENBJGNE",
+  "icon": "/static/images/items/KENBJGNE.png"
+ },
+ "데스티니 라즐리": {
+  "part": "태도",
+  "slot": "무기",
+  "level": 250,
+  "slots": 8,
+  "base": {
+   "str": 190,
+   "dex": 190,
+   "attack_power": 370,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEKFJHPA",
+  "source": "api",
+  "icon": "/static/images/items/KEKFJHPA.png"
+ },
+ "데스티니 라피스": {
+  "part": "대검",
+  "slot": "보조무기",
+  "level": 250,
+  "slots": 8,
+  "base": {
+   "str": 190,
+   "dex": 190,
+   "attack_power": 375,
+   "armor": 290,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEKEJHPA",
+  "source": "api",
+  "icon": "/static/images/items/KEKEJHPA.png"
  },
  "데스티니 보우": {
   "part": "활",
@@ -646,7 +841,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KENDPHKI",
+  "icon": "/static/images/items/KENDPHKI.png"
  },
  "데스티니 블래스트캐논": {
   "part": "핸드캐논",
@@ -662,7 +859,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEKBJGJB",
+  "icon": "/static/images/items/KEKBJGJB.png"
  },
  "데스티니 소울슈터": {
   "part": "소울슈터",
@@ -693,7 +892,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMKJFGG",
+  "icon": "/static/images/items/KEMKJFGG.png"
  },
  "데스티니 스피어": {
   "part": "창",
@@ -708,7 +909,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELBJFKB",
+  "icon": "/static/images/items/KELBJFKB.png"
  },
  "데스티니 완드": {
   "part": "완드",
@@ -787,6 +990,40 @@
   "tradable": true,
   "source": "api"
  },
+ "데스티니 클로": {
+  "part": "너클",
+  "slot": "무기",
+  "level": 250,
+  "slots": 8,
+  "base": {
+   "str": 190,
+   "dex": 190,
+   "attack_power": 280,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELKJFKE",
+  "source": "api",
+  "icon": "/static/images/items/KELKJFKE.png"
+ },
+ "데스티니 투핸드소드": {
+  "part": "두손검",
+  "slot": "무기",
+  "level": 250,
+  "slots": 8,
+  "base": {
+   "str": 190,
+   "dex": 190,
+   "attack_power": 373,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELCJFHB",
+  "source": "api",
+  "icon": "/static/images/items/KELCJFHB.png"
+ },
  "데스티니 튜너": {
   "part": "튜너",
   "slot": "무기",
@@ -800,7 +1037,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KENDIHLC",
+  "icon": "/static/images/items/KENDIHLC.png"
  },
  "데스티니 피스톨": {
   "part": "건",
@@ -815,7 +1054,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELLJFLI",
+  "icon": "/static/images/items/KELLJFLI.png"
  },
  "데아 시두스 이어링": {
   "part": "귀고리",
@@ -832,7 +1073,9 @@
    "armor": 50
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPBJFKA",
+  "icon": "/static/images/items/KEPBJFKA.png"
  },
  "데이브레이크 펜던트": {
   "part": "펜던트",
@@ -850,7 +1093,30 @@
    "max_hp_rate": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJDKC",
+  "icon": "/static/images/items/KEOAJDKC.png"
+ },
+ "도로시 챌린저": {
+  "part": "훈장",
+  "slot": "훈장",
+  "level": 110,
+  "slots": 0,
+  "base": {
+   "str": 10,
+   "dex": 10,
+   "int": 10,
+   "luk": 10,
+   "max_hp": 300,
+   "max_mp": 300,
+   "attack_power": 10,
+   "magic_power": 10,
+   "armor": 100
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGJBHE",
+  "source": "api",
+  "icon": "/static/images/items/KEOGJBHE.png"
  },
  "도미네이터 펜던트": {
   "part": "펜던트",
@@ -869,7 +1135,9 @@
    "max_mp_rate": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJGLB",
+  "icon": "/static/images/items/KEOAJGLB.png"
  },
  "도전자의 ESP리미터": {
   "part": "ESP 리미터",
@@ -902,7 +1170,9 @@
    "armor": 250
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCIAMH",
+  "icon": "/static/images/items/KEOCIAMH.png"
  },
  "도전자의 모자": {
   "part": "모자",
@@ -919,7 +1189,9 @@
    "ignore_monster_armor": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCNCND",
+  "icon": "/static/images/items/KEPCNCND.png"
  },
  "도전자의 상의": {
   "part": "상의",
@@ -934,7 +1206,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPGJDIF",
+  "icon": "/static/images/items/KEPGJDIF.png"
  },
  "도전자의 신발": {
   "part": "신발",
@@ -950,7 +1224,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIONF",
+  "icon": "/static/images/items/KEPFIONF.png"
  },
  "도전자의 어깨장식": {
   "part": "어깨장식",
@@ -967,7 +1243,9 @@
    "armor": 100
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJFMH",
+  "icon": "/static/images/items/KEOHJFMH.png"
  },
  "도전자의 윙투스": {
   "part": "카르타",
@@ -983,7 +1261,9 @@
    "ignore_monster_armor": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KENDNHMB",
+  "icon": "/static/images/items/KENDNHMB.png"
  },
  "도전자의 장갑": {
   "part": "장갑",
@@ -997,7 +1277,9 @@
    "armor": 150
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJPPE",
+  "icon": "/static/images/items/KEPKJPPE.png"
  },
  "도전자의 하의": {
   "part": "하의",
@@ -1012,7 +1294,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPEJEOD",
+  "icon": "/static/images/items/KEPEJEOD.png"
  },
  "두 얼굴의 배신자": {
   "part": "훈장",
@@ -1052,7 +1336,9 @@
    "armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPDJDOD",
+  "icon": "/static/images/items/KEPDJDOD.png"
  },
  "레드 시프 마이스터 심볼": {
   "part": "얼굴장식",
@@ -1065,7 +1351,9 @@
    "armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPDJDOF",
+  "icon": "/static/images/items/KEPDJDOF.png"
  },
  "레드 아처 마이스터 심볼": {
   "part": "얼굴장식",
@@ -1078,7 +1366,9 @@
    "armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPDJDOC",
+  "icon": "/static/images/items/KEPDJDOC.png"
  },
  "레드 워리어 마이스터 심볼": {
   "part": "얼굴장식",
@@ -1091,7 +1381,9 @@
    "armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPDJDOA",
+  "icon": "/static/images/items/KEPDJDOA.png"
  },
  "레드 파이렛 마이스터 심볼": {
   "part": "얼굴장식",
@@ -1104,7 +1396,9 @@
    "armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPDJDOE",
+  "icon": "/static/images/items/KEPDJDOE.png"
  },
  "로얄 블랙메탈 숄더": {
   "part": "어깨장식",
@@ -1164,7 +1458,9 @@
    "armor": 200
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPDJBND",
+  "icon": "/static/images/items/KEPDJBND.png"
  },
  "리스트 아머": {
   "part": "리스트밴드",
@@ -1177,7 +1473,9 @@
    "attack_power": 3
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHJOOD",
+  "icon": "/static/images/items/KEMHJOOD.png"
  },
  "리스트레인트 링": {
   "part": "반지",
@@ -1193,7 +1491,9 @@
    "magic_power": 4
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIHHJ",
+  "icon": "/static/images/items/KEODIHHJ.png"
  },
  "리튬 하트": {
   "part": "기계 심장",
@@ -1241,7 +1541,28 @@
    "armor": 300
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPAJFJJ",
+  "icon": "/static/images/items/KEPAJFJJ.png"
+ },
+ "마이스터 숄더": {
+  "part": "어깨장식",
+  "slot": "어깨장식",
+  "level": 140,
+  "slots": 2,
+  "base": {
+   "str": 13,
+   "dex": 13,
+   "int": 13,
+   "luk": 13,
+   "attack_power": 9,
+   "magic_power": 9,
+   "armor": 150
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJGLF",
+  "source": "api",
+  "icon": "/static/images/items/KEOHJGLF.png"
  },
  "마이스터 올마이티링": {
   "part": "반지",
@@ -1256,7 +1577,9 @@
    "armor": 28
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIHIG",
+  "icon": "/static/images/items/KEODIHIG.png"
  },
  "마이스터 이어링": {
   "part": "귀고리",
@@ -1275,7 +1598,9 @@
    "armor": 70
   },
   "tradable": false,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPBJFOB",
+  "icon": "/static/images/items/KEPBJFOB.png"
  },
  "마이스터링": {
   "part": "반지",
@@ -1294,7 +1619,9 @@
    "armor": 150
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIHLE",
+  "icon": "/static/images/items/KEODIHLE.png"
  },
  "매커네이터 펜던트": {
   "part": "펜던트",
@@ -1313,7 +1640,9 @@
    "armor": 100
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJFLF",
+  "icon": "/static/images/items/KEOAJFLF.png"
  },
  "메이플 대학교": {
   "part": "훈장",
@@ -1331,7 +1660,9 @@
    "magic_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGIDKD",
+  "icon": "/static/images/items/KEOGIDKD.png"
  },
  "메이플 어택": {
   "part": "훈장",
@@ -1349,7 +1680,9 @@
    "magic_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGICME",
+  "icon": "/static/images/items/KEOGICME.png"
  },
  "메이플 트레져 컨트롤러": {
   "part": "컨트롤러",
@@ -1366,6 +1699,21 @@
   },
   "tradable": true,
   "source": "api"
+ },
+ "메이플 트레져 파사부": {
+  "part": "부적",
+  "slot": "보조무기",
+  "level": 110,
+  "slots": 0,
+  "base": {
+   "dex": 9,
+   "luk": 9,
+   "attack_power": 6
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHJFHJ",
+  "source": "api",
+  "icon": "/static/images/items/KEMHJFHJ.png"
  },
  "목요일엔 역시 몬스터파크": {
   "part": "훈장",
@@ -1400,7 +1748,9 @@
    "armor": 150
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOBJEOJ",
+  "icon": "/static/images/items/KEOBJEOJ.png"
  },
  "미궁의 깊이를 아는 자": {
   "part": "훈장",
@@ -1418,7 +1768,9 @@
    "magic_power": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGIGNH",
+  "icon": "/static/images/items/KEOGIGNH.png"
  },
  "미카엘라의 새 안경": {
   "part": "눈장식",
@@ -1434,7 +1786,9 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPAJFKH",
+  "icon": "/static/images/items/KEPAJFKH.png"
  },
  "미카엘의 새 안경": {
   "part": "눈장식",
@@ -1462,7 +1816,9 @@
    "magic_power": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLCLH",
+  "icon": "/static/images/items/KEOLLCLH.png"
  },
  "미트라의 분노 : 도적": {
   "part": "엠블렘",
@@ -1476,7 +1832,9 @@
    "magic_power": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLCLJ",
+  "icon": "/static/images/items/KEOLLCLJ.png"
  },
  "미트라의 분노 : 마법사": {
   "part": "엠블렘",
@@ -1490,7 +1848,9 @@
    "magic_power": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLCLG",
+  "icon": "/static/images/items/KEOLLCLG.png"
  },
  "미트라의 분노 : 전사": {
   "part": "엠블렘",
@@ -1505,7 +1865,9 @@
    "magic_power": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLCLE",
+  "icon": "/static/images/items/KEOLLCLE.png"
  },
  "미트라의 분노 : 해적": {
   "part": "엠블렘",
@@ -1519,7 +1881,9 @@
    "magic_power": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLCLI",
+  "icon": "/static/images/items/KEOLLCLI.png"
  },
  "민첩한 피노키오 코": {
   "part": "얼굴장식",
@@ -1559,7 +1923,9 @@
    "magic_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOKJGHI",
+  "icon": "/static/images/items/KEOKJGHI.png"
  },
  "버서커의 마이스터 임모탈 링": {
   "part": "반지",
@@ -1575,7 +1941,24 @@
    "armor": 30
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIHIF",
+  "icon": "/static/images/items/KEODIHIF.png"
+ },
+ "버서크 체인": {
+  "part": "쇠사슬",
+  "slot": "보조무기",
+  "level": 100,
+  "slots": 0,
+  "base": {
+   "str": 10,
+   "dex": 10,
+   "attack_power": 3
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHJFMD",
+  "source": "api",
+  "icon": "/static/images/items/KEMHJFMD.png"
  },
  "베어스 그린 펜던트": {
   "part": "펜던트",
@@ -1589,7 +1972,9 @@
    "armor": 65
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJHGJ",
+  "icon": "/static/images/items/KEOAJHGJ.png"
  },
  "베어스 레드 펜던트": {
   "part": "펜던트",
@@ -1603,7 +1988,9 @@
    "armor": 105
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJHGI",
+  "icon": "/static/images/items/KEOAJHGI.png"
  },
  "베어스 퍼플 펜던트": {
   "part": "펜던트",
@@ -1626,7 +2013,9 @@
   "slots": 20,
   "base": {},
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODPEOB",
+  "icon": "/static/images/items/KEODPEOB.png"
  },
  "봉인된 제네시스 스태프": {
   "part": "스태프",
@@ -1661,7 +2050,9 @@
    "armor": 150
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOBJFHH",
+  "icon": "/static/images/items/KEOBJFHH.png"
  },
  "불멸의 유산": {
   "part": "훈장",
@@ -1680,7 +2071,24 @@
    "boss_damage": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGIDJA",
+  "icon": "/static/images/items/KEOGIDJA.png"
+ },
+ "블랙 로자리오": {
+  "part": "로자리오",
+  "slot": "보조무기",
+  "level": 100,
+  "slots": 0,
+  "base": {
+   "str": 8,
+   "dex": 8,
+   "attack_power": 5
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHJFPG",
+  "source": "api",
+  "icon": "/static/images/items/KEMHJFPG.png"
  },
  "블랙 마법깃펜": {
   "part": "마법깃펜",
@@ -1693,7 +2101,9 @@
    "magic_power": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIANHOF",
+  "icon": "/static/images/items/KEIANHOF.png"
  },
  "블랙 매직윙": {
   "part": "매직윙",
@@ -1732,7 +2142,9 @@
    "attack_power": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHPHKF",
+  "icon": "/static/images/items/KEMHPHKF.png"
  },
  "블랙 옥타코어 컨트롤러": {
   "part": "컨트롤러",
@@ -1766,7 +2178,9 @@
    "armor": 120
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPAJFND",
+  "icon": "/static/images/items/KEPAJFND.png"
  },
  "빅토리아컵": {
   "part": "훈장",
@@ -1812,7 +2226,9 @@
    "armor": 26
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPDJDOI",
+  "icon": "/static/images/items/KEPDJDOI.png"
  },
  "샤이니 레드 워리어 마이스터 심볼": {
   "part": "얼굴장식",
@@ -1826,7 +2242,9 @@
    "armor": 26
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPDJDOH",
+  "icon": "/static/images/items/KEPDJDOH.png"
  },
  "샤이니 레드 파이렛 마이스터 심볼": {
   "part": "얼굴장식",
@@ -1840,7 +2258,9 @@
    "armor": 26
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPDJDPB",
+  "icon": "/static/images/items/KEPDJDPB.png"
  },
  "세이크리드 로자리오": {
   "part": "로자리오",
@@ -1853,7 +2273,9 @@
    "attack_power": 3
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHJFPD",
+  "icon": "/static/images/items/KEMHJFPD.png"
  },
  "스칼렛 숄더": {
   "part": "어깨장식",
@@ -1880,7 +2302,9 @@
   "slots": 0,
   "base": {},
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGIDGC",
+  "icon": "/static/images/items/KEOGIDGC.png"
  },
  "실버블라썸 링": {
   "part": "반지",
@@ -1896,7 +2320,24 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIGKI",
+  "icon": "/static/images/items/KEODIGKI.png"
+ },
+ "아스트라 금강석 선추": {
+  "part": "선추",
+  "slot": "보조무기",
+  "level": 200,
+  "slots": 0,
+  "base": {
+   "dex": 10,
+   "luk": 10,
+   "attack_power": 7
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIAPCOB",
+  "source": "api",
+  "icon": "/static/images/items/KEIAPCOB.png"
  },
  "아스트라 노바의 정수": {
   "part": "용의 정수",
@@ -1939,7 +2380,9 @@
    "attack_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIAKFOD",
+  "icon": "/static/images/items/KEIAKFOD.png"
  },
  "아스트라 리스트 밴드": {
   "part": "리스트밴드",
@@ -1952,7 +2395,9 @@
    "attack_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIAKGOD",
+  "icon": "/static/images/items/KEIAKGOD.png"
  },
  "아스트라 림리스": {
   "part": "화약통",
@@ -1965,7 +2410,24 @@
    "attack_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIAKEOD",
+  "icon": "/static/images/items/KEIAKEOD.png"
+ },
+ "아스트라 마법깃펜": {
+  "part": "마법깃펜",
+  "slot": "보조무기",
+  "level": 200,
+  "slots": 0,
+  "base": {
+   "int": 15,
+   "luk": 15,
+   "magic_power": 7
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIANHOJ",
+  "source": "api",
+  "icon": "/static/images/items/KEIANHOJ.png"
  },
  "아스트라 매그넘": {
   "part": "매그넘",
@@ -1993,6 +2455,21 @@
   "tradable": true,
   "source": "api"
  },
+ "아스트라 메달": {
+  "part": "메달",
+  "slot": "보조무기",
+  "level": 200,
+  "slots": 0,
+  "base": {
+   "str": 20,
+   "dex": 20,
+   "attack_power": 7
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIALHOD",
+  "source": "api",
+  "icon": "/static/images/items/KEIALHOD.png"
+ },
  "아스트라 베인 실드": {
   "part": "방패",
   "slot": "보조무기",
@@ -2017,7 +2494,9 @@
    "attack_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIAIOOD",
+  "icon": "/static/images/items/KEIAIOOD.png"
  },
  "아스트라 블레이드": {
   "part": "블레이드",
@@ -2031,7 +2510,9 @@
    "attack_power": 225
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMGJGMC",
+  "icon": "/static/images/items/KEMGJGMC.png"
  },
  "아스트라 사옥 노리개": {
   "part": "노리개",
@@ -2059,6 +2540,23 @@
   "tradable": true,
   "source": "api"
  },
+ "아스트라 아워글라스": {
+  "part": "모래시계",
+  "slot": "보조무기",
+  "level": 200,
+  "slots": 0,
+  "base": {
+   "str": 20,
+   "dex": 20,
+   "attack_power": 7,
+   "boss_damage": 45,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIAIAOD",
+  "source": "api",
+  "icon": "/static/images/items/KEIAIAOD.png"
+ },
  "아스트라 아케인 실드": {
   "part": "방패",
   "slot": "보조무기",
@@ -2070,7 +2568,9 @@
    "magic_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPLJGMJ",
+  "icon": "/static/images/items/KEPLJGMJ.png"
  },
  "아스트라 에메랄드": {
   "part": "보석",
@@ -2109,7 +2609,9 @@
    "attack_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIAPEOD",
+  "icon": "/static/images/items/KEIAPEOD.png"
  },
  "아스트라 옵시디언": {
   "part": "보석",
@@ -2135,7 +2637,9 @@
    "attack_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIAJPOA",
+  "icon": "/static/images/items/KEIAJPOA.png"
  },
  "아스트라 웨폰 벨트": {
   "part": "웨폰 벨트",
@@ -2148,7 +2652,9 @@
    "attack_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIAIDOD",
+  "icon": "/static/images/items/KEIAIDOD.png"
  },
  "아스트라 체스피스 디 킹": {
   "part": "체스피스",
@@ -2174,7 +2680,9 @@
    "attack_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIALFOD",
+  "icon": "/static/images/items/KEIALFOD.png"
  },
  "아스트라 카르트": {
   "part": "카드",
@@ -2189,6 +2697,21 @@
   "tradable": true,
   "source": "api"
  },
+ "아스트라 탈리스만": {
+  "part": "부적",
+  "slot": "보조무기",
+  "level": 200,
+  "slots": 0,
+  "base": {
+   "dex": 20,
+   "luk": 20,
+   "attack_power": 7
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIALOOD",
+  "source": "api",
+  "icon": "/static/images/items/KEIALOOD.png"
+ },
  "아스트라 토파즈": {
   "part": "보석",
   "slot": "보조무기",
@@ -2200,7 +2723,24 @@
    "attack_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIAKDOD",
+  "icon": "/static/images/items/KEIAKDOD.png"
+ },
+ "아스트라 페더": {
+  "part": "화살깃",
+  "slot": "보조무기",
+  "level": 200,
+  "slots": 0,
+  "base": {
+   "str": 15,
+   "dex": 15,
+   "attack_power": 7
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIALBOA",
+  "source": "api",
+  "icon": "/static/images/items/KEIALBOA.png"
  },
  "아스트라 포스실드": {
   "part": "포스실드",
@@ -2215,7 +2755,24 @@
    "attack_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPLCHME",
+  "icon": "/static/images/items/KEPLCHME.png"
+ },
+ "아스트라 프로미넌트 실드": {
+  "part": "방패",
+  "slot": "보조무기",
+  "level": 200,
+  "slots": 5,
+  "base": {
+   "int": 20,
+   "luk": 20,
+   "magic_power": 7
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPLJGKB",
+  "source": "api",
+  "icon": "/static/images/items/KEPLJGKB.png"
  },
  "아스트라 헥스시커": {
   "part": "헥스시커",
@@ -2228,7 +2785,9 @@
    "attack_power": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEIAPGOA",
+  "icon": "/static/images/items/KEIAPGOA.png"
  },
  "아울스 그린 펜던트": {
   "part": "펜던트",
@@ -2242,7 +2801,9 @@
    "armor": 65
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJHHD",
+  "icon": "/static/images/items/KEOAJHHD.png"
  },
  "아울스 퍼플 펜던트": {
   "part": "펜던트",
@@ -2297,7 +2858,9 @@
    "armor": 250
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJBHE",
+  "icon": "/static/images/items/KEPKJBHE.png"
  },
  "아케인셰이드 나이트숄더": {
   "part": "어깨장식",
@@ -2314,7 +2877,9 @@
    "armor": 300
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJGHH",
+  "icon": "/static/images/items/KEOHJGHH.png"
  },
  "아케인셰이드 나이트슈즈": {
   "part": "신발",
@@ -2330,7 +2895,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIGLJ",
+  "icon": "/static/images/items/KEPFIGLJ.png"
  },
  "아케인셰이드 나이트케이프": {
   "part": "망토",
@@ -2347,7 +2914,9 @@
    "armor": 450
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCJOKB",
+  "icon": "/static/images/items/KEOCJOKB.png"
  },
  "아케인셰이드 메이지글러브": {
   "part": "장갑",
@@ -2361,7 +2930,9 @@
    "armor": 250
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJBHH",
+  "icon": "/static/images/items/KEPKJBHH.png"
  },
  "아케인셰이드 메이지숄더": {
   "part": "어깨장식",
@@ -2378,7 +2949,9 @@
    "armor": 300
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJGHG",
+  "icon": "/static/images/items/KEOHJGHG.png"
  },
  "아케인셰이드 메이지슈즈": {
   "part": "신발",
@@ -2394,7 +2967,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIGLI",
+  "icon": "/static/images/items/KEPFIGLI.png"
  },
  "아케인셰이드 메이지슈트": {
   "part": "한벌옷",
@@ -2409,7 +2984,9 @@
    "ignore_monster_armor": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPHIHIF",
+  "icon": "/static/images/items/KEPHIHIF.png"
  },
  "아케인셰이드 메이지케이프": {
   "part": "망토",
@@ -2426,7 +3003,9 @@
    "armor": 450
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCJOKA",
+  "icon": "/static/images/items/KEOCJOKA.png"
  },
  "아케인셰이드 메이지햇": {
   "part": "모자",
@@ -2441,7 +3020,45 @@
    "ignore_monster_armor": 15
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCPPOI",
+  "icon": "/static/images/items/KEPCPPOI.png"
+ },
+ "아케인셰이드 샤이닝로드": {
+  "part": "샤이닝 로드",
+  "slot": "무기",
+  "level": 200,
+  "slots": 9,
+  "base": {
+   "int": 100,
+   "luk": 100,
+   "attack_power": 206,
+   "magic_power": 347,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KENDJGMB",
+  "source": "api",
+  "icon": "/static/images/items/KENDJGMB.png"
+ },
+ "아케인셰이드 스태프": {
+  "part": "스태프",
+  "slot": "무기",
+  "level": 200,
+  "slots": 9,
+  "base": {
+   "int": 100,
+   "luk": 100,
+   "attack_power": 218,
+   "magic_power": 353,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMKJFIE",
+  "source": "api",
+  "icon": "/static/images/items/KEMKJFIE.png"
  },
  "아케인셰이드 시프글러브": {
   "part": "장갑",
@@ -2455,7 +3072,9 @@
    "armor": 250
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJBHJ",
+  "icon": "/static/images/items/KEPKJBHJ.png"
  },
  "아케인셰이드 시프숄더": {
   "part": "어깨장식",
@@ -2472,7 +3091,9 @@
    "armor": 300
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJGHI",
+  "icon": "/static/images/items/KEOHJGHI.png"
  },
  "아케인셰이드 시프슈즈": {
   "part": "신발",
@@ -2488,7 +3109,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIGIA",
+  "icon": "/static/images/items/KEPFIGIA.png"
  },
  "아케인셰이드 시프케이프": {
   "part": "망토",
@@ -2505,7 +3128,9 @@
    "armor": 450
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCJOKC",
+  "icon": "/static/images/items/KEOCJOKC.png"
  },
  "아케인셰이드 아처글러브": {
   "part": "장갑",
@@ -2519,7 +3144,9 @@
    "armor": 250
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJBHG",
+  "icon": "/static/images/items/KEPKJBHG.png"
  },
  "아케인셰이드 아처숄더": {
   "part": "어깨장식",
@@ -2536,7 +3163,9 @@
    "armor": 300
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJGHJ",
+  "icon": "/static/images/items/KEOHJGHJ.png"
  },
  "아케인셰이드 아처슈즈": {
   "part": "신발",
@@ -2552,7 +3181,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIGIB",
+  "icon": "/static/images/items/KEPFIGIB.png"
  },
  "아케인셰이드 아처케이프": {
   "part": "망토",
@@ -2569,7 +3200,9 @@
    "armor": 450
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCJOKD",
+  "icon": "/static/images/items/KEOCJOKD.png"
  },
  "아케인셰이드 파이렛글러브": {
   "part": "장갑",
@@ -2583,7 +3216,9 @@
    "armor": 250
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJBHI",
+  "icon": "/static/images/items/KEPKJBHI.png"
  },
  "아케인셰이드 파이렛숄더": {
   "part": "어깨장식",
@@ -2600,7 +3235,9 @@
    "armor": 300
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJFOB",
+  "icon": "/static/images/items/KEOHJFOB.png"
  },
  "아케인셰이드 파이렛슈즈": {
   "part": "신발",
@@ -2616,7 +3253,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIGID",
+  "icon": "/static/images/items/KEPFIGID.png"
  },
  "아케인셰이드 파이렛케이프": {
   "part": "망토",
@@ -2633,7 +3272,9 @@
    "armor": 450
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCJOKF",
+  "icon": "/static/images/items/KEOCJOKF.png"
  },
  "아쿠아틱 레터 눈장식": {
   "part": "눈장식",
@@ -2668,6 +3309,17 @@
   "tradable": true,
   "source": "api"
  },
+ "악몽의 주인": {
+  "part": "훈장",
+  "slot": "훈장",
+  "level": 0,
+  "slots": 0,
+  "base": {},
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGICNA",
+  "source": "api",
+  "icon": "/static/images/items/KEOGICNA.png"
+ },
  "앱솔랩스 나이트글러브": {
   "part": "장갑",
   "slot": "장갑",
@@ -2680,7 +3332,9 @@
    "armor": 150
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJBNH",
+  "icon": "/static/images/items/KEPKJBNH.png"
  },
  "앱솔랩스 나이트숄더": {
   "part": "어깨장식",
@@ -2697,7 +3351,9 @@
    "armor": 100
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJGJF",
+  "icon": "/static/images/items/KEOHJGJF.png"
  },
  "앱솔랩스 나이트슈즈": {
   "part": "신발",
@@ -2713,7 +3369,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIHNB",
+  "icon": "/static/images/items/KEPFIHNB.png"
  },
  "앱솔랩스 나이트케이프": {
   "part": "망토",
@@ -2730,7 +3388,9 @@
    "armor": 250
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCJAJE",
+  "icon": "/static/images/items/KEOCJAJE.png"
  },
  "앱솔랩스 나이트헬름": {
   "part": "모자",
@@ -2745,7 +3405,9 @@
    "ignore_monster_armor": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCPDMD",
+  "icon": "/static/images/items/KEPCPDMD.png"
  },
  "앱솔랩스 메이지글러브": {
   "part": "장갑",
@@ -2759,7 +3421,9 @@
    "armor": 150
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJBNG",
+  "icon": "/static/images/items/KEPKJBNG.png"
  },
  "앱솔랩스 메이지숄더": {
   "part": "어깨장식",
@@ -2776,7 +3440,9 @@
    "armor": 100
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJGJH",
+  "icon": "/static/images/items/KEOHJGJH.png"
  },
  "앱솔랩스 메이지슈즈": {
   "part": "신발",
@@ -2792,7 +3458,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIHND",
+  "icon": "/static/images/items/KEPFIHND.png"
  },
  "앱솔랩스 메이지케이프": {
   "part": "망토",
@@ -2809,7 +3477,9 @@
    "armor": 250
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCJAHF",
+  "icon": "/static/images/items/KEOCJAHF.png"
  },
  "앱솔랩스 스펠링스태프": {
   "part": "스태프",
@@ -2839,7 +3509,9 @@
    "armor": 150
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJBNI",
+  "icon": "/static/images/items/KEPKJBNI.png"
  },
  "앱솔랩스 시프숄더": {
   "part": "어깨장식",
@@ -2856,7 +3528,9 @@
    "armor": 100
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJGJJ",
+  "icon": "/static/images/items/KEOHJGJJ.png"
  },
  "앱솔랩스 시프슈즈": {
   "part": "신발",
@@ -2872,7 +3546,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIHNF",
+  "icon": "/static/images/items/KEPFIHNF.png"
  },
  "앱솔랩스 시프캡": {
   "part": "모자",
@@ -2887,7 +3563,9 @@
    "ignore_monster_armor": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCPDME",
+  "icon": "/static/images/items/KEPCPDME.png"
  },
  "앱솔랩스 시프케이프": {
   "part": "망토",
@@ -2904,7 +3582,98 @@
    "armor": 250
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCJAHH",
+  "icon": "/static/images/items/KEOCJAHH.png"
+ },
+ "앱솔랩스 아처글러브": {
+  "part": "장갑",
+  "slot": "장갑",
+  "level": 160,
+  "slots": 8,
+  "base": {
+   "str": 20,
+   "dex": 20,
+   "attack_power": 5,
+   "armor": 150
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJBNJ",
+  "source": "api",
+  "icon": "/static/images/items/KEPKJBNJ.png"
+ },
+ "앱솔랩스 아처숄더": {
+  "part": "어깨장식",
+  "slot": "어깨장식",
+  "level": 160,
+  "slots": 2,
+  "base": {
+   "str": 14,
+   "dex": 14,
+   "int": 14,
+   "luk": 14,
+   "attack_power": 10,
+   "magic_power": 10,
+   "armor": 100
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJGJG",
+  "source": "api",
+  "icon": "/static/images/items/KEOHJGJG.png"
+ },
+ "앱솔랩스 아처슈즈": {
+  "part": "신발",
+  "slot": "신발",
+  "level": 160,
+  "slots": 8,
+  "base": {
+   "str": 20,
+   "dex": 20,
+   "attack_power": 5,
+   "armor": 150,
+   "speed": 10,
+   "jump": 7
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIHNC",
+  "source": "api",
+  "icon": "/static/images/items/KEPFIHNC.png"
+ },
+ "앱솔랩스 아처케이프": {
+  "part": "망토",
+  "slot": "망토",
+  "level": 160,
+  "slots": 8,
+  "base": {
+   "str": 15,
+   "dex": 15,
+   "int": 15,
+   "luk": 15,
+   "attack_power": 2,
+   "magic_power": 2,
+   "armor": 250
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCJAHE",
+  "source": "api",
+  "icon": "/static/images/items/KEOCJAHE.png"
+ },
+ "앱솔랩스 아처후드": {
+  "part": "모자",
+  "slot": "모자",
+  "level": 160,
+  "slots": 12,
+  "base": {
+   "str": 45,
+   "dex": 45,
+   "attack_power": 3,
+   "armor": 400,
+   "ignore_monster_armor": 10
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCPDMF",
+  "source": "api",
+  "icon": "/static/images/items/KEPCPDMF.png"
  },
  "앱솔랩스 파이렛글러브": {
   "part": "장갑",
@@ -2918,7 +3687,9 @@
    "armor": 150
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJBKB",
+  "icon": "/static/images/items/KEPKJBKB.png"
  },
  "앱솔랩스 파이렛숄더": {
   "part": "어깨장식",
@@ -2935,7 +3706,9 @@
    "armor": 100
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJGJI",
+  "icon": "/static/images/items/KEOHJGJI.png"
  },
  "앱솔랩스 파이렛슈즈": {
   "part": "신발",
@@ -2951,7 +3724,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIHNE",
+  "icon": "/static/images/items/KEPFIHNE.png"
  },
  "앱솔랩스 파이렛케이프": {
   "part": "망토",
@@ -2968,7 +3743,9 @@
    "armor": 250
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCJAHG",
+  "icon": "/static/images/items/KEOCJAHG.png"
  },
  "어드벤처 딥다크 크리티컬 링": {
   "part": "반지",
@@ -2986,7 +3763,9 @@
    "magic_power": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODPEPD",
+  "icon": "/static/images/items/KEODPEPD.png"
  },
  "어비스 헌터스 링": {
   "part": "반지",
@@ -3004,7 +3783,9 @@
    "magic_power": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODPEMG",
+  "icon": "/static/images/items/KEODPEMG.png"
  },
  "어센던트 펄스 링": {
   "part": "반지",
@@ -3023,7 +3804,9 @@
    "armor": 150
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODPENE",
+  "icon": "/static/images/items/KEODPENE.png"
  },
  "어웨이크 링": {
   "part": "반지",
@@ -3041,7 +3824,27 @@
    "magic_power": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODPEPJ",
+  "icon": "/static/images/items/KEODPEPJ.png"
+ },
+ "얼티밋 링": {
+  "part": "반지",
+  "slot": "반지2",
+  "level": 100,
+  "slots": 2,
+  "base": {
+   "str": 6,
+   "dex": 6,
+   "int": 6,
+   "luk": 6,
+   "attack_power": 2,
+   "magic_power": 2
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODJAHF",
+  "source": "api",
+  "icon": "/static/images/items/KEODJAHF.png"
  },
  "얼티밋 패스": {
   "part": "패스 오브 어비스",
@@ -3054,7 +3857,9 @@
    "attack_power": 3
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHIBOC",
+  "icon": "/static/images/items/KEMHIBOC.png"
  },
  "에레브의 광휘": {
   "part": "보석",
@@ -3070,7 +3875,9 @@
    "magic_power": 3
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHJOJD",
+  "icon": "/static/images/items/KEMHJOJD.png"
  },
  "에스텔라 이어링": {
   "part": "귀고리",
@@ -3089,7 +3896,9 @@
    "armor": 100
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPBJENB",
+  "icon": "/static/images/items/KEPBJENB.png"
  },
  "에테르넬 나이트글러브": {
   "part": "장갑",
@@ -3103,7 +3912,9 @@
    "armor": 325
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJAIB",
+  "icon": "/static/images/items/KEPKJAIB.png"
  },
  "에테르넬 나이트숄더": {
   "part": "어깨장식",
@@ -3120,7 +3931,9 @@
    "armor": 450
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJFPD",
+  "icon": "/static/images/items/KEOHJFPD.png"
  },
  "에테르넬 나이트슈즈": {
   "part": "신발",
@@ -3136,7 +3949,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIBMI",
+  "icon": "/static/images/items/KEPFIBMI.png"
  },
  "에테르넬 나이트아머": {
   "part": "상의",
@@ -3151,7 +3966,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPGJDNC",
+  "icon": "/static/images/items/KEPGJDNC.png"
  },
  "에테르넬 나이트케이프": {
   "part": "망토",
@@ -3168,7 +3985,9 @@
    "armor": 600
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCIDNC",
+  "icon": "/static/images/items/KEOCIDNC.png"
  },
  "에테르넬 나이트팬츠": {
   "part": "하의",
@@ -3183,7 +4002,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPEJFGE",
+  "icon": "/static/images/items/KEPEJFGE.png"
  },
  "에테르넬 나이트헬름": {
   "part": "모자",
@@ -3198,7 +4019,9 @@
    "ignore_monster_armor": 15
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCOOGB",
+  "icon": "/static/images/items/KEPCOOGB.png"
  },
  "에테르넬 메이지글러브": {
   "part": "장갑",
@@ -3212,7 +4035,9 @@
    "armor": 325
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJAIA",
+  "icon": "/static/images/items/KEPKJAIA.png"
  },
  "에테르넬 메이지로브": {
   "part": "상의",
@@ -3227,7 +4052,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPGJDNF",
+  "icon": "/static/images/items/KEPGJDNF.png"
  },
  "에테르넬 메이지숄더": {
   "part": "어깨장식",
@@ -3244,7 +4071,9 @@
    "armor": 450
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJFPC",
+  "icon": "/static/images/items/KEOHJFPC.png"
  },
  "에테르넬 메이지슈즈": {
   "part": "신발",
@@ -3260,7 +4089,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIBNB",
+  "icon": "/static/images/items/KEPFIBNB.png"
  },
  "에테르넬 메이지케이프": {
   "part": "망토",
@@ -3277,7 +4108,9 @@
    "armor": 600
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCIDNF",
+  "icon": "/static/images/items/KEOCIDNF.png"
  },
  "에테르넬 메이지팬츠": {
   "part": "하의",
@@ -3292,7 +4125,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPEJFGH",
+  "icon": "/static/images/items/KEPEJFGH.png"
  },
  "에테르넬 메이지햇": {
   "part": "모자",
@@ -3307,7 +4142,9 @@
    "ignore_monster_armor": 15
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCOOGA",
+  "icon": "/static/images/items/KEPCOOGA.png"
  },
  "에테르넬 시프글러브": {
   "part": "장갑",
@@ -3321,7 +4158,9 @@
    "armor": 325
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJAIC",
+  "icon": "/static/images/items/KEPKJAIC.png"
  },
  "에테르넬 시프반다나": {
   "part": "모자",
@@ -3336,7 +4175,9 @@
    "ignore_monster_armor": 15
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCOOGC",
+  "icon": "/static/images/items/KEPCOOGC.png"
  },
  "에테르넬 시프셔츠": {
   "part": "상의",
@@ -3351,7 +4192,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPGJDNH",
+  "icon": "/static/images/items/KEPGJDNH.png"
  },
  "에테르넬 시프숄더": {
   "part": "어깨장식",
@@ -3368,7 +4211,9 @@
    "armor": 450
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJFPE",
+  "icon": "/static/images/items/KEOHJFPE.png"
  },
  "에테르넬 시프슈즈": {
   "part": "신발",
@@ -3384,7 +4229,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIBND",
+  "icon": "/static/images/items/KEPFIBND.png"
  },
  "에테르넬 시프케이프": {
   "part": "망토",
@@ -3401,7 +4248,9 @@
    "armor": 600
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCIDNH",
+  "icon": "/static/images/items/KEOCIDNH.png"
  },
  "에테르넬 시프팬츠": {
   "part": "하의",
@@ -3416,7 +4265,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPEJFGJ",
+  "icon": "/static/images/items/KEPEJFGJ.png"
  },
  "에테르넬 아처글러브": {
   "part": "장갑",
@@ -3430,7 +4281,9 @@
    "armor": 325
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJAID",
+  "icon": "/static/images/items/KEPKJAID.png"
  },
  "에테르넬 아처숄더": {
   "part": "어깨장식",
@@ -3447,7 +4300,9 @@
    "armor": 450
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJFPF",
+  "icon": "/static/images/items/KEOHJFPF.png"
  },
  "에테르넬 아처슈즈": {
   "part": "신발",
@@ -3463,7 +4318,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIBNA",
+  "icon": "/static/images/items/KEPFIBNA.png"
  },
  "에테르넬 아처케이프": {
   "part": "망토",
@@ -3480,7 +4337,9 @@
    "armor": 600
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCIDNE",
+  "icon": "/static/images/items/KEOCIDNE.png"
  },
  "에테르넬 아처팬츠": {
   "part": "하의",
@@ -3495,7 +4354,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPEJFGG",
+  "icon": "/static/images/items/KEPEJFGG.png"
  },
  "에테르넬 아처햇": {
   "part": "모자",
@@ -3510,7 +4371,9 @@
    "ignore_monster_armor": 15
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCOOGD",
+  "icon": "/static/images/items/KEPCOOGD.png"
  },
  "에테르넬 아처후드": {
   "part": "상의",
@@ -3525,7 +4388,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPGJDNE",
+  "icon": "/static/images/items/KEPGJDNE.png"
  },
  "에테르넬 파이렛글러브": {
   "part": "장갑",
@@ -3539,7 +4404,9 @@
    "armor": 325
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPKJAIF",
+  "icon": "/static/images/items/KEPKJAIF.png"
  },
  "에테르넬 파이렛숄더": {
   "part": "어깨장식",
@@ -3556,7 +4423,9 @@
    "armor": 450
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOHJFPH",
+  "icon": "/static/images/items/KEOHJFPH.png"
  },
  "에테르넬 파이렛슈즈": {
   "part": "신발",
@@ -3572,7 +4441,9 @@
    "jump": 7
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPFIBNC",
+  "icon": "/static/images/items/KEPFIBNC.png"
  },
  "에테르넬 파이렛케이프": {
   "part": "망토",
@@ -3589,7 +4460,9 @@
    "armor": 600
   },
   "tradable": true,
-  "source": "inferred"
+  "source": "inferred",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOCIDNG",
+  "icon": "/static/images/items/KEOCIDNG.png"
  },
  "에테르넬 파이렛코트": {
   "part": "상의",
@@ -3604,7 +4477,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPGJDNG",
+  "icon": "/static/images/items/KEPGJDNG.png"
  },
  "에테르넬 파이렛팬츠": {
   "part": "하의",
@@ -3619,7 +4494,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPEJFGI",
+  "icon": "/static/images/items/KEPEJFGI.png"
  },
  "에테르넬 파이렛햇": {
   "part": "모자",
@@ -3634,7 +4511,9 @@
    "ignore_monster_armor": 15
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCOOGF",
+  "icon": "/static/images/items/KEPCOOGF.png"
  },
  "엔젤 엠블렘": {
   "part": "엠블렘",
@@ -3649,7 +4528,9 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLGOA",
+  "icon": "/static/images/items/KEOLLGOA.png"
  },
  "여명의 가디언 엔젤 링": {
   "part": "반지",
@@ -3667,7 +4548,9 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIEPH",
+  "icon": "/static/images/items/KEODIEPH.png"
  },
  "여행자의 윙글래스": {
   "part": "눈장식",
@@ -3683,7 +4566,9 @@
    "jump": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPAJGKA",
+  "icon": "/static/images/items/KEPAJGKA.png"
  },
  "오닉스 링 \"완성\"": {
   "part": "반지",
@@ -3732,7 +4617,9 @@
    "armor": 300
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPDJOPA",
+  "icon": "/static/images/items/KEPDJOPA.png"
  },
  "오션 글로우 이어링": {
   "part": "귀고리",
@@ -3751,7 +4638,9 @@
    "armor": 75
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPBJFND",
+  "icon": "/static/images/items/KEPBJFND.png"
  },
  "옥타코어 컨트롤러": {
   "part": "컨트롤러",
@@ -3782,7 +4671,9 @@
    "armor": 105
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJHHG",
+  "icon": "/static/images/items/KEOAJHHG.png"
  },
  "월장석 선추": {
   "part": "선추",
@@ -3843,7 +4734,26 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPGJFLE",
+  "icon": "/static/images/items/KEPGJFLE.png"
+ },
+ "이글아이 레인져후드": {
+  "part": "상의",
+  "slot": "상의",
+  "level": 150,
+  "slots": 8,
+  "base": {
+   "str": 30,
+   "dex": 30,
+   "attack_power": 2,
+   "armor": 135,
+   "ignore_monster_armor": 5
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPGJFLH",
+  "source": "api",
+  "icon": "/static/images/items/KEPGJFLH.png"
  },
  "이글아이 어새신셔츠": {
   "part": "상의",
@@ -3858,7 +4768,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPGJFLG",
+  "icon": "/static/images/items/KEPGJFLG.png"
  },
  "이글아이 워리어아머": {
   "part": "상의",
@@ -3873,7 +4785,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPGJFLF",
+  "icon": "/static/images/items/KEPGJFLF.png"
  },
  "이글아이 원더러코트": {
   "part": "상의",
@@ -3888,7 +4802,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPGJFLJ",
+  "icon": "/static/images/items/KEPGJFLJ.png"
  },
  "이볼빙 얼티밋 패스": {
   "part": "패스 오브 어비스",
@@ -3914,7 +4830,9 @@
    "attack_power": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHPHKH",
+  "icon": "/static/images/items/KEMHPHKH.png"
  },
  "이볼빙 청은의 서 <종장>": {
   "part": "마도서",
@@ -3927,7 +4845,9 @@
    "magic_power": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHJFKC",
+  "icon": "/static/images/items/KEMHJFKC.png"
  },
  "이클레틱 차알스톤": {
   "part": "장갑",
@@ -3957,7 +4877,9 @@
    "magic_power": 2
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOLLOOB",
+  "icon": "/static/images/items/KEOLLOOB.png"
  },
  "이터널 플레임 링": {
   "part": "반지",
@@ -3975,7 +4897,9 @@
    "magic_power": 25
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODPEMF",
+  "icon": "/static/images/items/KEODPEMF.png"
  },
  "일요일엔 역시 몬스터파크": {
   "part": "훈장",
@@ -4022,7 +4946,9 @@
    "magic_power": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOEJHGD",
+  "icon": "/static/images/items/KEOEJHGD.png"
  },
  "저주받은 적의 마도서": {
   "part": "포켓 아이템",
@@ -4040,7 +4966,9 @@
    "magic_power": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOEJHGB",
+  "icon": "/static/images/items/KEOEJHGB.png"
  },
  "저주받은 청의 마도서": {
   "part": "포켓 아이템",
@@ -4058,7 +4986,9 @@
    "magic_power": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOEJHGA",
+  "icon": "/static/images/items/KEOEJHGA.png"
  },
  "저주받은 황의 마도서": {
   "part": "포켓 아이템",
@@ -4076,7 +5006,9 @@
    "magic_power": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOEJHGC",
+  "icon": "/static/images/items/KEOEJHGC.png"
  },
  "적녹의 서 <종장>": {
   "part": "마도서",
@@ -4098,7 +5030,9 @@
   "slots": 0,
   "base": {},
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJENF",
+  "icon": "/static/images/items/KEOAJENF.png"
  },
  "제네시스 ESP리미터": {
   "part": "ESP 리미터",
@@ -4114,7 +5048,26 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KENEJHLA",
+  "icon": "/static/images/items/KENEJHLA.png"
+ },
+ "제네시스 가즈": {
+  "part": "아대",
+  "slot": "무기",
+  "level": 200,
+  "slots": 8,
+  "base": {
+   "dex": 150,
+   "luk": 150,
+   "attack_power": 172,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELFJFJE",
+  "source": "api",
+  "icon": "/static/images/items/KELFJFJE.png"
  },
  "제네시스 라즐리": {
   "part": "태도",
@@ -4129,7 +5082,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEKFJHPB",
+  "icon": "/static/images/items/KEKFJHPB.png"
  },
  "제네시스 라피스": {
   "part": "대검",
@@ -4145,7 +5100,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEKEJHPB",
+  "icon": "/static/images/items/KEKEJHPB.png"
  },
  "제네시스 매직 건틀렛": {
   "part": "매직 건틀렛",
@@ -4177,7 +5134,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELHJFIH",
+  "icon": "/static/images/items/KELHJFIH.png"
  },
  "제네시스 브레스 슈터": {
   "part": "브레스 슈터",
@@ -4208,7 +5167,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KENAJGMD",
+  "icon": "/static/images/items/KENAJGMD.png"
  },
  "제네시스 스태프": {
   "part": "스태프",
@@ -4224,7 +5185,26 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMKJFJF",
+  "icon": "/static/images/items/KEMKJFJF.png"
+ },
+ "제네시스 스피어": {
+  "part": "창",
+  "slot": "무기",
+  "level": 200,
+  "slots": 8,
+  "base": {
+   "str": 150,
+   "dex": 150,
+   "attack_power": 340,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELBJFMG",
+  "source": "api",
+  "icon": "/static/images/items/KELBJFMG.png"
  },
  "제네시스 에너지체인": {
   "part": "에너지소드",
@@ -4256,6 +5236,23 @@
   "tradable": true,
   "source": "api"
  },
+ "제네시스 이클립스": {
+  "part": "차크람",
+  "slot": "무기",
+  "level": 200,
+  "slots": 8,
+  "base": {
+   "dex": 150,
+   "luk": 150,
+   "attack_power": 318,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELCPHMD",
+  "source": "api",
+  "icon": "/static/images/items/KELCPHMD.png"
+ },
  "제네시스 창세검": {
   "part": "장검",
   "slot": "무기",
@@ -4269,7 +5266,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KENDOHMF",
+  "icon": "/static/images/items/KENDOHMF.png"
  },
  "제네시스 창세선": {
   "part": "부채",
@@ -4284,7 +5283,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KENLJHMD",
+  "icon": "/static/images/items/KENLJHMD.png"
  },
  "제네시스 카르타": {
   "part": "카르타",
@@ -4300,7 +5301,27 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KENDNHMF",
+  "icon": "/static/images/items/KENDNHMF.png"
+ },
+ "제네시스 크로스보우": {
+  "part": "석궁",
+  "slot": "무기",
+  "level": 200,
+  "slots": 8,
+  "base": {
+   "str": 150,
+   "dex": 150,
+   "attack_power": 326,
+   "speed": 19,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELEJFLD",
+  "source": "api",
+  "icon": "/static/images/items/KELEJFLD.png"
  },
  "제네시스 클로": {
   "part": "너클",
@@ -4315,7 +5336,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELKJFND",
+  "icon": "/static/images/items/KELKJFND.png"
  },
  "제네시스 투핸드소드": {
   "part": "두손검",
@@ -4330,7 +5353,26 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELCJFIJ",
+  "icon": "/static/images/items/KELCJFIJ.png"
+ },
+ "제네시스 투핸드엑스": {
+  "part": "두손도끼",
+  "slot": "무기",
+  "level": 200,
+  "slots": 8,
+  "base": {
+   "str": 150,
+   "dex": 150,
+   "attack_power": 340,
+   "boss_damage": 30,
+   "ignore_monster_armor": 20
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELDJGGI",
+  "source": "api",
+  "icon": "/static/images/items/KELDJGGI.png"
  },
  "제네시스 투핸드해머": {
   "part": "두손둔기",
@@ -4345,7 +5387,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KELAJGHG",
+  "icon": "/static/images/items/KELAJGHG.png"
  },
  "제네시스 튜너": {
   "part": "튜너",
@@ -4360,7 +5404,9 @@
    "ignore_monster_armor": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KENDIHMD",
+  "icon": "/static/images/items/KENDIHMD.png"
  },
  "제네시스 피스톨": {
   "part": "건",
@@ -4393,7 +5439,9 @@
    "max_hp_rate": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJDKG",
+  "icon": "/static/images/items/KEOAJDKG.png"
  },
  "지옥의 불꽃": {
   "part": "귀고리",
@@ -4444,7 +5492,9 @@
    "jump": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOKJFGE",
+  "icon": "/static/images/items/KEOKJFGE.png"
  },
  "청은의 서 <블랙>": {
   "part": "마도서",
@@ -4459,6 +5509,21 @@
   "tradable": true,
   "source": "api"
  },
+ "청은의 서 <종장>": {
+  "part": "마도서",
+  "slot": "보조무기",
+  "level": 100,
+  "slots": 0,
+  "base": {
+   "int": 10,
+   "luk": 10,
+   "magic_power": 3
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHJFKD",
+  "source": "api",
+  "icon": "/static/images/items/KEMHJFKD.png"
+ },
  "체스피스 디 퀸": {
   "part": "체스피스",
   "slot": "보조무기",
@@ -4470,7 +5535,9 @@
    "magic_power": 3
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHIFOC",
+  "icon": "/static/images/items/KEMHIFOC.png"
  },
  "체스피스 블랙 퀸": {
   "part": "체스피스",
@@ -4500,7 +5567,9 @@
    "ignore_monster_armor": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGJOMD",
+  "icon": "/static/images/items/KEOGJOMD.png"
  },
  "칠요의 뱃지": {
   "part": "뱃지",
@@ -4517,7 +5586,20 @@
    "ignore_monster_armor": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOKJFOB",
+  "icon": "/static/images/items/KEOKJFOB.png"
+ },
+ "카르마 오브": {
+  "part": "오브",
+  "slot": "보조무기",
+  "level": 100,
+  "slots": 0,
+  "base": {},
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHJDOC",
+  "source": "api",
+  "icon": "/static/images/items/KEMHJDOC.png"
  },
  "카오스 링": {
   "part": "반지",
@@ -4535,7 +5617,9 @@
    "magic_power": 20
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODPEOH",
+  "icon": "/static/images/items/KEODPEOH.png"
  },
  "카오스 벨룸 킬러": {
   "part": "훈장",
@@ -4546,7 +5630,9 @@
    "boss_damage": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGJOOE",
+  "icon": "/static/images/items/KEOGJOOE.png"
  },
  "카오스 핑크빈 마크": {
   "part": "눈장식",
@@ -4582,7 +5668,9 @@
    "max_mp_rate": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJHJH",
+  "icon": "/static/images/items/KEOAJHJH.png"
  },
  "커맨더 포스 이어링": {
   "part": "귀고리",
@@ -4601,7 +5689,9 @@
    "armor": 100
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPBJEPH",
+  "icon": "/static/images/items/KEPBJEPH.png"
  },
  "컨티뉴어스 링": {
   "part": "반지",
@@ -4617,7 +5707,9 @@
    "magic_power": 4
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIEMI",
+  "icon": "/static/images/items/KEODIEMI.png"
  },
  "컴플리트 언더컨트롤": {
   "part": "기계 심장",
@@ -4635,7 +5727,9 @@
    "ignore_monster_armor": 30
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEJFJHHE",
+  "icon": "/static/images/items/KEJFJHHE.png"
  },
  "코스모스 링": {
   "part": "반지",
@@ -4644,7 +5738,9 @@
   "slots": 20,
   "base": {},
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODPEOC",
+  "icon": "/static/images/items/KEODPEOC.png"
  },
  "크리스탈 웬투스 뱃지": {
   "part": "뱃지",
@@ -4662,7 +5758,9 @@
    "jump": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOKJHGG",
+  "icon": "/static/images/items/KEOKJHGG.png"
  },
  "타일런트 리카온 벨트": {
   "part": "벨트",
@@ -4696,7 +5794,9 @@
    "armor": 105
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOBJGJJ",
+  "icon": "/static/images/items/KEOBJGJJ.png"
  },
  "타일런트 헤르메스 벨트": {
   "part": "벨트",
@@ -4713,7 +5813,9 @@
    "armor": 105
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOBJGJE",
+  "icon": "/static/images/items/KEOBJGJE.png"
  },
  "타일런트 히아데스 벨트": {
   "part": "벨트",
@@ -4743,6 +5845,26 @@
   "tradable": true,
   "source": "api"
  },
+ "태양과 맞서 싸운 자": {
+  "part": "훈장",
+  "slot": "훈장",
+  "level": 200,
+  "slots": 0,
+  "base": {
+   "str": 15,
+   "dex": 15,
+   "int": 15,
+   "luk": 15,
+   "max_hp": 1000,
+   "max_mp": 1000,
+   "attack_power": 6,
+   "magic_power": 6
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGIEIH",
+  "source": "api",
+  "icon": "/static/images/items/KEOGIEIH.png"
+ },
  "테네브리스 원정대 반지": {
   "part": "반지",
   "slot": "반지1",
@@ -4759,7 +5881,9 @@
    "magic_power": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODPEOG",
+  "icon": "/static/images/items/KEODPEOG.png"
  },
  "템페스트 링": {
   "part": "반지",
@@ -4790,7 +5914,26 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPEJGIH",
+  "icon": "/static/images/items/KEPEJGIH.png"
+ },
+ "트릭스터 레인져팬츠": {
+  "part": "하의",
+  "slot": "하의",
+  "level": 150,
+  "slots": 8,
+  "base": {
+   "str": 30,
+   "dex": 30,
+   "attack_power": 2,
+   "armor": 135,
+   "ignore_monster_armor": 5
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPEJGIG",
+  "source": "api",
+  "icon": "/static/images/items/KEPEJGIG.png"
  },
  "트릭스터 어새신팬츠": {
   "part": "하의",
@@ -4805,7 +5948,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPEJGIJ",
+  "icon": "/static/images/items/KEPEJGIJ.png"
  },
  "트릭스터 워리어팬츠": {
   "part": "하의",
@@ -4820,7 +5965,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPEJGIE",
+  "icon": "/static/images/items/KEPEJGIE.png"
  },
  "트릭스터 원더러팬츠": {
   "part": "하의",
@@ -4835,7 +5982,9 @@
    "ignore_monster_armor": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPEJGII",
+  "icon": "/static/images/items/KEPEJGII.png"
  },
  "트와일라이트 마크": {
   "part": "얼굴장식",
@@ -4852,7 +6001,9 @@
    "armor": 100
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPDJALG",
+  "icon": "/static/images/items/KEPDJALG.png"
  },
  "튼튼한 기계 장갑": {
   "part": "장갑",
@@ -4865,6 +6016,23 @@
   "tradable": true,
   "source": "api"
  },
+ "티타늄 하트": {
+  "part": "기계 심장",
+  "slot": "기계 심장",
+  "level": 100,
+  "slots": 10,
+  "base": {
+   "str": 3,
+   "dex": 3,
+   "int": 3,
+   "luk": 3,
+   "max_hp": 50
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEJFJHKB",
+  "source": "api",
+  "icon": "/static/images/items/KEJFJHKB.png"
+ },
  "파사부": {
   "part": "부적",
   "slot": "보조무기",
@@ -4876,7 +6044,9 @@
    "attack_power": 3
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEMHJFHD",
+  "icon": "/static/images/items/KEMHJFHD.png"
  },
  "파풀라투스 마크": {
   "part": "눈장식",
@@ -4893,7 +6063,9 @@
    "armor": 150
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPAJFJG",
+  "icon": "/static/images/items/KEPAJFJG.png"
  },
  "페어리 하트": {
   "part": "기계 심장",
@@ -4904,7 +6076,9 @@
    "max_hp": 100
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEJFJHJI",
+  "icon": "/static/images/items/KEJFJHJI.png"
  },
  "포톤 부츠": {
   "part": "신발",
@@ -4941,6 +6115,40 @@
   "tradable": true,
   "source": "api"
  },
+ "푸른색 가람": {
+  "part": "상의",
+  "slot": "상의",
+  "level": 18,
+  "slots": 8,
+  "base": {
+   "max_mp": 10,
+   "armor": 15
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPGLHMB",
+  "source": "api",
+  "icon": "/static/images/items/KEPGLHMB.png"
+ },
+ "프리미엄 PC방": {
+  "part": "훈장",
+  "slot": "훈장",
+  "level": 0,
+  "slots": 0,
+  "base": {
+   "str": 8,
+   "dex": 8,
+   "int": 8,
+   "luk": 8,
+   "max_hp": 300,
+   "max_mp": 300,
+   "attack_power": 10,
+   "magic_power": 10
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGJGKE",
+  "source": "api",
+  "icon": "/static/images/items/KEOGJGKE.png"
+ },
  "플라즈마 하트": {
   "part": "기계 심장",
   "slot": "기계 심장",
@@ -4958,7 +6166,9 @@
    "ignore_monster_armor": 15
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEJFJHHI",
+  "icon": "/static/images/items/KEJFJHHI.png"
  },
  "피콕스 그린 펜던트": {
   "part": "펜던트",
@@ -4973,6 +6183,38 @@
   },
   "tradable": true,
   "source": "api"
+ },
+ "피콕스 레드 펜던트": {
+  "part": "펜던트",
+  "slot": "펜던트",
+  "level": 110,
+  "slots": 4,
+  "base": {
+   "luk": 8,
+   "max_hp": 90,
+   "max_mp": 90,
+   "armor": 105
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJGOA",
+  "source": "api",
+  "icon": "/static/images/items/KEOAJGOA.png"
+ },
+ "피콕스 핑크 펜던트": {
+  "part": "펜던트",
+  "slot": "펜던트2",
+  "level": 120,
+  "slots": 4,
+  "base": {
+   "luk": 12,
+   "max_hp": 135,
+   "max_mp": 135,
+   "armor": 145
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJGOD",
+  "source": "api",
+  "icon": "/static/images/items/KEOAJGOD.png"
  },
  "핑크빛 성배": {
   "part": "포켓 아이템",
@@ -4990,7 +6232,9 @@
    "magic_power": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOEJHME",
+  "icon": "/static/images/items/KEOEJHME.png"
  },
  "하이네스 던위치햇": {
   "part": "모자",
@@ -5007,7 +6251,28 @@
    "ignore_monster_armor": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCIAHJ",
+  "icon": "/static/images/items/KEPCIAHJ.png"
+ },
+ "하이네스 레인져베레": {
+  "part": "모자",
+  "slot": "모자",
+  "level": 150,
+  "slots": 12,
+  "base": {
+   "str": 40,
+   "dex": 40,
+   "max_hp": 360,
+   "max_mp": 360,
+   "attack_power": 2,
+   "armor": 300,
+   "ignore_monster_armor": 10
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCIAHI",
+  "source": "api",
+  "icon": "/static/images/items/KEPCIAHI.png"
  },
  "하이네스 어새신보닛": {
   "part": "모자",
@@ -5024,7 +6289,9 @@
    "ignore_monster_armor": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCIPOB",
+  "icon": "/static/images/items/KEPCIPOB.png"
  },
  "하이네스 워리어헬름": {
   "part": "모자",
@@ -5041,7 +6308,9 @@
    "ignore_monster_armor": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCIAHG",
+  "icon": "/static/images/items/KEPCIAHG.png"
  },
  "하이네스 원더러햇": {
   "part": "모자",
@@ -5058,7 +6327,9 @@
    "ignore_monster_armor": 10
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPCIPOA",
+  "icon": "/static/images/items/KEPCIPOA.png"
  },
  "하이브리드 하트": {
   "part": "엠블렘",
@@ -5082,7 +6353,9 @@
   "slots": 6,
   "base": {},
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEPBJHMD",
+  "icon": "/static/images/items/KEPBJHMD.png"
  },
  "해골 귀고리": {
   "part": "귀고리",
@@ -5092,6 +6365,26 @@
   "base": {},
   "tradable": true,
   "source": "api"
+ },
+ "호텔 메이플 VIP 멤버": {
+  "part": "훈장",
+  "slot": "훈장",
+  "level": 0,
+  "slots": 0,
+  "base": {
+   "str": 17,
+   "dex": 17,
+   "int": 17,
+   "luk": 17,
+   "max_hp": 850,
+   "max_mp": 850,
+   "attack_power": 7,
+   "magic_power": 7
+  },
+  "tradable": true,
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOGIFOJ",
+  "source": "api",
+  "icon": "/static/images/items/KEOGIFOJ.png"
  },
  "혼테일의 목걸이": {
   "part": "펜던트",
@@ -5106,7 +6399,9 @@
    "armor": 108
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEOAJHOB",
+  "icon": "/static/images/items/KEOAJHOB.png"
  },
  "황홀한 악몽": {
   "part": "반지",
@@ -5124,6 +6419,8 @@
    "magic_power": 5
   },
   "tradable": true,
-  "source": "api"
+  "source": "api",
+  "icon_url": "https://open.api.nexon.com/static/maplestory/item/icon/KEODIEIB",
+  "icon": "/static/images/items/KEODIEIB.png"
  }
 }
