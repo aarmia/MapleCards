@@ -5,8 +5,9 @@
 - 윗잠재·에디셔널: 메소 재설정으로 "환산 X% 이상"이 나올 때까지. 공식 줄별 확률(potential_odds.json)로 세 줄 합계 분포를 만들고,
   목표 X 마다 성공 확률 P 와 성공 시 기대값 E[V | V ≥ X] 를 구해 효율이 가장 높은 X 를 고릅니다.
   레전드리 미만이면 등급업 비용(천장 포함)을 더합니다.
-- 소울 증폭: 다음 1단계. 소울 잠재 수치가 단계에 정비례한다고 보고 지금 3줄 × (n+1)/n 로 증가를 구합니다.
-  0단계는 레전드리 공/마% 두 줄을 뽑아 쓴다고 가정합니다. 비용 = 기대 시도 수 × (메소 + 에테르 시세), 에테르 시세는 화면이 계산합니다.
+- 소울 증폭: 다음 1단계. 지금 3줄을 공식 표(soul_potential.json)의 다음 단계 값으로 바꿔 증가를 구합니다.
+  0단계는 미라클로 레전드리까지 올려 공/마% 두 줄을 뽑는 재설정 비용을 더합니다. 비용 = 기대 시도 수 × (메소 + 에테르 시세) + 재설정 메소,
+  에테르 시세는 화면이 계산합니다.
 - 추가옵션: 메소 재설정으로 "N급 이상"이 나올 때까지. 19종 중 4종(중복 없음) × 단계 확률로 급수 분포를 정확히 계산하고
   같은 방식으로 목표를 고릅니다.
 주스탯%는 표시·목표 판정 단위로 유지합니다. 상시 옵션은 기존 옵션 제거 후 새 옵션을 적용한
@@ -25,7 +26,7 @@ from app.flame_damage import rewards as flame_rewards
 from app.potential import StatContext, analyze_lines, convert_line
 from app.scoring_config import DATA_DIR, POTENTIAL, SCORING, SPEC_UP, STARFORCE_COST
 from app.set_projection import DAWN, MEMBERS, PITCHED, RADIANT
-from app.weapon import _BOSS, _DAMAGE, _IED, WeaponContext, analyze_weapon_lines, soul_lines
+from app.weapon import _BOSS, _DAMAGE, _IED, SOUL_KEYS, WeaponContext, analyze_weapon_lines
 
 ODDS = json.loads((DATA_DIR / "potential_odds.json").read_text(encoding="utf-8"))
 EOK = 100_000_000  # 1억 메소
@@ -399,7 +400,30 @@ def seed_ring_action(name: str, level: int, class_name: str, context: StatContex
 
 
 SOUL_AXIS = "소울 증폭"
-_SOUL_NUMBER = re.compile(r"\+(\d+(?:\.\d+)?)")
+SOUL_TABLES = json.loads((DATA_DIR / "soul_potential.json").read_text(encoding="utf-8"))["tables"]  # 등급 → 단계 → 줄 → [옵션, %]
+
+
+def next_soul_line(grade: str, line: int, stage: int, text: str) -> str:
+    """공식 표에서 같은 등급·줄·행의 다음 단계 옵션. 표에 없는 줄은 그대로 둡니다."""
+    stages = SOUL_TABLES.get(grade) or {}
+    if str(stage + 1) not in stages:
+        return text
+    return next((upgraded for (option, _), (upgraded, _) in zip(stages[str(stage)][line], stages[str(stage + 1)][line])
+                 if option == text), text)
+
+
+def soul_first_potential(attack_label: str) -> tuple[list[str], float, float]:
+    """0→1단계 뒤 소울 잠재: 레어에서 미라클로 레전드리까지 + 세 줄 중 공/마% 두 줄 이상이 나올 때까지 재설정.
+    (가정한 1단계 두 줄, 평균 메소, 두 줄 이상 확률)"""
+    soul = SPEC_UP.soul
+    meso = sum(expected_resets(chance * soul.miracle, pity) * cost
+               for chance, pity, cost in zip(soul.grade_up, soul.pity, soul.reset_cost))
+    pattern = re.compile(rf"^{attack_label} \+[\d.]+%$")
+    lines = SOUL_TABLES[SPEC_UP.cube.grades[-1]]["1"]
+    p1, p2, p3 = (sum(chance for text, chance in rows if pattern.match(text)) / 100 for rows in lines)
+    hit = p1 * p2 + p1 * p3 + p2 * p3 - 2 * p1 * p2 * p3
+    assumed = [max((row for row in rows if pattern.match(row[0])), key=lambda row: row[1])[0] for rows in lines[:2]]
+    return assumed, (meso + soul.reset_cost[-1] / hit) * EOK, hit
 
 
 def amplify_tries(chance: float, step: float, pity: int) -> float:
@@ -445,24 +469,27 @@ def soul_action(item: dict, level: int, context: StatContext, weapon: WeaponCont
     stage = int(item.get("soul_potential_amplified_grade") or 0)
     step = soul.amplify.get(str(stage + 1))
     per_pct = final_damage_per_pct(context)
-    before = soul_lines(item)
-    if step is None or per_pct <= 0 or (stage > 0 and not before):
-        return None
-    if stage == 0:  # 레전드리 공/마% 두 줄을 뽑아 쓴다고 가정
-        label = "마력" if context.main_stat == "int" else "공격력"
-        before, after = [], [f"{label} +{value:g}%" for value in soul.first_lines]
-    else:
-        factor = (stage + 1) / stage
-        after = [_SOUL_NUMBER.sub(lambda m: f"+{float(m[1]) * factor:g}", line, count=1) for line in before]
-    final_damage, method = soul_damage(before, after, context, weapon, char_level, damage_total)
-    if final_damage <= 0:
+    lines = [(index, str(item[key]).strip()) for index, key in enumerate(SOUL_KEYS) if str(item.get(key) or "").strip()]
+    if step is None or per_pct <= 0 or (stage > 0 and not lines):
         return None
     tries = amplify_tries(step["chance"], step["step"], step["pity"])
     meso = tries * step["meso"]
-    return {"axis": SOUL_AXIS, "label": f"{stage}→{stage + 1}단계 (평균 {tries:.1f}회 · {step['material']} {tries:.1f}개 + {meso / EOK:.1f}억)",
-            "final_damage": final_damage, "model": method, "gain": final_damage / per_pct,
-            "detail": "가정: 레전드리 " + " · ".join(after) if stage == 0 else " · ".join(before) + " → " + " · ".join(after),
-            "material": {"name": step["material"], "count": tries, "meso": meso}}
+    label = f"{stage}→{stage + 1}단계 (평균 {tries:.1f}회 · {step['material']} {tries:.1f}개 + {meso / EOK:.1f}억"
+    before = [text for _, text in lines]
+    if stage == 0:
+        after, potential, hit = soul_first_potential("마력" if context.main_stat == "int" else "공격력")
+        meso += potential
+        label += f" · 잠재 {potential / EOK:.1f}억"
+        detail = (f"가정: 레전드리 {' · '.join(after)} (미라클로 레어→레전드리 후 공/마% 두 줄 이상이 나올 때까지 재설정, 1회 {hit * 100:.2f}%)")
+    else:
+        grade = item.get("soul_potential_grade") or ""
+        after = [next_soul_line(grade, index, stage, text) for index, text in lines]
+        detail = " · ".join(before) + " → " + " · ".join(after)
+    final_damage, method = soul_damage(before, after, context, weapon, char_level, damage_total)
+    if final_damage <= 0:
+        return None
+    return {"axis": SOUL_AXIS, "label": label + ")", "final_damage": final_damage, "model": method,
+            "gain": final_damage / per_pct, "detail": detail, "material": {"name": step["material"], "count": tries, "meso": meso}}
 
 
 def finish(action: dict) -> dict:
@@ -488,7 +515,7 @@ def recommendation_assumptions(context: StatContext, class_name: str) -> list[st
         f"쿨감 1초는 주스탯 {POTENTIAL.cooldown_per_second:g}% 상당의 고정 가정입니다. 직업별 실제 스킬 주기와 딜 상승을 재현하지 않습니다.",
         "스타포스 비용은 샤타 이벤트(15→16 확정 미포함)와 설정된 파괴 방지·복구 전략 기준입니다. 노작·연마석 시세는 실시간 시세가 아니며 직접 수정할 수 있습니다.",
         "잠재는 설정된 줄별 확률·등급업 천장 기준입니다. 기대 비용은 평균이지 예산 내 성공 보장이 아니며, 증가량은 목표 이상 결과들의 조건부 평균입니다.",
-        f"소울 증폭은 소울 잠재 수치가 단계에 정비례한다고 봅니다(공/마%·보공만 확인). 0→1단계는 레전드리 {'·'.join(f'{v:g}%' for v in SPEC_UP.soul.first_lines)} 공/마% 두 줄을 가정하며 잠재 재설정 비용은 넣지 않습니다. 비용은 게이지를 반영한 기대 시도 수 × (메소 + 에테르 시세)입니다.",
+        "소울 증폭은 지금 소울 잠재 줄을 넥슨 공식 확률표의 다음 단계 수치로 바꿔 비교합니다. 비용은 게이지를 반영한 기대 시도 수 × (메소 + 에테르 시세)입니다. 0→1단계는 소울 잠재가 레어로 생긴다고 보고 미라클 기준으로 레전드리까지 올린 뒤 공/마% 두 줄이 나올 때까지의 평균 재설정 비용을 더합니다.",
         f"시드링은 {class_name}의 리레 15초/20초 딜 비중 {s15*100:.2f}%/{s20*100:.2f}%, 컨티 가동률 {SPEC_UP.seed_ring.continuous['uptime']*100:g}%를 가정합니다. 직업표에는 비실측 자료가 포함되며 개인 캐릭터 실측값이 아닙니다.",
     ]
 

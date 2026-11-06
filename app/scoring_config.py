@@ -352,9 +352,12 @@ def load_spec_up(path: Path = DATA_DIR / "spec_up.toml") -> Section:
         "flame": {"cost": NUMBER, "first_step": NUMBER, "step": NUMBER, "tiers": list, "tier_odds": list, "boss_bonus": NUMBER,
                   "lines": NUMBER, "options": list},
         "seed_ring": {"restraint": dict, "continuous": dict, "upgrade": dict, "materials": dict, "burst_share": dict},
-        "soul": {"min_level": NUMBER, "keyword": str, "first_lines": list, "amplify": dict, "materials": dict},
+        "soul": {"min_level": NUMBER, "keyword": str, "reset_cost": list, "grade_up": list, "pity": list, "miracle": NUMBER,
+                 "amplify": dict, "materials": dict},
     }, path.name)
     soul = data["soul"]
+    if not len(soul["grade_up"]) == len(soul["pity"]) == len(soul["reset_cost"]) - 1:
+        raise ConfigError(f"{path.name}: soul.grade_up·pity 는 등급 수 − 1 개, reset_cost 는 등급 수여야 합니다")
     for stage, step in soul["amplify"].items():
         if step.get("material") not in soul["materials"] or not all(isinstance(step.get(k), NUMBER) for k in ("chance", "step", "pity", "meso")):
             raise ConfigError(f"{path.name}: soul.amplify.{stage} 의 material 은 soul.materials 에 있어야 하고 chance·step·pity·meso 는 숫자여야 합니다")

@@ -135,18 +135,19 @@ class SpecUpTests(unittest.TestCase):
         self.assertAlmostEqual(amplify_tries(0.015, 0.003, 50), 19.11, places=2)
         context = reference_context("나이트로드", "luk")
         weapon = WeaponContext(stats=context, ignore_defense=90)
-        item = {"soul_name": "위대한 데미안의 소울 적용", "soul_potential_amplified_grade": 2,
+        item = {"soul_name": "위대한 데미안의 소울 적용", "soul_potential_grade": "레전드리", "soul_potential_amplified_grade": 2,
                 "soul_potential_option_1": "공격력 +4%", "soul_potential_option_2": "공격력 +3%",
-                "soul_potential_option_3": "몬스터 방어율 무시 +4%"}
+                "soul_potential_option_3": "크리티컬 확률 +4%"}
         action = soul_action(item, 200, context, weapon, 280, 0.0)
-        # 수치는 단계에 정비례: 2단계 → 3단계는 × 3/2
-        self.assertTrue(action["detail"].endswith("공격력 +6% · 공격력 +4.5% · 몬스터 방어율 무시 +6%"))
+        # 공식 표의 다음 단계 값: 공% 는 정비례(4→6, 3→4.5), 크확은 아님(4→5)
+        self.assertTrue(action["detail"].endswith("공격력 +6% · 공격력 +4.5% · 크리티컬 확률 +5%"))
         self.assertEqual(action["material"]["name"], "3단계 소울 에테르")
         self.assertAlmostEqual(action["material"]["meso"], action["material"]["count"] * 1_750_000_000)
         self.assertGreater(action["final_damage"], 0)
-        # 0단계는 레전드리 공% 두 줄을 가정, 4단계·위대한 소울 아님·200제 미만은 추천하지 않음
+        # 0단계: 레전드리 공% 두 줄을 가정하고, 미라클 등급업 + 두 줄 재설정 메소를 증폭 메소에 더함
         fresh = soul_action({"soul_name": "위대한 데미안의 소울 적용"}, 200, context, weapon, 280, 0.0)
-        self.assertEqual(fresh["detail"], "가정: 레전드리 공격력 +2% · 공격력 +1.5%")
+        self.assertTrue(fresh["detail"].startswith("가정: 레전드리 공격력 +2% · 공격력 +1.5%"))
+        self.assertGreater(fresh["material"]["meso"], fresh["material"]["count"] * 500_000_000 + 100 * 10**8)
         self.assertIsNone(soul_action({**item, "soul_potential_amplified_grade": 4}, 200, context, weapon, 280, 0.0))
         self.assertIsNone(soul_action({**item, "soul_name": "데미안의 소울 적용"}, 200, context, weapon, 280, 0.0))
         self.assertIsNone(soul_action(item, 160, context, weapon, 280, 0.0))
