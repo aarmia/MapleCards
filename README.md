@@ -90,7 +90,6 @@ app/
     └── components/         # 구성 요소
         ├── _footer.html
         ├── _header.html        # 검색창, 로딩 단계, 오류 메시지
-        ├── _item_list.html     # 취약 / 전체 아이템 목록
         ├── _modals.html        # 아이템 상세, 도움말 모달
         ├── _overall_review.html
         ├── _summary.html

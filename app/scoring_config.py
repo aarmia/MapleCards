@@ -169,7 +169,6 @@ def load_scoring(path: Path = DATA_DIR / "scoring.toml") -> Section:
 
 _GRADES_SPEC = {
     "card_highlight": list, "card_highlight_default": str,
-    "axis_bar": list, "axis_bar_default": str,
     "overall": list,
 }
 
@@ -190,7 +189,7 @@ def check_bands(bands, source: str, width: int) -> None:
 def load_grades(path: Path = DATA_DIR / "grades.toml") -> Section:
     data = load_toml(path)
     validate(data, _GRADES_SPEC, path.name)
-    for name in ("card_highlight", "axis_bar"):
+    for name in ("card_highlight",):
         check_bands(data[name], f"{path.name}: {name}", 2)
     previous = None
     for entry in data["overall"]:

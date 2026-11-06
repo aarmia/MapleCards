@@ -61,7 +61,6 @@ function sfStepCosts(cfg, level, basePrice) {
 }
 
 // 티어 이름 → 화면 스타일. 각 티어의 점수 기준은 서버의 app/data/grades.toml 이 정합니다.
-const STAT_BAR_CLASS = { ultimate: 'bg-ultimate', legendary: 'bg-emerald-500', unique: 'bg-yellow-400', epic: 'bg-purple-500', rare: 'bg-sky-400', poor: 'bg-red-500' };
 const CARD_CLASS = {
     transcendent: 'border-[3px] border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.4)] bg-indigo-50/30',
     legendary: 'border-[3px] border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.2)] bg-green-50/30',
@@ -511,12 +510,6 @@ document.addEventListener('alpine:init', () => {
             this.specUpFrozen = null;
         },
 
-        getFilteredItems() {
-            if (!this.report || !this.report.results) return [];
-            // 모든 아이템 점수: 칭호를 뺀 전부 (기준 대비 % 오름차순)
-            return [...this.report.results].filter(item => item.part !== '칭호').sort((a, b) => a.score_ratio - b.score_ratio);
-        },
-
         // 모바일 장비창: 부위 그룹별로 나눕니다. 비어 있는 예비 특수 반지는 숨깁니다.
         mobileEquipGroups() {
             const groups = [
@@ -552,18 +545,8 @@ document.addEventListener('alpine:init', () => {
             return (item?.scoring_basis?.recognized_options || []).filter(entry => entry.category === category && (includeHidden || !entry.hidden));
         },
 
-        recognizedCategories(item) {
-            const order = ['윗잠재', '에디셔널', '소울', '고유 옵션'];
-            const present = new Set((item?.scoring_basis?.recognized_options || []).map(entry => entry.category));
-            return order.filter(category => present.has(category));
-        },
-
         categoryColor(category) {
             return { '윗잠재': 'text-red-300', '에디셔널': 'text-blue-400', '소울': 'text-amber-400', '추가옵션': 'text-emerald-300', '익셉셔널': 'text-rose-400', '고유 옵션': 'text-violet-300' }[category] || 'text-neutral-300';
-        },
-
-        summaryUnit(item) {
-            return item?.is_wse ? '공격력%' : '유효 스탯%';
         },
 
         entryValueText(item, entry) {
@@ -752,17 +735,6 @@ document.addEventListener('alpine:init', () => {
             return hit ? hit[1] : fallback;
         },
 
-        // 축 막대: 그 축의 만점(bar_max, 주스탯 %p) 대비 % 로 색과 길이를 정합니다
-        getStatColor(val, key, item) {
-            const grades = this.getGrades();
-            const ratio = 100 * parseFloat(val) / (item?.bar_max?.[key] || 1);
-            return STAT_BAR_CLASS[this.pickTier(grades.axis_bar, ratio, grades.axis_bar_default || 'poor')] || STAT_BAR_CLASS.poor;
-        },
-
-        getStatWidth(val, key, item) {
-            return Math.min((parseFloat(val) / (item?.bar_max?.[key] || 1)) * 100, 100);
-        },
-
         getBorderColor(score) {
             const grades = this.getGrades();
             const tier = this.pickTier(grades.card_highlight, score, grades.card_highlight_default || 'none');
@@ -815,14 +787,6 @@ document.addEventListener('alpine:init', () => {
             return reason === 'unsupported'
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
                 : 'bg-slate-700/60 text-slate-400 border border-slate-600';
-        },
-
-        getGuideStyle(guideText) {
-            if (!guideText) return '';
-            if (guideText.includes('종결') || guideText.includes('완벽')) return 'bg-indigo-50 text-indigo-700 border-indigo-100';
-            if (guideText.includes('교체') || guideText.includes('시급')) return 'bg-red-50 text-red-700 border-red-100';
-            if (guideText.includes('강화') || guideText.includes('권장')) return 'bg-blue-50 text-blue-700 border-blue-100';
-            return 'bg-emerald-50 text-emerald-700 border-emerald-100';
         }
     }));
 });
