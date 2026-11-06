@@ -30,8 +30,8 @@ console.log('starforce expected cost matches starforce.gg');
 
 // 2. 노작 시세 기본값: 이름 + 부위 또는 장착 칸(무기류), 없으면 레벨별 기본값
 const lookup = (name, part, slot, level) => app.defaultBasePrice({ name, part, slot, level });
-assert.equal(JSON.stringify(lookup('에테르넬 시프반다나', '모자', '모자', 250)), JSON.stringify({ price: 0.3, registered: true }));
-assert.equal(JSON.stringify(lookup('에테르넬 시프글러브', '장갑', '장갑', 250)), JSON.stringify({ price: 17, registered: true }));
+assert.equal(JSON.stringify(lookup('에테르넬 시프반다나', '모자', '모자', 250)), JSON.stringify({ price: 0.1, registered: true }));
+assert.equal(JSON.stringify(lookup('에테르넬 시프글러브', '장갑', '장갑', 250)), JSON.stringify({ price: 14.5, registered: true }));
 assert.equal(JSON.stringify(lookup('데스티니 대거', '단검', '무기', 250)), JSON.stringify({ price: 100, registered: true }));
 assert.equal(JSON.stringify(lookup('처음 보는 반지', '반지', '반지1', 200)), JSON.stringify({ price: 0.1, registered: false }));
 console.log('clean-item default prices: OK');

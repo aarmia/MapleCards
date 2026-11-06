@@ -454,5 +454,31 @@ class PotentialOptionTests(unittest.TestCase):
         self.assertAlmostEqual(sum(grades.values()), calculate_item_score(option, "섀도어", "luk", context), places=1)
 
 
+
+class OverallRankTests(unittest.TestCase):
+    def rank(self, achievement, weapon_name=None, scrolls=0):
+        from app.analyzer import generate_overall_review
+        row = {"total_score": achievement, "benchmark_total": 100, "score_ratio": achievement, "part": "모자", "slot": "모자",
+               "graded": True, "scored": True, "is_special": False}
+        weapon = {"item_name": weapon_name, "scroll_upgrade": str(scrolls)} if weapon_name else None
+        return generate_overall_review([row], weapon)[0]["rank"]
+
+    def test_weapon_ranks_and_achievement_cuts(self):
+        self.assertEqual(self.rank(98, "데스티니 대거", 9), "ABSOLUTE")          # 97 이상은 무기와 관계없이
+        self.assertEqual(self.rank(60, "데스티니 대거", 9), "DESTINY+")          # 데스티니 9작
+        self.assertEqual(self.rank(90, "데스티니 대거", 9), "DESTINY+")          # 9작은 ELDER 보다 위
+        self.assertEqual(self.rank(84, "데스티니 대거", 8), "ELDER")             # 83 이상이면 DESTINY 보다 ELDER
+        self.assertEqual(self.rank(60, "데스티니 대거", 8), "DESTINY")           # 데스티니 (9작 미만)
+        self.assertEqual(self.rank(84, "제네시스 대거"), "ELDER")                 # 83 이상
+        self.assertEqual(self.rank(78.5, "제네시스 대거"), "DESTINY CHALLENGER")  # 78 초과 + 제네시스
+        self.assertEqual(self.rank(78, "제네시스 대거"), "ASTRA")                 # 78 은 넘기지 않음, 65 이상
+        self.assertEqual(self.rank(70, "아케인셰이드 대거"), "ASTRA")
+        self.assertEqual(self.rank(50, "제네시스 대거"), "GENESIS")               # 45 이상 + 제네시스
+        self.assertEqual(self.rank(50, "아케인셰이드 대거"), "GENESIS CHALLENGER")  # 45 이상, 제네시스 아님
+        self.assertEqual(self.rank(50), "GENESIS CHALLENGER")
+        self.assertEqual(self.rank(44, "제네시스 대거"), "EPIC")
+
+
+
 if __name__ == "__main__":
     unittest.main()

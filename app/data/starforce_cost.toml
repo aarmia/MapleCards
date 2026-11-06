@@ -129,18 +129,18 @@ items = { "15" = 1, "16" = 1, "17" = 1, "18" = 1, "19" = 2, "20" = 2, "21" = 3, 
 "22" = 47_300_000_000
 
 # 노작(스타포스·주문서 전) 시세의 기본값, 단위 억 메소. 사용자가 화면에서 바꿀 수 있고, 기본값은 관리자가 이 파일에서 바꿉니다.
-# item: 이름에 name 이 들어 있고(parts 가 있으면 부위 또는 장착 칸(무기·보조무기)도 맞을 때) 처음 맞는 항목을 씁니다. 시세는 starforce.gg/ev 기본값 (2026-11-05).
+# item: 이름에 name 이 들어 있고(parts 가 있으면 부위 또는 장착 칸(무기·보조무기)도 맞을 때) 처음 맞는 항목을 씁니다. 시세는 starforce.gg/ev 기본값 (2026-11-05), 2026-11-06 관리자 시세표로 갱신.
 # default: 등록되지 않은 아이템. [레벨 하한, 시세] 내림차순 첫 일치 (각 레벨에서 등록된 가장 낮은 시세)
 [base_price]
 default = [[250, 0.3], [200, 0.1], [160, 0.2], [0, 0.1]]
 
 [[base_price.item]]
 name = "창세의 뱃지"               # 교체 추천의 뱃지 시세 (억). 화면에서 바꿀 수 있습니다
-price = 175
+price = 170
 
 [[base_price.item]]
 name = "불멸의 유산"               # 훈장 교체 시세 (억). 화면에서 바꿀 수 있습니다
-price = 750
+price = 685
 
 [[base_price.item]]
 name = "마이스터링"
@@ -156,15 +156,15 @@ price = 0.2
 
 [[base_price.item]]
 name = "루즈 컨트롤 머신 마크"
-price = 18
+price = 11.56
 
 [[base_price.item]]
 name = "마력이 깃든 안대"
-price = 35
+price = 25.73
 
 [[base_price.item]]
 name = "고통의 근원"
-price = 55
+price = 46
 
 [[base_price.item]]
 name = "아케인셰이드"
@@ -173,19 +173,19 @@ price = 0.1
 
 [[base_price.item]]
 name = "몽환의 벨트"
-price = 40
+price = 36
 
 [[base_price.item]]
 name = "커맨더 포스 이어링"
-price = 15
+price = 11.2
 
 [[base_price.item]]
 name = "거대한 공포"
-price = 50
+price = 36
 
 [[base_price.item]]
 name = "컴플리트 언더컨트롤"
-price = 240
+price = 166.89
 
 [[base_price.item]]
 name = "아스트라"
@@ -195,12 +195,12 @@ price = 10
 [[base_price.item]]
 name = "에테르넬"
 parts = ["모자", "상의", "하의", "어깨장식"]
-price = 0.3
+price = 0.1
 
 [[base_price.item]]
 name = "에테르넬"
 parts = ["장갑", "신발", "망토"]   # 모든 직업
-price = 17
+price = 14.5
 
 [[base_price.item]]
 name = "데스티니"
@@ -209,20 +209,36 @@ price = 100
 
 [[base_price.item]]
 name = "근원의 속삭임"
-price = 550
+price = 510
 
 [[base_price.item]]
 name = "죽음의 맹세"
-price = 700
+price = 650.8
 
 [[base_price.item]]
 name = "황홀한 악몽"
-price = 550
+price = 513
 
 [[base_price.item]]
 name = "오만의 원죄"
-price = 3500
+price = 4000
 
 [[base_price.item]]
 name = "굶주리는 핏빛 원혼"
-price = 550
+price = 512
+
+[[base_price.item]]
+name = "블랙 하트"
+price = 11.67
+
+[[base_price.item]]
+name = "도미네이터 펜던트"
+price = 9.3
+
+[[base_price.item]]
+name = "블랙빈 마크"
+price = 0.96
+
+[[base_price.item]]
+name = "파풀라투스 마크"
+price = 2.5

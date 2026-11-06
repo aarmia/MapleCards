@@ -5,31 +5,48 @@
 card_highlight = [[90, "transcendent"], [86, "legendary"], [78, "unique"], [67, "epic"]]   # 장비 테두리 색: 만점 대비 %
 card_highlight_default = "none"
 
-# 총평 랭크. 칭호·뱃지를 뺀 모든 장비의 달성률(주스탯 %p 합 ÷ 만점 %p 합)이 min 이상인 첫 항목. 샘플 8명이 기존 랭크와 같게 나오는 선.
+# 총평 랭크. 위에서부터 조건을 모두 만족하는 첫 항목을 씁니다 (마지막 항목은 기본값).
+# 달성률 = 칭호·뱃지를 뺀 모든 장비의 주스탯 %p 합 ÷ 만점 %p 합.
+#   min    : 달성률이 이 값 이상
+#   above  : 달성률이 이 값 초과
+#   weapon : 착용(분석한 프리셋) 무기 이름에 이 말이 들어 있음
+#   min_scroll : weapon 무기의 주문서 성공 횟수(작)가 이 값 이상
 # 랭크별 색은 app/templates/components/_overall_review.html 이 정합니다.
 [[overall]]
 min = 97
 rank = "ABSOLUTE"
 
 [[overall]]
-min = 92
+weapon = "데스티니"
+min_scroll = 9
 rank = "DESTINY+"
 
 [[overall]]
-min = 87
+min = 83
 rank = "ELDER"
 
 [[overall]]
-min = 80
+weapon = "데스티니"
 rank = "DESTINY"
 
 [[overall]]
-min = 70
+weapon = "제네시스"
+above = 78
+rank = "DESTINY CHALLENGER"
+
+[[overall]]
+min = 65
 rank = "ASTRA"
 
 [[overall]]
-min = 55
+weapon = "제네시스"
+min = 45
 rank = "GENESIS"
+
+# 45% 이상이지만 제네시스 무기가 아닌 경우 (데스티니 무기는 위의 DESTINY 에서 이미 정해집니다)
+[[overall]]
+min = 45
+rank = "GENESIS CHALLENGER"
 
 [[overall]]
 min = 0

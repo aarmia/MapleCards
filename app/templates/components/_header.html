@@ -11,8 +11,9 @@
 
     <div class="w-full" :class="report ? 'md:w-[36rem]' : ''">
         <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex gap-2 transition-layout" :class="report ? 'w-full shadow-none border-b-2 rounded-none bg-transparent border-slate-300' : 'w-full'">
-            <input x-model="nickname" @keyup.enter="fetchReport()" type="text" placeholder="캐릭터 닉네임 입력" class="flex-1 border-none bg-slate-100/50 rounded-xl px-4 py-2 outline-none transition-all font-medium" :class="report ? 'text-base bg-white' : 'text-lg'">
-            <button @click="fetchReport()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-all min-w-[100px]">
+            <input x-model="nickname" @keyup.enter="fetchReport()" type="text" placeholder="캐릭터 닉네임 입력" class="flex-1 min-w-0 border-none bg-slate-100/50 rounded-xl px-4 py-2 outline-none transition-all font-medium" :class="report ? 'text-base bg-white' : 'text-lg'">
+            <!-- 입력칸이 기본 폭 아래로 줄지 않으면 버튼이 상자 밖으로 밀리고 두 줄이 되므로, 입력칸은 min-w-0 · 버튼은 줄지 않게 -->
+            <button @click="fetchReport()" class="shrink-0 whitespace-nowrap bg-blue-600 text-white px-4 md:px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-all min-w-[88px] md:min-w-[100px]">
                 <span x-show="!loading" x-text="report ? '재검진' : '검진 시작'"></span>
                 <span x-show="loading" class="animate-spin inline-block">⏳</span>
             </button>

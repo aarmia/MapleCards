@@ -49,7 +49,7 @@
             </template>
             <div class="grid grid-cols-1 gap-4">
                 <section class="rounded-2xl border border-neutral-600 bg-neutral-800/50 p-4 md:p-5">
-                    <h4 class="text-xs font-black text-neutral-300 uppercase mb-4 md:mb-5 tracking-widest">Base Options</h4>
+                    <h4 class="text-xs font-black text-neutral-300 uppercase mb-1 md:mb-4 tracking-widest">Base Options</h4>
                     <div class="space-y-3.5 py-1">
                         <template x-for="(label, key) in labelMap" :key="key">
                             <div x-show="getTotalStat(selectedItem, key) !== 0" class="grid grid-cols-[84px_minmax(0,1fr)] md:grid-cols-[100px_minmax(0,1fr)] items-baseline gap-x-2 md:gap-x-3 text-xs">
@@ -165,37 +165,34 @@
     <div x-show="showHelp" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
          class="relative bg-white rounded-3xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]">
 
-        <div class="p-6 border-b border-slate-100 flex items-center justify-between">
-            <h2 class="text-xl font-black text-slate-800 tracking-tight">🔬 Meculator 검진 안내</h2>
+        <div class="px-5 py-4 md:p-6 border-b border-slate-100 flex items-center justify-between">
+            <h2 class="text-lg md:text-xl font-black text-slate-800 tracking-tight">🔬 Meculator 검진 안내</h2>
             <button @click="showHelp = false" class="p-2 text-slate-400 hover:text-slate-600">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
 
         <div class="flex border-b border-slate-100 bg-slate-50/50">
-            <button @click="helpTab = 'guide'" class="flex-1 py-4 text-xs font-bold transition-all border-b-2" :class="helpTab === 'guide' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'">이용 가이드</button>
-            <button @click="helpTab = 'score'" class="flex-1 py-4 text-xs font-bold transition-all border-b-2" :class="helpTab === 'score' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'">점수 산정 방식</button>
-            <button @click="helpTab = 'color'" class="flex-1 py-4 text-xs font-bold transition-all border-b-2" :class="helpTab === 'color' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'">옵션 색상 의미</button>
+            <button @click="helpTab = 'guide'" class="flex-1 min-w-0 px-1 py-3 md:py-4 text-[11px] md:text-xs whitespace-nowrap font-bold transition-all border-b-2" :class="helpTab === 'guide' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'">이용 가이드</button>
+            <button @click="helpTab = 'score'" class="flex-1 min-w-0 px-1 py-3 md:py-4 text-[11px] md:text-xs whitespace-nowrap font-bold transition-all border-b-2" :class="helpTab === 'score' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'">점수 산정 방식</button>
+            <button @click="helpTab = 'color'" class="flex-1 min-w-0 px-1 py-3 md:py-4 text-[11px] md:text-xs whitespace-nowrap font-bold transition-all border-b-2" :class="helpTab === 'color' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'">옵션 색상 의미</button>
         </div>
 
-        <div class="p-8 overflow-y-auto custom-scrollbar flex-1">
+        <div class="p-5 md:p-8 overflow-y-auto custom-scrollbar flex-1">
             <div x-show="helpTab === 'guide'" class="space-y-6 animate-fade-in">
-                <div class="space-y-4">
+                <div class="space-y-5">
                     <div class="flex gap-4">
                         <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold flex-none">1</div>
                         <p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">닉네임을 입력하세요.</span> 검색 시 해당 캐릭터의 현재 착용 장비 데이터를 넥슨 API를 통해 실시간으로 분석합니다.</p>
                     </div>
-                    <br>
                     <div class="flex gap-4">
                         <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold flex-none">2</div>
-                        <p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">스펙업 추천을 확인하세요.</span> 스타포스·잠재능력·에디셔널·추가옵션·시드링 강화마다 기대 비용 100억 메소당 오르는 주스탯%를 계산해 효율이 높은 순으로 보여줍니다. 스타포스는 샤타 이벤트 기준이고, 노작 시세는 직접 바꿀 수 있습니다.</p>
+                        <p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">스펙업 추천을 확인하세요.</span> 스타포스·잠재능력·에디셔널·추가옵션·시드링·소울 증폭 강화마다 기대 비용 100억 메소당 오르는 최종뎀을 추정해 효율이 높은 순으로 보여줍니다. 스타포스는 샤타 이벤트 기준이고, 노작 시세는 직접 바꿀 수 있습니다.</p>
                     </div>
-                    <br>
                     <div class="flex gap-4">
                         <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold flex-none">3</div>
-                        <p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">전체 아이템 진단을 활용하세요.</span> 전체 아이템 진단 아이콘을 클릭하면 모든 아이템의 조언을 확인할 수 있습니다.</p>
+                        <p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">장비창에서 점수 근거를 확인하세요.</span> 아이콘을 누르면 그 장비의 점수와 옵션별 환산 근거가 열립니다.</p>
                     </div>
-                    <br>
                     <div class="flex gap-4">
                         <div class="w-8 h-8 rounded-full bg-blue-100 text-red-600 flex items-center justify-center font-bold flex-none">🚨</div>
                         <p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">효율과 점수는 공통 수식 기반 추정치입니다.</span> 직업별 패시브·버프 조건을 별도로 보정하지 않으므로 실제 효율 및 외부 환산 결과와 차이가 있을 수 있습니다. 제논·데몬어벤져 등 특수 직업은 오차가 더 클 수 있습니다.</p>
@@ -224,6 +221,7 @@
                 <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100 shadow-sm">
                     <h4 class="font-bold text-slate-800 mb-2">총평 랭크 = 장비 달성률</h4>
                     <p class="text-xs text-slate-500 leading-relaxed">모든 장비의 점수 합 ÷ 만점 합입니다. 만점이 큰 부위(무기·시드링 등)일수록 크게 반영됩니다. 칭호와 뱃지는 빠집니다.</p>
+                    <p class="text-xs text-slate-500 leading-relaxed mt-2">랭크는 위에서부터 먼저 맞는 것: ABSOLUTE 97% 이상 · DESTINY+ 데스티니 무기 9작 · ELDER 83% 이상 · DESTINY 데스티니 무기 · DESTINY CHALLENGER 제네시스 무기 + 78% 초과 · ASTRA 65% 이상 · GENESIS 제네시스 무기 + 45% 이상 · GENESIS CHALLENGER 45% 이상 · EPIC 그 외.</p>
                     <p class="text-xs text-slate-500 leading-relaxed mt-2">상단의 메큘레이터 지수(P)는 모든 캐릭터의 장비를 같은 기준 캐릭터(고정 스탯)로 환산한 합이라 캐릭터끼리 비교할 수 있습니다.</p>
                 </div>
             </div>

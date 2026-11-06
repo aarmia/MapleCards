@@ -24,7 +24,7 @@ from app.damage_index import ReplacementModel, flame_options, line_options
 from app.flame_damage import distribution as flame_moments
 from app.flame_damage import rewards as flame_rewards
 from app.potential import StatContext, analyze_lines, convert_line
-from app.scoring_config import DATA_DIR, POTENTIAL, SCORING, SPEC_UP, STARFORCE_COST
+from app.scoring_config import CLASSES, DATA_DIR, POTENTIAL, SCORING, SPEC_UP, STARFORCE_COST
 from app.set_projection import BOSS, DAWN, MEMBERS, PITCHED, RADIANT
 from app.weapon import _BOSS, _DAMAGE, _IED, SOUL_KEYS, WeaponContext, analyze_weapon_lines, fixed_option_pct
 
@@ -512,8 +512,28 @@ def special_replace_action(row: dict, item: dict, items: list, context: StatCont
     return {"axis": UPGRADE_AXIS, "label": to_replace(target), "final_damage": gain * final_damage_per_pct(context), "gain": gain,
             "model": "listing_linear", "level": level, "pieces": 1, "star": 0, "target_star": 0, "listing_fixed": 0.0, "rank": 30,
             "price_item": {"name": target, "part": part, "slot": row.get("slot"), "level": level},
-            "detail": f"{note} + 세트 {set_text} ({set_value:+.1f}%p) · 비용 = {target} 시세 (교환 불가라 직접 입력)"}
+            "detail": f"{note} + 세트 {set_text} ({set_value:+.1f}%p) · 비용 = {target} 시세 (교환 불가라 직접 입력)",
+            "set_change": f"세트 {set_text} ({set_value:+.1f}%p)" if set_text else ""}
 ARMOR_TIERS = ("루타비스", "앱솔랩스", "아케인셰이드", "에테르넬")   # 방어구 계열 순서 (상위 교체 후보는 지금보다 뒤 계열)
+# 교체 우선 구간: 이 계열 아이템에 상위 교체가 있으면 강화(스타포스·잠재·추옵)와 같은 아이템 매물 대신 교체만 추천합니다.
+# 방어구 루타비스·앱솔랩스는 에테르넬로만 바꾸고, 앱솔랩스는 같은 아이템 매물도 추천하지 않습니다.
+REPLACE_FIRST_ARMOR = ("루타비스", "앱솔랩스")
+ETERNAL_ONLY_ARMOR = ("루타비스", "앱솔랩스")
+NO_LISTING_ARMOR = ("앱솔랩스",)
+CHALLENGER = "도전자의"   # 도전자의 장비: 방어구는 같은 직업군 에테르넬로 (교체 우선)
+
+
+def job_group(class_name: str) -> str | None:
+    """직업 → 직업군 (classes.toml [job_group]). 공백은 무시합니다."""
+    name = "".join((class_name or "").split())
+    return next((group for group, members in (CLASSES.get("job_group") or {}).items()
+                 if name in ("".join(member.split()) for member in members)), None)
+
+
+def replace_first_only(actions: list) -> list:
+    """교체 우선 구간: 상위 교체가 있으면 강화·같은 아이템 매물을 빼고 교체만 남깁니다."""
+    actions = [a for a in actions if a]
+    return [a for a in actions if a.get("replace_first")] if any(a.get("replace_first") for a in actions) else actions
 
 
 def set_effect_fields(set_name: str, count: int) -> dict:
@@ -567,18 +587,30 @@ def listing_actions(row: dict, item: dict, context: StatContext, class_name: str
                  # 같은 아이템: 그대로인 몫(기본 옵션·익셉셔널)은 지금 행의 값
                  "fixed": {"own": _fixed_of(row.get("detail") or {}), "std": _fixed_of(std_row["detail"]) if std_row else None}}
     path, tier, group = item_tier(item.get("item_name") or "", slot)
-    targets = [] if item.get("item_name") in LOWER_HEARTS else [{
+    no_listing = item.get("item_name") in LOWER_HEARTS or (path == "armor" and ARMOR_TIERS[tier] in NO_LISTING_ARMOR)
+    targets = [] if no_listing else [{
         "axis": LISTING_AXIS, "names": [], "pieces": [same_item], "set": {"own": 0.0, "std": 0.0}, "set_text": "",
         "max_grade": SPEC_UP.listing.grade_cap.get(group), "rank": tier, "radiant": group == RADIANT}]
-    if weapon is not None and items is not None and path:
+    challenger_job = job_group(class_name) if CHALLENGER in (item.get("item_name") or "") and slot in ARMOR_SLOTS else None
+    if weapon is not None and items is not None and challenger_job:
+        # 도전자의 방어구: 직업이 이름에 없으니 직업으로 직업군을 정해 에테르넬로 (루타비스처럼 에테르넬만)
+        targets += _upgrade_targets(item, part, slot, f"{CHALLENGER}({challenger_job})", "루타비스", items, context, weapon, standard,
+                                    class_name, main_stat, char_level, count_sets, membership)
+    elif weapon is not None and items is not None and path:
         if path == "armor" and slot in ARMOR_SLOTS:
             targets += _upgrade_targets(item, part, slot, group, ARMOR_TIERS[tier], items, context, weapon, standard, class_name, main_stat,
                                         char_level, count_sets, membership)
         elif path in ("accessory", "heart"):
             targets += _accessory_targets(item, part, slot, path, tier, items, context, weapon, standard, class_name, main_stat, char_level)
+    replace_first = (bool(challenger_job) or (path == "armor" and ARMOR_TIERS[tier] in REPLACE_FIRST_ARMOR)
+                     or (path == "accessory" and group in (BOSS, DAWN)))
     actions = []
     for target in targets:
-        actions += _grade_actions(target, current, std_row, context, standard, class_name, main_stat, char_level, memo)
+        graded = _grade_actions(target, current, std_row, context, standard, class_name, main_stat, char_level, memo)
+        if replace_first and target["axis"] == UPGRADE_AXIS:
+            for action in graded:
+                action["replace_first"] = True
+        actions += graded
     return actions
 
 
@@ -603,6 +635,8 @@ def _upgrade_targets(item, part, slot, group, family, items, context, weapon, st
 
     targets = []
     for tier in ARMOR_TIERS[ARMOR_TIERS.index(family) + 1:]:
+        if family in ETERNAL_ONLY_ARMOR and tier != "에테르넬":
+            continue  # 루타비스·앱솔랩스는 에테르넬로 바로
         if family == "아케인셰이드" and tier == "에테르넬":
             continue  # 아케인셰이드 → 에테르넬은 묶음 추천만 (bundle_actions)
         if overall:  # 한벌옷: 같은 계열 한벌옷이 있으면 그것, 없으면(에테르넬) 상의 + 하의가 모두 카탈로그에 있을 때만
@@ -925,8 +959,9 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
         if any(discounted(piece) for piece in target["pieces"]):
             craft = f"({craft}) × {config.radiant_craft_share:g}"
         notes = [f"기대 비용 = 노작 시세 + 스타포스 0→{grade['star']}성 + {craft}" + (f" (부위 {len(states)}개)" if len(states) > 1 else "")]
-        if target["set_text"]:
-            notes.append(f"세트 {target['set_text']} ({target['set']['own']:+.1f}%p)")
+        set_change = f"세트 {target['set_text']} ({target['set']['own']:+.1f}%p)" if target["set_text"] else ""
+        if set_change:
+            notes.append(set_change)
         if len(target["names"]) > 1:  # 여러 아이템을 한꺼번에: 화면이 칸마다 한 줄씩 (from·아이콘은 attach_spec_up)
             # 서로 다른 아이템이라 노작 시세도 아이템마다 (화면이 아이템별로 더함)
             swaps = {"swaps": [{"slot": piece["slot"], "to": name} for name, piece in zip(target["names"], target["pieces"])],
@@ -940,6 +975,7 @@ def _grade_actions(target, current, std_row, context, standard, class_name, main
                   "level": target["pieces"][0]["level"], "pieces": len(states),
                   "star": 0, "target_star": grade["star"], "listing_fixed": sum(state[5] for state in states),
                   "index_gain": round(index_gain, 1) if index_gain is not None else None, "detail": " · ".join(notes),
+                  "set_change": set_change,   # 화면은 상위 교체 카드에 이것만 보여줍니다
                   "rank": target.get("rank", 0) * 10 + number}   # 교체 수준: 경로 순번 × 10 + 등급 (높을수록 상위)
         if target.get("price_item"):
             action["price_item"] = target["price_item"]
@@ -1139,8 +1175,8 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
         if "도전자의" in (row.get("name") or "") or "도전자의" in ((item or {}).get("item_name") or ""):
             # 도전자의 장비는 강화 추천 없이 매물 교체만 (방어구·장신구)
             if item and not row.get("is_wse") and not row.get("is_special"):
-                row["spec_up"] = [finish(a) for a in listing_actions(row, item, context, class_name, main_stat, char_level, cube_memo, standard,
-                                                                     weapon, items)]
+                row["spec_up"] = [finish(a) for a in replace_first_only(
+                    listing_actions(row, item, context, class_name, main_stat, char_level, cube_memo, standard, weapon, items))]
                 count += len(row["spec_up"])
             continue
         ring_name = next((name for name in rings if name in row["name"]), None)
@@ -1208,7 +1244,8 @@ def attach_spec_up(rows: list, items: list, context: StatContext, class_name: st
                                 "current_grade": round(current, 1),
                                 "steps": [{**step, "gain": round(step["gain"], 2), "cost": round(step["cost"]),
                                            "chance": round(step["chance"], 8), "tries": round(step["tries"], 1)} for step in steps]})
-        row["spec_up"] = [finish(a) for a in actions if a]
+        # 보스·여명 장신구, 루타비스·앱솔랩스 방어구: 곧 바꿀 아이템이라 강화·같은 아이템 매물 대신 교체만
+        row["spec_up"] = [finish(a) for a in replace_first_only(actions)]
         count += len(row["spec_up"])
     for row, action in [*bundle_actions(rows, items, context, class_name, main_stat, char_level, cube_memo, standard, weapon),
                         *radiant_chain_actions(rows, items, context, class_name, main_stat, char_level, cube_memo, standard, weapon)]:
