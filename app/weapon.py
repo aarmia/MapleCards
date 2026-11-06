@@ -8,7 +8,7 @@
 import re
 from dataclasses import dataclass
 
-from app.calculator import get_potential_options
+from app.calculator import calculate_item_score, get_potential_options
 from app.potential import StatContext, convert_line, score_detail
 from app.scoring_config import POTENTIAL, SCORING
 
@@ -136,6 +136,19 @@ def analyze_weapon_item(item_data: dict, kind: str, context: WeaponContext, char
     """kind: potential · additional_potential · soul"""
     options = soul_lines(item_data) if kind == "soul" else get_potential_options(item_data, kind)
     return analyze_weapon_lines(options, context, char_level)
+
+
+def fixed_option_pct(option: dict, context: "WeaponContext", class_name: str, main_stat: str, char_level: int, weaponish: bool) -> float:
+    """고정 옵션(기본 옵션·주문서·세트 등)의 주스탯 %p. 방어구·장신구는 급수 × 고정 주스탯 1 의 %p, 무기류는 공% 환산 ÷ 유효 스탯 1% 의 공% 가치.
+    보공·방무는 무기 환산과 같은 방식(보스 방어율 기준)으로 더합니다."""
+    option = option or {}
+    per_unit = context.stat_pct_unit
+    boss, ied = float(option.get("boss_damage") or 0), float(option.get("ignore_monster_armor") or 0)
+    extra = (context.ied_value(ied) if ied else 0.0) / per_unit
+    if weaponish:  # 보공·데미지는 weapon_add_value 가 포함
+        return weapon_add_value(option, context, char_level)[0] / per_unit + extra
+    return (calculate_item_score(option, class_name, main_stat=main_stat, context=context.stats) * context.stats.pct_per_flat
+            + boss * context.boss_per_pct / per_unit + extra)
 
 
 def weapon_add_value(add_option: dict, context: WeaponContext, char_level: int) -> tuple[float, list[dict]]:

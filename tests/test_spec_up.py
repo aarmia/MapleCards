@@ -174,6 +174,21 @@ class SpecUpTests(unittest.TestCase):
         self.assertTrue(all(a["index_gain"] > 0 for a in listing_actions(row, item, context, "나이트로드", "luk", 285, {}, small)))
         self.assertEqual(listing_actions(row, item, context, "나이트로드", "luk", 285, {}, huge), [])
 
+    def test_upgrade_finds_the_upper_family_and_set_change(self):
+        from app.analyzer import evaluate_equipment
+        from app.weapon import WeaponContext
+        shoulder = {"item_equipment_part": "어깨장식", "item_equipment_slot": "어깨장식", "item_name": "아케인셰이드 메이지숄더",
+                    "starforce": "17", "item_base_option": {"base_equipment_level": 200, "int": "35", "luk": "35", "magic_power": "20"},
+                    "item_add_option": {}, "item_etc_option": {}, "item_starforce_option": {}, "scroll_upgrade": "2"}
+        context = reference_context("아크메이지(불,독)", "int")
+        row = evaluate_equipment([shoulder], "아크메이지(불,독)", 285, profile={"context": context})[0]
+        actions = listing_actions(row, shoulder, context, "아크메이지(불,독)", "int", 285, {}, weapon=WeaponContext(context), items=[shoulder])
+        upgrades = [a for a in actions if a["axis"] == "상위 교체"]
+        self.assertTrue(upgrades)
+        self.assertTrue(all(a["price_item"]["name"] == "에테르넬 메이지숄더" for a in upgrades))  # 같은 직업군·같은 칸의 상위 계열
+        self.assertIn("아케인셰이드 세트(마법사) 1→0", upgrades[0]["detail"])  # 세트 변화
+        self.assertIn("에테르넬 세트(마법사) 0→1", upgrades[0]["detail"])
+
 
 if __name__ == "__main__":
     unittest.main()

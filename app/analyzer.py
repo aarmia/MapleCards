@@ -36,6 +36,7 @@ from app.weapon import (
     WeaponContext,
     analyze_weapon_item,
     best_lines_total,
+    fixed_option_pct,
     part_group,
     tier_of,
     weapon_add_best,
@@ -169,15 +170,8 @@ def evaluate_equipment(items, char_class, char_level, unsupported=None, main_sta
         }
 
     def option_pct(option, weaponish):
-        """고정 옵션(기본 옵션·주문서)의 주스탯 %p. 방어구·장신구는 급수 × per_flat, 무기류는 공% 환산 ÷ per_unit.
-        보공·방무는 무기 환산과 같은 방식(보스 방어율 기준)으로 더합니다."""
-        option = option or {}
-        boss, ied = float(option.get("boss_damage") or 0), float(option.get("ignore_monster_armor") or 0)
-        extra = (weapon_context.ied_value(ied) if ied else 0.0) / per_unit
-        if weaponish:  # 보공·데미지는 weapon_add_value 가 포함
-            return weapon_add_value(option, weapon_context, char_level)[0] / per_unit + extra
-        return (calculate_item_score(option, char_class, main_stat=main_stat, context=context) * per_flat
-                + boss * weapon_context.boss_per_pct / per_unit + extra)
+        """고정 옵션(기본 옵션·주문서)의 주스탯 %p (weapon.fixed_option_pct)"""
+        return fixed_option_pct(option, weapon_context, char_class, main_stat, char_level, weaponish)
 
     def best_scroll_option(slot, part, slots):
         """최상 주문서 slots 장을 바른 스탯·공/마 (scoring.toml [scroll])"""
@@ -465,7 +459,7 @@ def standard_index(items, char_class, main_stat) -> dict:
     secondary_scroll = sum(row["detail"].get("scroll", 0) for row in rows if row["slot"] == "보조무기")
     # 스펙업 매물 교체가 같은 기준으로 지수 증가를 계산하도록 표준 행과 계수도 돌려줍니다
     return {"total": round(sum(row["total_score"] for row in rows) - secondary_scroll, 1),
-            "rows": {row["slot"]: row for row in rows}, "context": context}
+            "rows": {row["slot"]: row for row in rows}, "context": context, "weapon": weapon}
 
 
 def standard_total(items, char_class, main_stat) -> float:

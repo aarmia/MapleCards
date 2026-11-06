@@ -402,11 +402,12 @@ document.addEventListener('alpine:init', () => {
             const bestListing = {};
             for (const a of rows) {
                 if (a.listing_fixed === undefined) continue;
-                const kept = bestListing[a.item.slot];
-                if (!kept || a.damage_efficiency > kept.damage_efficiency) bestListing[a.item.slot] = a;
+                const key = a.item.slot + a.axis;  // 같은 아이템 매물·상위 교체를 따로
+                const kept = bestListing[key];
+                if (!kept || a.damage_efficiency > kept.damage_efficiency) bestListing[key] = a;
             }
             for (let i = rows.length - 1; i >= 0; i--) {
-                if (rows[i].listing_fixed !== undefined && bestListing[rows[i].item.slot] !== rows[i]) rows.splice(i, 1);
+                if (rows[i].listing_fixed !== undefined && bestListing[rows[i].item.slot + rows[i].axis] !== rows[i]) rows.splice(i, 1);
             }
             // 같은 아이템의 스타포스는 낮은 성부터: 슬롯별 대기열의 맨 앞만 고를 수 있습니다.
             const queues = {};
@@ -443,9 +444,14 @@ document.addEventListener('alpine:init', () => {
         },
 
         // 노작 시세(억): 사용자가 바꾼 값, 없으면 기본값 표(starforce_cost.toml base_price)에서 찾은 값
+        // 노작 시세의 대상: 상위 교체는 바꿀 아이템(price_item), 그 외는 지금 아이템
+        priceItem(action) {
+            return action.price_item || action.item;
+        },
+
         specUpPrice(action) {
-            const saved = this.specUpPrices[action.item.name];
-            return saved ?? this.defaultBasePrice(action.item).price;
+            const saved = this.specUpPrices[this.priceItem(action).name];
+            return saved ?? this.defaultBasePrice(this.priceItem(action)).price;
         },
 
         // 노작 시세 기본값: 이름에 name 이 들어 있고 (parts 가 있으면 부위나 장착 칸도 맞는) 첫 항목, 없으면 레벨별 기본값.
@@ -462,7 +468,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         basePriceRegistered(action) {
-            return this.defaultBasePrice(action.item).registered;
+            return this.defaultBasePrice(this.priceItem(action)).registered;
         },
 
         // start 성에서 end 성까지 기대 메소 (12성 미만은 0). 설정이 없으면 0 입니다.
@@ -476,19 +482,19 @@ document.addEventListener('alpine:init', () => {
         },
 
         specUpPriceCustom(action) {
-            return this.specUpPrices[action.item.name] !== undefined;
+            return this.specUpPrices[this.priceItem(action).name] !== undefined;
         },
 
         setSpecUpPrice(action, value) {
             const eok = Number(value);
             if (value === '' || !Number.isFinite(eok) || eok < 0) return;
-            this.specUpPrices = { ...this.specUpPrices, [action.item.name]: eok };
+            this.specUpPrices = { ...this.specUpPrices, [this.priceItem(action).name]: eok };
             try { localStorage.setItem('specup-prices', JSON.stringify(this.specUpPrices)); } catch (e) { /* 저장 불가(사생활 보호 모드 등) */ }
         },
 
         resetSpecUpPrice(action) {
             const prices = { ...this.specUpPrices };
-            delete prices[action.item.name];
+            delete prices[this.priceItem(action).name];
             this.specUpPrices = prices;
             try { localStorage.setItem('specup-prices', JSON.stringify(prices)); } catch (e) { /* 무시 */ }
         },

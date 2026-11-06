@@ -43,7 +43,7 @@ eddy = [8, 6]
 add = [150, 135]
 armor = { main = 7 }
 accessory = { attack = 4 }
-scroll_cost = { armor = 0, accessory = 1 }   # 주문서 1작 비용(억). 방어구 1~4등급은 미지정이라 0
+scroll_cost = { armor = 0, accessory = 1 }   # 주문서 1작 비용(억). 방어구 1·2등급 0, 3·4등급 0.5
 
 [[listing.grades]]
 star = 18
@@ -61,7 +61,7 @@ eddy = [10, 8]
 add = [175, 155]
 armor = { main = 10 }
 accessory = { attack = 4, first_attack = 6 }
-scroll_cost = { armor = 0, accessory = 1 }
+scroll_cost = { armor = 0.5, accessory = 1 }
 
 [[listing.grades]]
 star = 22
@@ -70,7 +70,7 @@ eddy = [14, 12]
 add = [180, 160]
 armor = { main = 10 }
 accessory = { attack = 4, first_attack = 6 }
-scroll_cost = { armor = 0, accessory = 1 }
+scroll_cost = { armor = 0.5, accessory = 1 }
 
 [[listing.grades]]
 star = 22
